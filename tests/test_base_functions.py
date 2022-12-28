@@ -31,6 +31,7 @@ def test_closure():
         {0, 1, 2   },  # col 1
         {0,    2   },  # col 2
         {0, 1, 2, 3},  # col 3
+        set(),         # col 4
     ]
 
     assert bfunc.closure({0}, crosses_per_columns) == {0, 3}

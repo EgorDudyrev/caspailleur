@@ -19,7 +19,7 @@ def is_psubset_of(A: FrozenSet[int], B: FrozenSet[int]):
 
 
 def closure(B: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]]) -> FrozenSet[int]:
-    n_rows = max(max(col) + 1 for col in crosses_per_columns)
+    n_rows = max(max(col) + 1 for col in crosses_per_columns if col)
 
     extent = set(range(n_rows))
     for m in B:
