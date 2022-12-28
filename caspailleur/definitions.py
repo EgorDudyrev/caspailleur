@@ -3,43 +3,11 @@ This module contains functions to test whether
 a set of attributes belongs to a given characteristic attribute set class
 (e.g. pseudo-intents, minimal generators, etc.)
 """
-from typing import List, FrozenSet, Iterable
-from itertools import chain, combinations
+from typing import List, FrozenSet
+
+from base_functions import closure, is_psubset_of, powerset
 
 
-### Prerequisites
-def powerset(iterable) -> Iterable[FrozenSet[int]]:
-    """powerset({1,2,3}) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"""
-    s = list(iterable)
-    return map(frozenset, chain.from_iterable(combinations(s, r) for r in range(len(s)+1)))
-
-
-def is_subset_of(A: FrozenSet[int], B: FrozenSet[int]):
-    """Test whether `A` is a subset of `B`"""
-    return A & B == A
-
-
-def is_psubset_of(A: FrozenSet[int], B: FrozenSet[int]):
-    """Test whether `A` is a proper subset of `B`"""
-    return (A & B == A) and A != B
-
-
-def closure(B: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]]) -> FrozenSet[int]:
-    n_rows = max(max(col) for col in crosses_per_columns)
-
-    extent = frozenset(range(n_rows))
-    for m in B:
-        extent = extent & crosses_per_columns[m]
-
-    intent = frozenset({m for m, col in enumerate(crosses_per_columns) if m in B or is_subset_of(extent, col)})
-    return intent
-
-
-# def is_equal_closure(A: FrozenSet[int], B: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]]) -> bool:
-#     return closure(A, crosses_per_columns) == closure(B, crosses_per_columns)
-
-
-### Concise representation classes
 def is_closed(B: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]]) -> bool:
     return B == closure(B, crosses_per_columns)
 
