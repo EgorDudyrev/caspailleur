@@ -37,10 +37,10 @@ def test_closure():
         set(),         # col 4
     ]
 
-    assert bfunc.closure({0}, crosses_per_columns) == {0, 3}
-    assert bfunc.closure({0, 1}, crosses_per_columns) == {0, 1, 3}
-    assert bfunc.closure({1, 2}, crosses_per_columns) == {1, 2, 3}
-    assert bfunc.closure(set(), crosses_per_columns) == {3}
+    assert list(bfunc.closure([0], crosses_per_columns)) == [0, 3]
+    assert list(bfunc.closure([0, 1], crosses_per_columns)) == [0, 1, 3]
+    assert list(bfunc.closure([1, 2], crosses_per_columns)) == [1, 2, 3]
+    assert list(bfunc.closure([], crosses_per_columns)) == [3]
 
 
 def test_np2isets():
