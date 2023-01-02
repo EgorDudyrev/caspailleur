@@ -57,3 +57,18 @@ def test_iset_ba_conversions():
     assert bfunc.iset2ba(iset, l) == ba
     assert list(bfunc.ba2iset(ba)) == iset
     assert bfunc.iset2ba(bfunc.ba2iset(ba), len(ba)) == ba
+
+
+def test_iter_attribute_extents():
+    K = np.array([
+        [True, False, False, True, False],
+        [True, False, True, False, False],
+        [False, True, True, False, False],
+        [False, True, True, True, False],
+    ])
+    attr_extents_true = [bfunc.iset2ba(iset, 4) for iset in [
+        [0, 1], [2, 3], [1, 2, 3], [0, 3], []
+    ]]
+    attr_extents = list(bfunc.iter_attribute_extents(K))
+
+    assert attr_extents == attr_extents_true

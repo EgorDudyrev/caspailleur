@@ -47,11 +47,7 @@ def list_attribute_concepts(intents: List[fbarray], parents: List[Collection[int
     return attr_concepts
 
 
-def iter_attribute_extents(K: npt.NDArray[np.bool_]) -> Iterator[fbarray]:
-    return (fbarray(ext.tolist()) for ext in K.T)
-
-
-def iter_equivalence_class(attribute_extents: List[fbarray], intent: List[int] = None) -> Iterator[FrozenSet[int]]:
+def iter_equivalence_class(attribute_extents: List[fbarray], intent: Collection[int] = None) -> Iterator[FrozenSet[int]]:
     intent = range(len(attribute_extents)) if intent is None else intent
     intent = sorted(intent)
     intent_set = frozenset(intent)
