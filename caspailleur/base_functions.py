@@ -40,11 +40,11 @@ def closure(B: Iterator[int], crosses_per_columns: List[FrozenSet[int]]) -> Iter
 ##########################
 # Basic type conversions #
 ##########################
-def np2isets(X: npt.NDArray[np.int_]) -> List[npt.NDArray[np.int_]]:
-    return [np.array(row.nonzero()[0]) for row in X]
+def np2isets(X: npt.NDArray[np.int_]) -> List[List[int]]:
+    return [list(row.nonzero()[0]) for row in X]
 
 
-def iset2ba(itemset: Iterator[int], length: int) -> fbarray:
+def iset2ba(itemset: Iterable[int], length: int) -> fbarray:
     bar = bazeros(length)
     for m in itemset:
         bar[m] = True

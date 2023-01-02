@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 
 def topological_sorting(elements: List[fbarray]) -> Tuple[List[fbarray], List[int]]:
-    """Sort the elements so that the first element is the top, the last is the bottom.
+    """Sort the elements so that the first element is the biggest, the last is the smallest.
 
     The second output is the mapping from the original indices to the sorted ones
     """

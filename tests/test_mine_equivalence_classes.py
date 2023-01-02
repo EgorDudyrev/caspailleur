@@ -1,0 +1,81 @@
+import numpy as np
+
+from caspailleur import mine_equivalence_classes as mec
+from caspailleur import order
+from caspailleur import base_functions as bfunc
+
+
+def test_list_intents_via_LCM():
+    itemsets = [
+        {0, 3},
+        {0, 2},
+        {1, 2},
+        {1, 2, 3}
+    ]
+    intents_true = [{0, 1, 2, 3, 4}, {1, 2, 3}, {0, 2}, {0, 3}, {1, 2}, {0}, {2}, {3}, set()]
+    intents = mec.list_intents_via_LCM(itemsets, n_attrs=5)
+    assert intents == intents_true
+
+
+def test_list_attribute_concepts():
+    intents = [{0, 1, 2, 3, 4}, {1, 2, 3}, {0, 2}, {0, 3}, {1, 2}, {0}, {2}, {3}, set()]
+    attr_concepts_true = [5, 4, 6, 7, 0]
+
+    intents_ba = [bfunc.iset2ba(intent, length=5) for intent in intents]
+    parents = order.sort_ba_subsumption(intents_ba)
+    attr_concepts = mec.list_attribute_concepts(intents_ba, parents)
+
+    assert attr_concepts == attr_concepts_true
+
+
+def test_iter_attribute_extents():
+    K = np.array([
+        [True, False, False, True, False],
+        [True, False, True, False, False],
+        [False, True, True, False, False],
+        [False, True, True, True, False],
+    ])
+    attr_extents_true = [bfunc.iset2ba(iset, 4) for iset in [
+        [0, 1], [2, 3], [1, 2, 3], [0, 3], []
+    ]]
+    attr_extents = list(mec.iter_attribute_extents(K))
+
+    assert attr_extents == attr_extents_true
+
+
+def tests_iter_equivalence_class():
+    K = np.array([
+        [True, False, False, True, False],
+        [True, False, True, False, False],
+        [False, True, True, False, False],
+        [False, True, True, True, False],
+    ])
+    attr_extents = list(mec.iter_attribute_extents(K))
+    eq_class_true = [
+        {0, 1, 2, 3, 4}, {0, 1, 2, 3}, {0, 1, 2, 4}, {0, 1, 3, 4}, {0, 2, 3, 4}, {1, 2, 3, 4},
+        {0, 1, 2}, {0, 1, 3}, {0, 1, 4}, {0, 2, 3}, {0, 2, 4}, {0, 3, 4}, {1, 2, 4}, {1, 3, 4}, {2, 3, 4},
+        {0, 1}, {0, 4}, {1, 4}, {2, 4}, {3, 4}, {4}
+    ]
+
+    eq_class = list(mec.iter_equivalence_class(attr_extents, [0, 1, 2, 3, 4]))
+    assert eq_class == eq_class_true
+
+
+def test_list_keys_via_eqclass():
+    eq_class = (D for D in [
+        {0, 1, 2, 3, 4}, {0, 1, 2, 3}, {0, 1, 2, 4}, {0, 1, 3, 4}, {0, 2, 3, 4}, {1, 2, 3, 4},
+        {0, 1, 2}, {0, 1, 3}, {0, 1, 4}, {0, 2, 3}, {0, 2, 4}, {0, 3, 4}, {1, 2, 4}, {1, 3, 4}, {2, 3, 4},
+        {0, 1}, {0, 4}, {1, 4}, {2, 4}, {3, 4}, {4}
+    ])
+    keys_true = [{0, 2, 3}, {0, 1}, {4}]
+
+    keys = mec.list_keys_via_eqclass(eq_class)
+    assert keys == keys_true
+
+
+def test_list_passkeys_via_keys():
+    keys = [{0, 2, 3}, {0, 1}, {4}]
+    pkeys_true = [{4}]
+
+    pkeys = mec.list_passkeys_via_keys(keys)
+    assert pkeys == pkeys_true
