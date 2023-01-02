@@ -1,3 +1,6 @@
+import bitarray
+import numpy as np
+
 from caspailleur import base_functions as bfunc
 
 
@@ -38,3 +41,19 @@ def test_closure():
     assert bfunc.closure({0, 1}, crosses_per_columns) == {0, 1, 3}
     assert bfunc.closure({1, 2}, crosses_per_columns) == {1, 2, 3}
     assert bfunc.closure(set(), crosses_per_columns) == {3}
+
+
+def test_np2isets():
+    X = np.array([[True, True, False], [False, False, True]])
+    isets_true = [np.array([0, 1]), np.array([2])]
+    isets = bfunc.np2isets(X)
+    assert all([(iset == iset_true).all() for iset, iset_true in zip(isets, isets_true)])
+
+
+def test_iset_ba_conversions():
+    iset, l = [0, 1], 5
+    ba = bitarray.frozenbitarray([True, True, False, False, False])
+
+    assert bfunc.iset2ba(iset, l) == ba
+    assert list(bfunc.ba2iset(ba)) == iset
+    assert bfunc.iset2ba(bfunc.ba2iset(ba), len(ba)) == ba
