@@ -38,21 +38,13 @@ def iter_proper_premises_via_keys(
             yield key
 
 
-def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: bool = False, verbose: bool = False) \
+def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: bool = False)\
         -> List[Tuple[fbarray, fbarray, fbarray]]:
     """From S. Obiedkov V. Duquenne paper of 2007"""
     N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
 
     ImplicationType = Tuple[fbarray, fbarray, fbarray]  # (extent, premise, consequence)
     ConceptType = Tuple[fbarray, fbarray]  # (extent, intent)
-
-    def ba_tuple_to_str(ba_tuple: ImplicationType or ConceptType) -> str:
-        idx_names = 'abcdefghijklmnopqrstuvwxyz'
-        idx_numbs = '123456789'
-        idxs_verb = [''.join([idx_names[idx] if ba_idx == 0 else idx_numbs[idx] for idx in set(ba2iset(ba))])
-                     if ba.count() else r"∅"
-                     for ba_idx, ba in enumerate(ba_tuple)]
-        return '(' + ', '.join(idxs_verb) + ')'
 
     def saturate(new_prem: fbarray, impl: Tuple[ImplicationType, ...]) -> fbarray:
         new_closure, old_closure = new_prem, None
@@ -72,7 +64,6 @@ def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: 
 
     def process_stable_concept(y: int, concept: ConceptType, new_stable_impl: Tuple[ImplicationType, ...])\
             -> (ConceptType or None, ImplicationType or None):
-        print('Stable concept') if verbose else None
         extent, intent = concept
         new_ext = extent & attribute_extents[y]
         new_prem = intent | iset2ba([y], N_ATTRS)
@@ -88,7 +79,6 @@ def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: 
         return new_concept, new_impl
 
     def process_modified_implication(y: int, implication: ImplicationType, min_mod_impl: Tuple[ImplicationType, ...]):
-        print('Modified implication') if verbose else None
         ext, prem, cons = implication
         new_cons = cons | iset2ba([y], N_ATTRS)
 
@@ -99,7 +89,6 @@ def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: 
 
     def process_modified_concept(y: int, concept: ConceptType, min_mod_impl: Tuple[ImplicationType, ...])\
             -> (ConceptType, ImplicationType or None):
-        print('Modified concept') if verbose else None
         extent, intent = concept
         new_concept = (extent, intent | iset2ba([y], N_ATTRS))
 
@@ -110,8 +99,6 @@ def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: 
         return new_concept, new_min_impl
 
     def fuse(basis: Tuple[ImplicationType, ...], extra_impl: Tuple[ImplicationType, ...]) -> List[ImplicationType]:
-        print('Fuse') if verbose else None
-
         n_extra_impl = len(extra_impl)
         extra_basis, extra_elements = [], []
         for impl_i, (ext, prem, cons) in enumerate(extra_impl):
@@ -126,8 +113,6 @@ def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: 
             extra_basis.append((ext, prem_satur, cons))
             extra_elements.append((ext, prem_satur, cons))
 
-        if verbose:
-            print('extra elements', [ba_tuple_to_str(elem) for elem in extra_elements])
         return extra_elements
 
     def add_attribute(attr_idx: int, elements: Tuple[ImplicationType or ConceptType, ...])\
@@ -148,15 +133,7 @@ def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: 
         old_stable_impl, new_stable_impl, min_mod_impl, non_min_mod_impl, mod_concepts = [], [], [], [], []
         filter_elements, append_elements = [], []
 
-        if verbose:
-            print(f'attr_idx: {attr_idx + 1} begin')
-            print('elements:', [ba_tuple_to_str(element) for element in elements])
-
         for el_idx, element in enumerate(elements, start=1):
-            if verbose:
-                print(f"iter {attr_idx + 1}.{el_idx}")
-                print('element:', ba_tuple_to_str(element))
-
             to_modify = element[0] & attribute_extents[attr_idx] == element[0]  # element extent is a subset of attr_idx'
             is_concept = len(element) == 2  # element is a concept, i.e. it contains (extent, intent)
 
@@ -187,7 +164,6 @@ def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: 
                     new_stable_impl.append(new_implication)
 
             elif not to_modify and not is_concept:  # process stable implication
-                print('Stable implication') if verbose else None
                 old_stable_impl.append(element)
             else:
                 raise ValueError("An impossible if-else branch reached")
@@ -195,24 +171,9 @@ def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: 
             filter_elements.append(el_to_filter) if el_to_filter else None
             append_elements.append(el_to_append) if el_to_append else None
 
-            print() if verbose else None
-
-        if verbose:
-            for k in [
-                'non_min_mod_impl', 'old_stable_impl', 'new_stable_impl', 'min_mod_impl', 'mod_concepts', 'elements'
-            ]:
-                v = locals()[k]
-                if v:
-                    print(f"{k}:", [ba_tuple_to_str(element) for element in v])
-
         fused_elements = fuse(old_stable_impl + new_stable_impl + min_mod_impl, non_min_mod_impl)
         extra_elements = sorted(mod_concepts + fused_elements, key=lambda el: set(ba2iset(el[0])), reverse=True)
         new_elements = filter_elements + append_elements + extra_elements
-
-        if verbose:
-            print(f'attr_idx: {attr_idx + 1} end')
-            print('=====================')
-            print()
 
         return new_elements
 
