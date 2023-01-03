@@ -1,4 +1,4 @@
-from typing import List, FrozenSet, Dict, Tuple
+from typing import List, FrozenSet, Dict, Tuple, Iterator
 
 from bitarray import frozenbitarray as fbarray, bitarray as barray
 from bitarray.util import zeros as bazeros
@@ -7,11 +7,10 @@ from tqdm import tqdm
 from .base_functions import iset2ba, ba2iset
 
 
-def list_proper_premises_via_lattice(
+def iter_proper_premises_via_keys(
         intents: List[fbarray],
-        parents: List[FrozenSet[int]],
         keys_to_intents: Dict[fbarray, int]
-) -> List[fbarray]:
+) -> Iterator[fbarray]:
     """Obtain the set of proper premises given intents, intents parents relation, and keys
 
     Parameters
@@ -20,35 +19,23 @@ def list_proper_premises_via_lattice(
     parents: parent relation among intents (defined by indexes of `intents` list)
     keys_to_intents: the dictionary of keys in the context and the indices of the corresponding intents
     """
-    potent_premises = list(set(keys_to_intents) - set(intents))
+    n_attrs = len(intents[0])
+    single_attr_negations = [~iset2ba([i], n_attrs) for i in range(n_attrs)]
 
-    intents_to_premises: Dict[int, List[int]] = {}
-    for i, p in enumerate(potent_premises):
-        intent_idx = keys_to_intents[p]
-        if intent_idx not in intents_to_premises:
-            intents_to_premises[intent_idx] = []
-        intents_to_premises[intent_idx].append(i)
+    for key in keys_to_intents:
+        intent = intents[keys_to_intents[key]]
+        if key == intent:
+            continue
 
-    free_attributes: Dict[int, fbarray] = {}
-    for intent_idx in intents_to_premises:
-        free_attrs = barray(intents[intent_idx])
-        for parent_idx in parents[intent_idx]:
-            # free_attrs = free_attrs - intents[parent_idx]
-            free_attrs &= ~intents[parent_idx]
-            if not any(free_attrs):
+        cumulative_key = barray(key)
+        for n in key.itersearch(1):
+            prekey = key & single_attr_negations[n]
+
+            cumulative_key |= intents[keys_to_intents[prekey]]
+            if cumulative_key == intent:
                 break
-        else:  # no break, i.e. at least one free attribute exists
-            free_attributes[intent_idx] = fbarray(free_attrs)
-
-    free_premises = []
-    for intent_idx, free_attrs in free_attributes.items():
-        premises = intents_to_premises[intent_idx]
-        for premise_idx in premises:
-            premise = potent_premises[premise_idx]
-            if premise & free_attrs != free_attrs:
-                free_premises.append(premise)
-
-    return free_premises
+        else:  # if after the cycle cum_intent still != intent
+            yield key
 
 
 def list_pseudo_intents_incremental(attribute_extents: List[fbarray], use_tqdm: bool = False, verbose: bool = False) \

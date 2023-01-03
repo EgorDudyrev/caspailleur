@@ -16,6 +16,12 @@ def test_list_intents_via_LCM():
     intents = mec.list_intents_via_LCM(itemsets, n_attrs=5)
     assert intents == intents_true
 
+    K = np.array([[True, False, False, False, False, True], [False, True, False, False, False, False]])
+    itemsets = bfunc.np2isets(K)
+    intents_true = [{0, 1, 2, 3, 4, 5}, {0, 5}, {1}, set()]
+    intents = mec.list_intents_via_LCM(itemsets)
+    assert intents == intents_true
+
 
 def test_list_attribute_concepts():
     intents = [{0, 1, 2, 3, 4}, {1, 2, 3}, {0, 2}, {0, 3}, {1, 2}, {0}, {2}, {3}, set()]

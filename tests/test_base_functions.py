@@ -72,3 +72,17 @@ def test_iter_attribute_extents():
     attr_extents = list(bfunc.iter_attribute_extents(K))
 
     assert attr_extents == attr_extents_true
+
+
+def test_conversion_pipeline():
+    X = np.array([[True, True, False], [False, False, True]])
+    itemsets_true = [[0, 1], [2]]
+    itemsets = bfunc.np2isets(X)
+    assert itemsets == itemsets_true
+
+    barrays_true = [bitarray.frozenbitarray([bool(v) for v in x]) for x in X]
+    barrays = [bfunc.iset2ba(iset, X.shape[1]) for iset in itemsets]
+    assert barrays == barrays_true
+
+    itemsets = [list(bfunc.ba2iset(barray)) for barray in barrays]
+    assert itemsets == itemsets_true
