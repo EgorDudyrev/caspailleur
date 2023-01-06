@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 
 from caspailleur import mine_equivalence_classes as mec
@@ -70,3 +71,29 @@ def test_list_passkeys_via_keys():
 
     pkeys = mec.list_passkeys_via_keys(keys)
     assert pkeys == pkeys_true
+
+
+def test_list_keys():
+    intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]
+
+    keys_true = [
+        (set(), 0),
+        ({0}, 1),
+        ({1}, 6),
+        ({2}, 2),
+        ({3}, 3),
+        ({4}, 8),
+        ({0, 1}, 8),
+        ({0, 2}, 4),
+        ({0, 3}, 5),
+        ({1, 3}, 7),
+        ({2, 3}, 7),
+        ({0, 2, 3}, 8)
+    ]
+    keys_true = {frozenset(key): intent_i for key, intent_i in keys_true}
+
+    keys = mec.list_keys(intents)
+    assert keys == keys_true
+
+    with pytest.raises(AssertionError):
+        mec.list_keys(intents[::-1])

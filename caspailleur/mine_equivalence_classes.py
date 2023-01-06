@@ -1,4 +1,4 @@
-from typing import List, FrozenSet, Container, Dict, Collection, Iterator, Iterable
+from typing import List, FrozenSet, Container, Dict, Collection, Iterator, Iterable, Set, Deque
 
 from .order import topological_sorting
 from .base_functions import iset2ba, ba2iset
@@ -8,6 +8,7 @@ import numpy.typing as npt
 from skmine.itemsets import LCM
 from bitarray import frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
+from collections import deque
 
 
 def list_intents_via_LCM(itemsets: List[Container[int]], min_supp: int = 1, n_attrs: int = None)\
@@ -99,3 +100,35 @@ def list_passkeys_via_keys(keys: Iterable[FrozenSet[int]]) -> List[FrozenSet[int
         if len(key) < len(passkeys[-1]):
             passkeys = [key]
     return passkeys
+
+
+def list_keys(intents: List[FrozenSet[int]]) -> Dict[FrozenSet[int], int]:
+    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])),\
+        'The `intents` list should be topologically sorted by ascending order'
+
+    n_attrs, n_intents = len(intents[-1]), len(intents)
+    attrs_descendants = [bazeros(n_intents) for _ in range(n_attrs)]
+    for intent_i, intent in enumerate(intents):
+        for m in intent:
+            attrs_descendants[m][intent_i] = True
+
+    # assuming that every subset of a key is a key => extending not-a-key cannot result in a key
+
+    keys_per_intents: List[Deque[FrozenSet[int]]] = [deque([]) for _ in range(len(intents))]
+    keys_per_intents[0].append(frozenset())
+    attrs_to_test = deque([frozenset([m]) for m in range(n_attrs)])
+    while attrs_to_test:
+        attrs = attrs_to_test.popleft()
+
+        common_descendants = ~bazeros(n_intents)
+        for m in attrs:
+            common_descendants &= attrs_descendants[m]
+        meet_intent_idx = common_descendants.find(True)
+
+        if not any(key & attrs == key for key in keys_per_intents[meet_intent_idx]):
+            keys_per_intents[meet_intent_idx].append(attrs)
+            if meet_intent_idx != n_intents-1:
+                attrs_to_test.extend([attrs | {m} for m in range(max(attrs)+1, n_attrs)])
+
+    keys_dict = {key: intent_i for intent_i, keys in enumerate(keys_per_intents) for key in keys}
+    return keys_dict
