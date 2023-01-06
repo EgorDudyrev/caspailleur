@@ -78,16 +78,8 @@ def test_list_keys():
 
     keys_true = [
         (set(), 0),
-        ({0}, 1),
-        ({1}, 6),
-        ({2}, 2),
-        ({3}, 3),
-        ({4}, 8),
-        ({0, 1}, 8),
-        ({0, 2}, 4),
-        ({0, 3}, 5),
-        ({1, 3}, 7),
-        ({2, 3}, 7),
+        ({0}, 1), ({1}, 6), ({2}, 2), ({3}, 3), ({4}, 8),
+        ({0, 1}, 8), ({0, 2}, 4), ({0, 3}, 5), ({1, 3}, 7), ({2, 3}, 7),
         ({0, 2, 3}, 8)
     ]
     keys_true = {frozenset(key): intent_i for key, intent_i in keys_true}
@@ -97,3 +89,20 @@ def test_list_keys():
 
     with pytest.raises(AssertionError):
         mec.list_keys(intents[::-1])
+
+
+def test_list_passkeys():
+    intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]
+
+    pkeys_true = [
+        (set(), 0),
+        ({0}, 1), ({1}, 6), ({2}, 2), ({3}, 3), ({4}, 8),
+        ({0, 2}, 4), ({0, 3}, 5), ({1, 3}, 7), ({2, 3}, 7),
+    ]
+    pkeys_true = {frozenset(key): intent_i for key, intent_i in pkeys_true}
+
+    pkeys = mec.list_passkeys(intents)
+    assert pkeys == pkeys_true
+
+    with pytest.raises(AssertionError):
+        mec.list_passkeys(intents[::-1])

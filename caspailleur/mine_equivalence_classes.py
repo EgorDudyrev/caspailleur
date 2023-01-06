@@ -102,7 +102,7 @@ def list_passkeys_via_keys(keys: Iterable[FrozenSet[int]]) -> List[FrozenSet[int
     return passkeys
 
 
-def list_keys(intents: List[FrozenSet[int]]) -> Dict[FrozenSet[int], int]:
+def list_keys(intents: List[FrozenSet[int]], only_passkeys: bool = False) -> Dict[FrozenSet[int], int]:
     assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])),\
         'The `intents` list should be topologically sorted by ascending order'
 
@@ -113,6 +113,7 @@ def list_keys(intents: List[FrozenSet[int]]) -> Dict[FrozenSet[int], int]:
             attrs_descendants[m][intent_i] = True
 
     # assuming that every subset of a key is a key => extending not-a-key cannot result in a key
+    # and every subset of a passkey is a passkey
 
     keys_per_intents: List[Deque[FrozenSet[int]]] = [deque([]) for _ in range(len(intents))]
     keys_per_intents[0].append(frozenset())
@@ -124,11 +125,23 @@ def list_keys(intents: List[FrozenSet[int]]) -> Dict[FrozenSet[int], int]:
         for m in attrs:
             common_descendants &= attrs_descendants[m]
         meet_intent_idx = common_descendants.find(True)
+        old_keys = keys_per_intents[meet_intent_idx]
 
-        if not any(key & attrs == key for key in keys_per_intents[meet_intent_idx]):
-            keys_per_intents[meet_intent_idx].append(attrs)
-            if meet_intent_idx != n_intents-1:
-                attrs_to_test.extend([attrs | {m} for m in range(max(attrs)+1, n_attrs)])
+        # `attrs` is not a passkey because of the size
+        if only_passkeys and old_keys and len(old_keys[-1]) < len(attrs):
+            continue
+
+        # if exists more minimal key
+        if any(key & attrs == key for key in old_keys):
+            continue
+
+        keys_per_intents[meet_intent_idx].append(attrs)
+        if meet_intent_idx != n_intents - 1:
+            attrs_to_test.extend([attrs | {m} for m in range(max(attrs) + 1, n_attrs)])
 
     keys_dict = {key: intent_i for intent_i, keys in enumerate(keys_per_intents) for key in keys}
     return keys_dict
+
+
+def list_passkeys(intents: List[FrozenSet[int]]) -> Dict[FrozenSet[int], int]:
+    return list_keys(intents, only_passkeys=True)
