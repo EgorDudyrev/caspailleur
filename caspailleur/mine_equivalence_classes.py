@@ -103,7 +103,7 @@ def list_passkeys_via_keys(keys: Iterable[FrozenSet[int]]) -> List[FrozenSet[int
 
 
 def list_keys(intents: List[FrozenSet[int]], only_passkeys: bool = False) -> Dict[FrozenSet[int], int]:
-    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])),\
+    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
         'The `intents` list should be topologically sorted by ascending order'
 
     n_attrs, n_intents = len(intents[-1]), len(intents)
@@ -115,8 +115,11 @@ def list_keys(intents: List[FrozenSet[int]], only_passkeys: bool = False) -> Dic
     # assuming that every subset of a key is a key => extending not-a-key cannot result in a key
     # and every subset of a passkey is a passkey
 
-    keys_per_intents: List[Deque[FrozenSet[int]]] = [deque([]) for _ in range(len(intents))]
-    keys_per_intents[0].append(frozenset())
+    keys_dict = {frozenset([]): 0}
+
+    if only_passkeys:
+        passkey_sizes = [n_attrs] * n_intents
+
     attrs_to_test = deque([frozenset([m]) for m in range(n_attrs)])
     while attrs_to_test:
         attrs = attrs_to_test.popleft()
@@ -125,21 +128,22 @@ def list_keys(intents: List[FrozenSet[int]], only_passkeys: bool = False) -> Dic
         for m in attrs:
             common_descendants &= attrs_descendants[m]
         meet_intent_idx = common_descendants.find(True)
-        old_keys = keys_per_intents[meet_intent_idx]
 
-        # `attrs` is not a passkey because of the size
-        if only_passkeys and old_keys and len(old_keys[-1]) < len(attrs):
+        if only_passkeys:
+            # `attrs` is not a passkey because of the size
+            if passkey_sizes[meet_intent_idx] < len(attrs):
+                continue
+
+        # if subset of attrs is not a key, or a key of the same intent
+        if any((attrs-{m} not in keys_dict) or (keys_dict[attrs-{m}] == meet_intent_idx) for m in attrs):
             continue
 
-        # if exists more minimal key
-        if any(key & attrs == key for key in old_keys):
-            continue
-
-        keys_per_intents[meet_intent_idx].append(attrs)
-        if meet_intent_idx != n_intents - 1:
+        keys_dict[attrs] = meet_intent_idx
+        if only_passkeys:
+            passkey_sizes[meet_intent_idx] = len(attrs)
+        if meet_intent_idx != n_intents-1:
             attrs_to_test.extend([attrs | {m} for m in range(max(attrs) + 1, n_attrs)])
 
-    keys_dict = {key: intent_i for intent_i, keys in enumerate(keys_per_intents) for key in keys}
     return keys_dict
 
 
