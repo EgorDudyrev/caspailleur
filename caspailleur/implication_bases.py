@@ -40,10 +40,20 @@ def iter_proper_premises_via_keys(
             yield key
 
 
-def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], use_tqdm: bool = False) -> List[FSetInt]:
+def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], intents: List[FSetInt], use_tqdm: bool = False) \
+        -> List[FSetInt]:
     """From S. Obiedkov V. Duquenne paper of 2007"""
     ImplicationType = Tuple[FSetInt, FSetInt, FSetInt]  # (extent, premise, consequence)
     ConceptType = Tuple[FSetInt, FSetInt]  # (extent, intent)
+
+    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
+        'The `intents` list should be topologically sorted by ascending order'
+
+    N_INTENTS, N_ATTRS = len(intents), len(intents[-1])
+    attrs_descendants = [bazeros(N_INTENTS) for _ in range(N_ATTRS)]
+    for intent_i, intent in enumerate(intents):
+        for m in intent:
+            attrs_descendants[m][intent_i] = True
 
     def saturate(new_prem: FSetInt, impl: Tuple[ImplicationType, ...]) -> FSetInt:
         """Extend `new_prem` with implications from `impl`"""
@@ -66,7 +76,12 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], use_tqdm: 
             -> ConceptType or ImplicationType or None:
         new_ext = concept[0] & attribute_extents[y]
         new_prem = concept[1] | {y}
-        new_cons = {n for n in range(y+1) if new_ext <= attribute_extents[n]}
+
+        common_intents = ~bazeros(N_INTENTS)
+        for m_ in new_prem:
+            common_intents &= attrs_descendants[m_]
+        full_intent = intents[common_intents.find(True)]
+        new_cons = {m_ for m_ in full_intent if m_ <= y}
 
         new_elem = new_stable_impl = None
         if new_cons == new_prem:
