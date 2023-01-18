@@ -26,17 +26,14 @@ def test_list_proper_premises_via_lattice():
 
 def test_list_pseudo_intents_incremental():
     N_OBJS = 4
-    attr_extents = [bfunc.iset2ba(ext, N_OBJS) for ext in [{0, 1}, {2, 3}, {1, 2, 3}, {0, 3}, set()]]
-    extents_true = [fbarray('0011'), fbarray('0000'), fbarray('0001'), fbarray('0000')]
-    pintents_true = [fbarray('01000'), fbarray('11100'), fbarray('00110'), fbarray('00001')]
-    intents_true = [fbarray('01100'), fbarray('11110'), fbarray('01110'), fbarray('11111')]
-    output_true = list(zip(extents_true, pintents_true, intents_true))
+    #attr_extents = [bfunc.iset2ba(ext, N_OBJS) for ext in [{0, 1}, {2, 3}, {1, 2, 3}, {0, 3}, set()]]
+    attr_extents = [{0, 1}, {2, 3}, {1, 2, 3}, {0, 3}, set()]
+    #extents_true = [fbarray('0011'), fbarray('0000'), fbarray('0001'), fbarray('0000')]
+    #pintents_true = [fbarray('01000'), fbarray('11100'), fbarray('00110'), fbarray('00001')]
+    pintents_true = [{1}, {0, 1, 2}, {2, 3}, {4}]
+    #intents_true = [fbarray('01100'), fbarray('11110'), fbarray('01110'), fbarray('11111')]
+    #output_true = list(zip(extents_true, pintents_true, intents_true))
 
-    output = impbas.list_pseudo_intents_incremental(attr_extents)
-    assert output == output_true
-
-
-
-
-
-
+    #output = impbas.list_pseudo_intents_incremental(attr_extents)
+    pintents = impbas.list_pseudo_intents_incremental(attr_extents)
+    assert pintents == pintents_true
