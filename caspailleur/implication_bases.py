@@ -62,32 +62,37 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], use_tqdm: 
 
         return frozenset(new_closure)
 
-    def process_stable_concept(y: int, concept: ConceptType, new_stable_impl: Tuple[ImplicationType, ...]) \
-            -> (ConceptType or None, ImplicationType or None):
+    def process_stable_concept(y: int, concept: ConceptType, new_stable_impls: Tuple[ImplicationType, ...]) \
+            -> ConceptType or ImplicationType or None:
         new_ext = concept[0] & attribute_extents[y]
         new_prem = concept[1] | {y}
         new_cons = {n for n in range(y+1) if new_ext <= attribute_extents[n]}
 
-        new_concept, new_impl = None, None
+        new_elem = new_stable_impl = None
         if new_cons == new_prem:
-            new_concept = (new_ext, new_prem)
+            new_elem = (new_ext, new_prem)
         else:
-            if new_prem == saturate(new_prem, new_stable_impl):
-                new_impl = (new_ext, new_prem, new_cons)
+            if new_prem == saturate(new_prem, new_stable_impls):
+                new_elem = new_stable_impl = (new_ext, new_prem, new_cons)
 
-        return new_concept, new_impl
+        return new_elem, new_stable_impl
 
-    def process_modified_implication(y: int, implication: ImplicationType, min_mod_impl: Tuple[ImplicationType, ...])\
-            -> (ImplicationType, bool):
+    def process_modified_implication(y: int, implication: ImplicationType, min_mod_impls: Tuple[ImplicationType, ...])\
+            -> (ImplicationType or None, ImplicationType or None, ImplicationType or None):
         old_prem = implication[1]
 
-        is_min_impl = not any(min_prem <= old_prem for (_, min_prem, _) in min_mod_impl)
+        is_min_impl = not any(min_prem <= old_prem for (_, min_prem, _) in min_mod_impls)
         new_prem = old_prem if is_min_impl else old_prem | {y}
         new_impl = (implication[0], new_prem, implication[2] | {y})
-        return new_impl, is_min_impl
+
+        if is_min_impl:
+            min_mod_impl, non_min_mod_impl, el_to_filter = new_impl, None, implication
+        else:
+            min_mod_impl, non_min_mod_impl, el_to_filter = None, new_impl, None
+        return min_mod_impl, non_min_mod_impl, el_to_filter
 
     def process_modified_concept(y: int, concept: ConceptType, min_mod_impl: Tuple[ImplicationType, ...])\
-            -> (ConceptType, ImplicationType or None):
+            -> (ConceptType, ImplicationType or None, ImplicationType or None):
         old_extent, old_intent = concept
         new_intent = old_intent | {y}
 
@@ -95,7 +100,7 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], use_tqdm: 
         new_min_impl = (old_extent, old_intent, new_intent) if is_min_impl else None
 
         new_concept = (old_extent, new_intent)
-        return new_concept, new_min_impl
+        return new_concept, new_min_impl, new_min_impl
 
     def fuse(basis: Tuple[ImplicationType, ...], extra_impl: Tuple[ImplicationType, ...]) -> List[ImplicationType]:
         n_extra_impl = len(extra_impl)
@@ -129,7 +134,7 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], use_tqdm: 
         ------
         `Elements` consists of all concepts of L(K_y) and implications of B(K_y)
         """
-        old_stable_impl, new_stable_impl, min_mod_impl, non_min_mod_impl, mod_concepts = [], [], [], [], []
+        old_stable_impls, new_stable_impls, min_mod_impls, non_min_mod_impls, mod_concepts = [], [], [], [], []
         filter_elements, append_elements = [], []
 
         for el_idx, element in enumerate(elements, start=1):
@@ -137,48 +142,34 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], use_tqdm: 
             is_concept = len(element) == 2  # element is a concept, i.e. it contains (extent, intent)
 
             el_to_filter, el_to_append = element, None
+            old_stable_impl, new_stable_impl, min_mod_impl, non_min_mod_impl, mod_concept = None, None, None, None, None
+
             if to_modify and is_concept:
-                new_concept, new_min_implication = process_modified_concept(attr_idx, element, min_mod_impl)
-                mod_concepts.append(new_concept)
-                if new_min_implication:
-                    min_mod_impl.append(new_min_implication)
-                    el_to_filter = new_min_implication
-                else:
-                    el_to_filter = None
+                mod_concept, min_mod_impl, el_to_filter = process_modified_concept(attr_idx, element, min_mod_impls)
+            if to_modify and not is_concept:
+                min_mod_impl, non_min_mod_impl, el_to_filter = process_modified_implication(attr_idx, element, min_mod_impls)
+            if not to_modify and is_concept:
+                el_to_append, new_stable_impl = process_stable_concept(attr_idx, element, new_stable_impls)
+            if not to_modify and not is_concept:
+                old_stable_impl = element
 
-            elif to_modify and not is_concept:
-                new_implication, is_minimal = process_modified_implication(attr_idx, element, min_mod_impl)
-                if is_minimal:
-                    min_mod_impl.append(new_implication)
-                else:
-                    non_min_mod_impl.append(new_implication)
-                    el_to_filter = None
+            # Putting new elements to lists
+            for ar, el in [
+                (filter_elements, el_to_filter), (append_elements, el_to_append),
+                (old_stable_impls, old_stable_impl), (new_stable_impls, new_stable_impl),
+                (min_mod_impls, min_mod_impl), (non_min_mod_impls, non_min_mod_impl), (mod_concepts, mod_concept)
+            ]:
+                if el:
+                    ar.append(el)
 
-            elif not to_modify and is_concept:
-                new_concept, new_implication = process_stable_concept(attr_idx, element, new_stable_impl)
-                if new_concept:
-                    el_to_append = new_concept
-                if new_implication:
-                    el_to_append = new_implication
-                    new_stable_impl.append(new_implication)
-
-            elif not to_modify and not is_concept:  # process stable implication
-                old_stable_impl.append(element)
-            else:
-                raise ValueError("An impossible if-else branch reached")
-
-            filter_elements.append(el_to_filter) if el_to_filter else None
-            append_elements.append(el_to_append) if el_to_append else None
-
-        fused_elements = fuse(old_stable_impl + new_stable_impl + min_mod_impl, non_min_mod_impl)
-        extra_elements = sorted(mod_concepts + fused_elements, key=lambda el: el[0], reverse=True)
+        fused_elements = fuse(old_stable_impls + new_stable_impls + min_mod_impls, non_min_mod_impls)
+        extra_elements = sorted(mod_concepts + fused_elements, key=lambda elem: elem[-1], reverse=False)
         new_elements = filter_elements + append_elements + extra_elements
 
         return new_elements
 
     N_OBJS = max(max(extent) for extent in attribute_extents if extent) + 1
     N_ATTRS = len(attribute_extents)
-    #elements_final: List[ConceptType or ImplicationType] = [(fbarray(~bazeros(N_OBJS)), fbarray(bazeros(N_ATTRS)))]
     elements_final: List[ConceptType or ImplicationType] = [(frozenset(range(N_OBJS)), frozenset([]))]
     for y in tqdm(range(N_ATTRS), desc='Incrementing attributes', disable=not use_tqdm):
         elements_final = add_attribute(y, elements_final)
