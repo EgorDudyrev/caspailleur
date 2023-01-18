@@ -1,3 +1,5 @@
+import pytest
+
 from caspailleur.base_functions import iset2ba
 from caspailleur import order
 
@@ -73,3 +75,13 @@ def test_sort_ba_subsumption():
     elements_unordered = [iset2ba(iset, 3) for iset in [[0, 1], [0, 1, 2], [2], [1], []]]
     order_unordered = [{3}, {0, 2}, {4}, {4}, set()]
     assert order.sort_ba_subsumption(elements_unordered) == order_unordered
+
+
+def test_sort_intents_by_inclusion():
+    elements = [set(), {1}, {2}, {0, 1}, {0, 1, 2}]
+    inclusion_order_true = [{1, 2}, {3}, {4}, {4}, set()]
+    inclusion_order = order.sort_intents_inclusion(elements)
+    assert inclusion_order == inclusion_order_true
+
+    with pytest.raises(AssertionError):
+        order.sort_intents_inclusion(elements[::-1])

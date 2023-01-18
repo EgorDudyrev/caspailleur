@@ -1,5 +1,6 @@
 from typing import Dict, List, Tuple, FrozenSet
 from bitarray import frozenbitarray as fbarray
+from bitarray.util import zeros as bazeros
 
 from tqdm import tqdm
 
@@ -105,3 +106,36 @@ def inverse_order(order: List[FrozenSet[int]]) -> List[FrozenSet[int]]:
 
 def sort_ba_subsumption(bitarrays: List[fbarray], use_tqdm: bool = False) -> List[FrozenSet[int]]:
     return inverse_order(sort_ba_inclusion(bitarrays, use_tqdm))
+
+
+def sort_intents_inclusion(intents: List[FrozenSet[int]]) -> List[FrozenSet[int]]:
+    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
+        'The `intents` list should be topologically sorted by ascending order'
+
+    lattice = [None] * len(intents)
+    trans_lattice = [None] * len(intents)
+    all_attrs = frozenset(intents[-1])
+    n_intents, n_attrs = len(intents), len(all_attrs)
+    ba_ones = ~bazeros(n_intents)
+
+    attrs_descendants = [~ba_ones for _ in range(n_attrs)]
+    for intent_i, intent in enumerate(intents):
+        for m in intent:
+            attrs_descendants[m][intent_i] = True
+
+    for intent_i, intent in enumerate(intents[::-1]):
+        intent_i = n_intents - intent_i - 1
+
+        common_descendants = ba_ones.copy()
+        for m in intent:
+            common_descendants &= attrs_descendants[m]
+
+        children = {(common_descendants & attrs_descendants[m]).find(True) for m in all_attrs - intent}
+
+        trans_children = set()
+        for child in children:
+            trans_children |= trans_lattice[child]
+        trans_lattice[intent_i] = frozenset(children | trans_children)
+        lattice[intent_i] = frozenset(children - trans_children)
+
+    return lattice
