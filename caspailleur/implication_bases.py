@@ -37,7 +37,9 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], intents: L
     assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
         'The `intents` list should be topologically sorted by ascending order'
 
-    N_INTENTS, N_ATTRS = len(intents), len(intents[-1])
+    N_OBJS = max(max(extent) for extent in attribute_extents if extent) + 1
+    N_ATTRS = len(attribute_extents)
+    N_INTENTS = len(intents)
     attrs_descendants = [bazeros(N_INTENTS) for _ in range(N_ATTRS)]
     for intent_i, intent in enumerate(intents):
         for m in intent:
@@ -171,8 +173,6 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], intents: L
 
         return new_elements
 
-    N_OBJS = max(max(extent) for extent in attribute_extents if extent) + 1
-    N_ATTRS = len(attribute_extents)
     elements_final: List[ConceptType or ImplicationType] = [(frozenset(range(N_OBJS)), frozenset([]))]
     for y in tqdm(range(N_ATTRS), desc='Incrementing attributes', disable=not use_tqdm):
         elements_final = add_attribute(y, elements_final)
