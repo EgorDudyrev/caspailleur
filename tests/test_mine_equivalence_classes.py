@@ -13,25 +13,22 @@ def test_list_intents_via_LCM():
         {1, 2},
         {1, 2, 3}
     ]
-    intents_true = [{0, 1, 2, 3, 4}, {1, 2, 3}, {0, 2}, {0, 3}, {1, 2}, {0}, {2}, {3}, set()]
+    intents_true = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]
     intents = mec.list_intents_via_LCM(itemsets, n_attrs=5)
     assert intents == intents_true
 
     K = np.array([[True, False, False, False, False, True], [False, True, False, False, False, False]])
     itemsets = bfunc.np2isets(K)
-    intents_true = [{0, 1, 2, 3, 4, 5}, {0, 5}, {1}, set()]
+    intents_true = [set(), {1}, {0, 5}, {0, 1, 2, 3, 4, 5}]
     intents = mec.list_intents_via_LCM(itemsets)
     assert intents == intents_true
 
 
 def test_list_attribute_concepts():
-    intents = [{0, 1, 2, 3, 4}, {1, 2, 3}, {0, 2}, {0, 3}, {1, 2}, {0}, {2}, {3}, set()]
-    attr_concepts_true = [5, 4, 6, 7, 0]
+    intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3},  {0, 1, 2, 3, 4}]
+    attr_concepts_true = [1, 6, 2, 3, 8]
 
-    intents_ba = [bfunc.iset2ba(intent, length=5) for intent in intents]
-    parents = order.sort_ba_subsumption(intents_ba)
-    attr_concepts = mec.list_attribute_concepts(intents_ba, parents)
-
+    attr_concepts = mec.list_attribute_concepts(intents)
     assert attr_concepts == attr_concepts_true
 
 

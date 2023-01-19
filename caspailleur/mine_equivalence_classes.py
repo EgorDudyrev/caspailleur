@@ -15,36 +15,35 @@ def list_intents_via_LCM(itemsets: List[Container[int]], min_supp: float = 1, n_
         -> List[FrozenSet[int]]:
     lcm = LCM(min_supp=min_supp)
     itsets = lcm.fit_discover(itemsets)['itemset']
+    itsets = [frozenset(iset) for iset in itsets]
+    itsets = topological_sorting(itsets)[0]
 
     n_attrs = max(max(itset) for itset in itemsets if itset) + 1 if n_attrs is None else n_attrs
-    itsets = [iset2ba(itset, n_attrs) for itset in itsets]
-    itsets = topological_sorting(itsets)[0]
-    itsets = [frozenset(ba2iset(ba)) for ba in itsets]
-
     biggest_itset = frozenset(range(n_attrs))
-    if itsets[0] != biggest_itset:
-        itsets.insert(0, biggest_itset)
+    if itsets[-1] != biggest_itset:
+        itsets.append(biggest_itset)
 
     smallest_itset = set(range(n_attrs))
     for itset in itsets:
         smallest_itset &= set(itset)
-    if itsets[-1] != smallest_itset:
-        itsets.append(frozenset(smallest_itset))
+    if itsets[0] != smallest_itset:
+        itsets.insert(0, frozenset(smallest_itset))
     return itsets
 
 
-def list_attribute_concepts(intents: List[fbarray], parents: List[Collection[int]]) -> List[int]:
+def list_attribute_concepts(intents: List[FrozenSet[int]]) -> List[int]:
     """Get the indices of `intents` selected by each sole attribute"""
-    attr_concepts = [-1] * len(intents[0])
-    for intent_i, intent in enumerate(intents):
-        new_attrs = intent
-        for parent_i in parents[intent_i]:
-            new_attrs = new_attrs & (~intents[parent_i])  # i.e. new_attrs \ parent_attrs
-            if not new_attrs.any():
-                break
+    assert (len(a) <= len(b) for a, b in zip(intents, intents[1:])),\
+        'The list of `intents` should be topologically sorted. With the cardinality minimal intent being at the start'
 
-        for attr_i in new_attrs.itersearch(1):
-            attr_concepts[attr_i] = intent_i
+    attr_concepts = [-1] * len(intents[-1])
+    for intent_i, intent in enumerate(intents):
+        for m in intent:
+            if attr_concepts[m] == -1:
+                attr_concepts[m] = intent_i
+        if all(attr_int_idx != -1 for attr_int_idx in attr_concepts):
+            break
+
     return attr_concepts
 
 
