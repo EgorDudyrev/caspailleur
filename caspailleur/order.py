@@ -82,7 +82,7 @@ def drop_transitive_parents(parents_list: List[FrozenSet[int]]) -> List[FrozenSe
 
 
 def sort_ba_inclusion(bitarrays: List[fbarray], use_tqdm: bool = False) -> List[FrozenSet[int]]:
-    """Take the list of bitarrays and output the parents dict (succeeding elements by consumption order)"""
+    """Take the list of bitarrays and output the parents_list dict (succeeding elements by consumption order)"""
     bitars_topsort, orig_topsort_imap = topological_sorting(bitarrays)
     span_tree_parents = construct_spanning_tree(bitars_topsort)
     chains_list = split_sptree_to_chains(span_tree_parents)
@@ -112,8 +112,8 @@ def sort_intents_inclusion(intents: List[FrozenSet[int]]) -> List[FrozenSet[int]
     assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
         'The `intents` list should be topologically sorted by ascending order'
 
-    lattice = [None] * len(intents)
-    trans_lattice = [None] * len(intents)
+    lattice = [frozenset()] * len(intents)
+    trans_lattice = [frozenset()] * len(intents)
     all_attrs = frozenset(intents[-1])
     n_intents, n_attrs = len(intents), len(all_attrs)
     ba_ones = ~bazeros(n_intents)
@@ -139,3 +139,17 @@ def sort_intents_inclusion(intents: List[FrozenSet[int]]) -> List[FrozenSet[int]
         lattice[intent_i] = frozenset(children - trans_children)
 
     return lattice
+
+
+def trans_close_relation(parents_list: List[FrozenSet[int]]) -> List[FrozenSet[int]]:
+    assert all([max(parents_) < i for i, parents_ in enumerate(parents_list) if parents_]), \
+        "`parents_list` relation should be defined on a list, topologically sorted by descending order." \
+        " So all parents_list of element `i` should have smaller indices"
+
+    trans_parents = []
+    for i, parents_ in enumerate(parents_list):
+        trans_pars = set(parents_)
+        for parent in parents_:
+            trans_pars |= trans_parents[parent]
+        trans_parents.append(frozenset(trans_pars))
+    return trans_parents
