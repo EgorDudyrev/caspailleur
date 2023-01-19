@@ -1,39 +1,27 @@
 from typing import List, FrozenSet, Dict, Tuple, Iterator
 
-from bitarray import frozenbitarray as fbarray, bitarray as barray
 from bitarray.util import zeros as bazeros
 from tqdm import tqdm
-
-from .base_functions import iset2ba, ba2iset
 
 FSetInt = FrozenSet[int]
 
 
-def iter_proper_premises_via_keys(
-        intents: List[fbarray],
-        keys_to_intents: Dict[fbarray, int]
-) -> Iterator[fbarray]:
+def iter_proper_premises_via_keys(intents: List[FSetInt], keys_to_intents: Dict[FSetInt, int]) -> Iterator[FSetInt]:
     """Obtain the set of proper premises given intents, intents parents relation, and keys
 
     Parameters
     ----------
     intents: list of closed descriptions (in the form of binary attributes)
-    parents: parent relation among intents (defined by indexes of `intents` list)
     keys_to_intents: the dictionary of keys in the context and the indices of the corresponding intents
     """
-    n_attrs = len(intents[0])
-    single_attr_negations = [~iset2ba([i], n_attrs) for i in range(n_attrs)]
-
     for key in keys_to_intents:
         intent = intents[keys_to_intents[key]]
         if key == intent:
             continue
 
-        cumulative_key = barray(key)
-        for n in key.itersearch(1):
-            prekey = key & single_attr_negations[n]
-
-            cumulative_key |= intents[keys_to_intents[prekey]]
+        cumulative_key = set(key)
+        for n in key:
+            cumulative_key |= intents[keys_to_intents[key - {n}]]
             if cumulative_key == intent:
                 break
         else:  # if after the cycle cum_intent still != intent
