@@ -11,7 +11,7 @@ from bitarray.util import zeros as bazeros
 from collections import deque
 
 
-def list_intents_via_LCM(itemsets: List[Container[int]], min_supp: int = 1, n_attrs: int = None)\
+def list_intents_via_LCM(itemsets: List[Container[int]], min_supp: float = 1, n_attrs: int = None)\
         -> List[FrozenSet[int]]:
     lcm = LCM(min_supp=min_supp)
     itsets = lcm.fit_discover(itemsets)['itemset']
