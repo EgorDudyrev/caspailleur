@@ -1,4 +1,5 @@
 from typing import FrozenSet, List
+from tqdm import tqdm
 
 
 def linearity_index(transitive_parents: List[FrozenSet[int]], include_top_bottom: bool = True) -> float:
@@ -19,12 +20,17 @@ def linearity_index(transitive_parents: List[FrozenSet[int]], include_top_bottom
         n_comparable -= (n_elems - 2) + (n_elems - 1)
         n_pairs -= 2*(n_elems-1) - 1
 
+    if n_comparable > n_pairs:
+        raise ValueError('Linearity index is computed in a wrong way (There should be problem with the code)')
+
+    if n_pairs == 0:
+        return 0
     return n_comparable / n_pairs
 
 
 def distributivity_index(
         intents: List[FrozenSet[int]], transitive_parents: List[FrozenSet[int]],
-        include_top_bottom: bool = True
+        include_top_bottom: bool = True, use_tqdm: bool = False
 ) -> float:
     assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
         'The `intents` list should be topologically sorted by ascending order'
@@ -35,14 +41,20 @@ def distributivity_index(
     intents_set = set(intents)
 
     n_distr = sum(len(tparents) for tparents in transitive_parents)
-    n_distr += sum(
-        intents[i] | intents[j] in intents_set
-        for i in range(n_intents) for j in range(i+1, n_intents) if i not in transitive_parents[j]
-    )
+    for i in tqdm(range(n_intents), disable=not use_tqdm, desc='Distrib. Iterating intents'):
+        n_distr += sum(
+            intents[i] | intents[j] in intents_set
+            for j in range(i+1, n_intents) if i not in transitive_parents[j]
+        )
 
     n_pairs = n_intents * (n_intents - 1) // 2
     if not include_top_bottom:
         n_distr -= (n_intents - 1) + (n_intents - 2)  # dropping (n-1) rels for top intent and 1 rel. for (n-2) intents
         n_pairs -= 2 * (n_intents - 1) - 1
 
+    if n_distr > n_pairs:
+        raise ValueError('Distributivity index is computed in a wrong way (There should be problem with the code)')
+
+    if n_pairs == 0:
+        return 0
     return n_distr / n_pairs
