@@ -10,7 +10,7 @@ from .base_functions import closure, is_psubset_of, powerset
 
 def is_closed(B: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]]) -> bool:
     """Test whether `B` is closed w.r.t. `crosses_per_columns`"""
-    return B == closure(B, crosses_per_columns)
+    return B == set(closure(B, crosses_per_columns))
 
 
 def is_pseudo_intent(
@@ -40,7 +40,7 @@ def is_pseudo_intent(
                 sub_pseudo_intents.append(D)
 
     answer = all(
-        is_psubset_of(closure(Q, crosses_per_columns), P)
+        is_psubset_of(frozenset(closure(Q, crosses_per_columns)), P)
         for Q in sub_pseudo_intents
         if is_psubset_of(Q, P)
     )
@@ -66,10 +66,10 @@ def is_proper_premise(
     if is_closed_:
         return False
 
-    intent = closure(Q, crosses_per_columns)
+    intent = set(closure(Q, crosses_per_columns))
     union_closure = set(Q)
     for n in Q:
-        union_closure |= closure(Q-{n}, crosses_per_columns)
+        union_closure |= set(closure(Q-{n}, crosses_per_columns))
     return union_closure != intent
 
 
@@ -80,8 +80,8 @@ def is_minimal_gen(D: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]])
     or
     $$\nexists m \in D: (D\setminus \{m\})' = D'$$
     """
-    intent = closure(D, crosses_per_columns)
-    return all(closure(D-{m}, crosses_per_columns) != intent for m in D)
+    intent = set(closure(D, crosses_per_columns))
+    return all(set(closure(D-{m}, crosses_per_columns)) != intent for m in D)
 
 
 def is_minimum_gen(
@@ -105,8 +105,8 @@ def is_minimum_gen(
         descr_iterator = powerset(range(len(crosses_per_columns)))
     else:
         descr_iterator = sorted(minimal_gens, key=lambda E: len(E))
-    intent = closure(D, crosses_per_columns)
-    first_mingen = next(E for E in descr_iterator if closure(E, crosses_per_columns) == intent)
+    intent = set(closure(D, crosses_per_columns))
+    first_mingen = next(E for E in descr_iterator if set(closure(E, crosses_per_columns)) == intent)
     return len(D) == len(first_mingen)
 
 
