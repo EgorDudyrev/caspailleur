@@ -101,50 +101,62 @@ def list_passkeys_via_keys(keys: Iterable[FrozenSet[int]]) -> List[FrozenSet[int
     return passkeys
 
 
-def list_keys(intents: List[FrozenSet[int]], only_passkeys: bool = False) -> Dict[FrozenSet[int], int]:
-    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
+def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarray, int]:
+    assert all(a.count() <= b.count() for a, b in zip(intents, intents[1:])), \
         'The `intents` list should be topologically sorted by ascending order'
 
     n_attrs, n_intents = len(intents[-1]), len(intents)
     attrs_descendants = [bazeros(n_intents) for _ in range(n_attrs)]
     for intent_i, intent in enumerate(intents):
-        for m in intent:
+        for m in intent.itersearch(True):
             attrs_descendants[m][intent_i] = True
 
     # assuming that every subset of a key is a key => extending not-a-key cannot result in a key
     # and every subset of a passkey is a passkey
 
-    keys_dict = {frozenset([]): 0}
+    keys_dict = {fbarray(bazeros(n_attrs)): 0}
+
+    single_attrs = []
+    for m in range(n_attrs):
+        ba = bazeros(n_attrs)
+        ba[m] = True
+        single_attrs.append(fbarray(ba))
 
     if only_passkeys:
         passkey_sizes = [n_attrs] * n_intents
 
-    attrs_to_test = deque([frozenset([m]) for m in range(n_attrs)])
+    attrs_to_test = deque([m_ba for m_ba in single_attrs])
     while attrs_to_test:
         attrs = attrs_to_test.popleft()
+        attrs_indices = list(attrs.itersearch(True))
 
+        if any(attrs & (~single_attrs[m]) not in keys_dict for m in attrs_indices):
+            continue
+
+        max_attr_idx = attrs_indices[-1] if attrs_indices else -1
         common_descendants = ~bazeros(n_intents)
-        for m in attrs:
+        for m in attrs.itersearch(True):
             common_descendants &= attrs_descendants[m]
+
         meet_intent_idx = common_descendants.find(True)
 
         if only_passkeys:
             # `attrs` is not a passkey because of the size
-            if passkey_sizes[meet_intent_idx] < len(attrs):
+            if passkey_sizes[meet_intent_idx] < attrs.count():
                 continue
 
         # if subset of attrs is not a key, or a key of the same intent
-        if any((attrs-{m} not in keys_dict) or (keys_dict[attrs-{m}] == meet_intent_idx) for m in attrs):
+        if any(keys_dict[attrs & (~single_attrs[m])] == meet_intent_idx for m in attrs_indices):
             continue
 
         keys_dict[attrs] = meet_intent_idx
         if only_passkeys:
-            passkey_sizes[meet_intent_idx] = len(attrs)
+            passkey_sizes[meet_intent_idx] = attrs.count()
         if meet_intent_idx != n_intents-1:
-            attrs_to_test.extend([attrs | {m} for m in range(max(attrs) + 1, n_attrs)])
+            attrs_to_test.extend([attrs | m_ba for m_ba in single_attrs[max_attr_idx+1:]])
 
     return keys_dict
 
 
-def list_passkeys(intents: List[FrozenSet[int]]) -> Dict[FrozenSet[int], int]:
+def list_passkeys(intents: List[fbarray]) -> Dict[fbarray, int]:
     return list_keys(intents, only_passkeys=True)
