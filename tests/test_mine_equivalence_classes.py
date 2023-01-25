@@ -71,7 +71,9 @@ def test_list_passkeys_via_keys():
 
 
 def test_list_keys():
+    n_attrs = 5
     intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]
+    intents = [bfunc.iset2ba(iset, n_attrs) for iset in intents]
 
     keys_true = [
         (set(), 0),
@@ -79,7 +81,7 @@ def test_list_keys():
         ({0, 1}, 8), ({0, 2}, 4), ({0, 3}, 5), ({1, 3}, 7), ({2, 3}, 7),
         ({0, 2, 3}, 8)
     ]
-    keys_true = {frozenset(key): intent_i for key, intent_i in keys_true}
+    keys_true = {bfunc.iset2ba(key, n_attrs): intent_i for key, intent_i in keys_true}
 
     keys = mec.list_keys(intents)
     assert keys == keys_true
@@ -89,14 +91,16 @@ def test_list_keys():
 
 
 def test_list_passkeys():
+    n_attrs = 5
     intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]
+    intents = [bfunc.iset2ba(iset, n_attrs) for iset in intents]
 
     pkeys_true = [
         (set(), 0),
         ({0}, 1), ({1}, 6), ({2}, 2), ({3}, 3), ({4}, 8),
         ({0, 2}, 4), ({0, 3}, 5), ({1, 3}, 7), ({2, 3}, 7),
     ]
-    pkeys_true = {frozenset(key): intent_i for key, intent_i in pkeys_true}
+    pkeys_true = {bfunc.iset2ba(key, n_attrs): intent_i for key, intent_i in pkeys_true}
 
     pkeys = mec.list_passkeys(intents)
     assert pkeys == pkeys_true

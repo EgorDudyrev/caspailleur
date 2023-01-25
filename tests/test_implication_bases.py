@@ -6,8 +6,11 @@ from bitarray import frozenbitarray as fbarray
 
 
 def test_list_proper_premises_via_lattice():
+    n_attrs = 5
     intents = [{0, 1, 2, 3, 4}, {1, 2, 3}, {0, 2}, {0, 3}, {1, 2}, {0}, {2}, {3}, set()][::-1]
-    keys_to_intents = mec.list_keys(intents)
+    intents_ba = [bfunc.iset2ba(iset, n_attrs) for iset in intents]
+    keys_to_intents = mec.list_keys(intents_ba)
+    keys_to_intents = {frozenset(bfunc.ba2iset(k)): v for k, v in keys_to_intents.items()}
 
     pprems_true = [frozenset(pp) for pp in [{1}, {4}, {2, 3}, {0, 1}, {0, 2, 3}]]
 
