@@ -1,5 +1,5 @@
 from typing import List, FrozenSet, Dict, Tuple, Iterator
-
+from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import zeros as bazeros
 from tqdm import tqdm
 
@@ -26,6 +26,51 @@ def iter_proper_premises_via_keys(intents: List[FSetInt], keys_to_intents: Dict[
                 break
         else:  # if after the cycle cum_intent still != intent
             yield key
+
+
+def iter_proper_premises_via_keys_ba(intents: List[fbarray], keys_to_intents: Dict[fbarray, int]) -> Iterator[fbarray]:
+    """Obtain the set of proper premises given intents, intents parents relation, and keys
+
+    Parameters
+    ----------
+    intents: list of closed descriptions (in the form of binary attributes)
+    keys_to_intents: the dictionary of keys in the context and the indices of the corresponding intents
+    """
+    for key in keys_to_intents:
+        intent = intents[keys_to_intents[key]]
+        if key == intent:
+            continue
+
+        cumulative_key = bitarray(key).copy()
+        for m in key.itersearch(True):
+            prekey = bitarray(key).copy()
+            prekey[m] = False
+            cumulative_key |= intents[keys_to_intents[fbarray(prekey)]]
+            if cumulative_key == intent:
+                break
+        else:  # if after the cycle cum_intent still != intent
+            yield key
+
+
+def test_if_proper_premise_via_keys_ba(
+        key: fbarray, intent_idx: int,
+        intents: List[fbarray], keys_prevsize: Dict[fbarray, int]
+) -> bool:
+    intent = intents[intent_idx]
+    if key == intent:
+        return False
+
+    if key.count() == 0:
+        return True
+
+    cumulative_key = bitarray(key)
+    for m in key.itersearch(True):
+        prekey = bitarray(key)
+        prekey[m] = False
+        cumulative_key |= intents[keys_prevsize[fbarray(prekey)]]
+        if cumulative_key == intent:
+            return False
+    return True
 
 
 def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], intents: List[FSetInt], use_tqdm: bool = False) \
@@ -178,3 +223,56 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], intents: L
         elements_final = add_attribute(y, elements_final)
 
     return [elem[1] for elem in elements_final if len(elem) == 3]  # return only the implications
+
+
+def list_pseudo_intents_via_keys(
+        intents: Tuple[FSetInt, ...], keys_per_intents: Tuple[FrozenSet[FSetInt], ...],
+        use_tqdm: bool = False
+) -> List[FSetInt]:
+    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
+        'The `intents` list should be topologically sorted by ascending order'
+
+    n_attrs, n_intents = len(intents[-1]), len(intents)
+    attrs_descendants = [bazeros(n_intents) for _ in range(n_attrs)]
+    for intent_i, intent in enumerate(intents):
+        for m in intent:
+            attrs_descendants[m][intent_i] = True
+
+    def saturate(new_prem: FSetInt, impls: Tuple[Tuple[FSetInt, int], ...], intents_: Tuple[FSetInt, ...]) -> FSetInt:
+        """Extend `new_prem` with implications from `impl`"""
+        new_closure, old_closure = set(new_prem), None
+        new_unused_impl, old_unused_impl = list(impls), None
+
+        while old_closure != new_closure:
+            old_closure, old_unused_impl = new_closure, new_unused_impl
+            new_unused_impl = []
+
+            for impl in old_unused_impl:
+                if impl[0] <= new_closure:  # if prem is a subset of new_closure
+                    new_closure |= intents_[impl[1]]
+                    continue
+
+                new_unused_impl.append(impl)
+
+        return frozenset(new_closure)
+
+    pseudo_intents: List[Tuple[FSetInt, int]] = []
+    for intent_i, keys in tqdm(enumerate(keys_per_intents), total=len(keys_per_intents),
+                               disable=not use_tqdm, desc="Keys iteration for P.Intents"):
+        for key in keys:
+            key_saturated = saturate(key, pseudo_intents, intents)
+
+            common_descendants = ~bazeros(n_intents)
+            for m in key_saturated:
+                common_descendants &= attrs_descendants[m]
+            intent_idx = common_descendants.find(True)
+            if key_saturated == intents[intent_idx]:
+                continue
+
+            pseudo_intents = [
+                (pi, i) for pi, i in pseudo_intents
+                if not (key_saturated <= pi and not (intents[intent_idx] <= pi))
+            ]
+            pseudo_intents.append((key_saturated, intent_idx))
+
+    return [pi for pi, i in pseudo_intents]
