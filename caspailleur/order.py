@@ -1,4 +1,5 @@
 from typing import List, FrozenSet
+from bitarray import bitarray, frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
 
 
@@ -16,6 +17,15 @@ def inverse_order(order: List[FrozenSet[int]]) -> List[FrozenSet[int]]:
         for parent in parents:
             inversed[parent].append(child)
     inversed = [frozenset(vs) for vs in inversed]
+    return inversed
+
+
+def inverse_order_ba(order: List[fbarray]) -> List[fbarray]:
+    inversed = [bazeros(len(order[0])) for _ in order]
+    for child, parents_ba in enumerate(order):
+        for parent in parents_ba.itersearch(True):
+            inversed[parent][child] = True
+    inversed = [fbarray(children) for children in inversed]
     return inversed
 
 
@@ -63,6 +73,20 @@ def trans_close_relation(parents_list: List[FrozenSet[int]]) -> List[FrozenSet[i
         for parent in parents_:
             trans_pars |= trans_parents[parent]
         trans_parents.append(frozenset(trans_pars))
+    return trans_parents
+
+
+def trans_close_relation_ba(parents_list: List[fbarray]) -> List[fbarray]:
+    assert all([not parents_[i:].any() for i, parents_ in enumerate(parents_list)]), \
+        "`parents_list` relation should be defined on a list, topologically sorted by descending order." \
+        " So all parents_list of element `i` should have smaller indices"
+
+    trans_parents = []
+    for i, parents_ in enumerate(parents_list):
+        trans_pars = bitarray(parents_)
+        for parent in parents_.itersearch(True):
+            trans_pars |= trans_parents[parent]
+        trans_parents.append(fbarray(trans_pars))
     return trans_parents
 
 
