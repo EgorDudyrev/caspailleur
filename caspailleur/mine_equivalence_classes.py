@@ -24,7 +24,7 @@ def list_intents_via_LCM(itemsets: List[Container[int]], min_supp: float = 1, n_
         itsets.append(biggest_itset)
 
     smallest_itset = set(range(n_attrs))
-    for itset in itsets:
+    for itset in itemsets:
         smallest_itset &= set(itset)
     if itsets[0] != smallest_itset:
         itsets.insert(0, frozenset(smallest_itset))
