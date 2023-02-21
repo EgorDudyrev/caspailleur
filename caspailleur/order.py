@@ -1,6 +1,7 @@
 from typing import List, FrozenSet
 from bitarray import bitarray, frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
+from tqdm import tqdm
 
 
 def topological_sorting(elements: List[FrozenSet[int]]) -> (List[List[FrozenSet[int]]], List[int]):
@@ -29,7 +30,7 @@ def inverse_order_ba(order: List[fbarray]) -> List[fbarray]:
     return inversed
 
 
-def sort_intents_inclusion(intents: List[FrozenSet[int]]) -> List[FrozenSet[int]]:
+def sort_intents_inclusion(intents: List[FrozenSet[int]], use_tqdm=False) -> List[FrozenSet[int]]:
     assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
         'The `intents` list should be topologically sorted by ascending order'
 
@@ -44,7 +45,7 @@ def sort_intents_inclusion(intents: List[FrozenSet[int]]) -> List[FrozenSet[int]
         for m in intent:
             attrs_descendants[m][intent_i] = True
 
-    for intent_i, intent in enumerate(intents[::-1]):
+    for intent_i, intent in tqdm(enumerate(intents[::-1]), total=len(intents), disable=not use_tqdm):
         intent_i = n_intents - intent_i - 1
 
         common_descendants = ba_ones.copy()
@@ -58,6 +59,43 @@ def sort_intents_inclusion(intents: List[FrozenSet[int]]) -> List[FrozenSet[int]
             trans_children |= trans_lattice[child]
         trans_lattice[intent_i] = frozenset(children | trans_children)
         lattice[intent_i] = frozenset(children - trans_children)
+
+    return lattice
+
+
+def sort_intents_inclusion_ba(intents: List[fbarray], use_tqdm=False) -> List[fbarray]:
+    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
+        'The `intents` list should be topologically sorted by ascending order'
+
+    all_attrs = intents[-1]
+    n_intents, n_attrs = len(intents), len(all_attrs)
+    ba_ones = ~bazeros(n_intents)
+
+    lattice = [fbarray(bazeros(n_intents))] * len(intents)
+    trans_lattice = [fbarray(bazeros(n_intents))] * len(intents)
+
+    attrs_descendants = [~ba_ones for _ in range(n_attrs)]
+    for intent_i, intent in enumerate(intents):
+        for m in intent.itersearch(True):
+            attrs_descendants[m][intent_i] = True
+
+    for intent_i, intent in tqdm(enumerate(intents[::-1]), total=len(intents), disable=not use_tqdm):
+        intent_i = n_intents - intent_i - 1
+
+        common_descendants = ba_ones.copy()
+        for m in intent.itersearch(True):
+            common_descendants &= attrs_descendants[m]
+
+        children = bazeros(n_intents)
+        for m in (all_attrs & ~intent).itersearch(True):
+            meet_idx = (common_descendants & attrs_descendants[m]).find(True)
+            children[meet_idx] = True
+
+        trans_children = bazeros(n_intents)
+        for child in children.itersearch(True):
+            trans_children |= trans_lattice[child]
+        trans_lattice[intent_i] = fbarray(children | trans_children)
+        lattice[intent_i] = fbarray(children & (~trans_children))
 
     return lattice
 
