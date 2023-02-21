@@ -22,16 +22,17 @@ def test_explore_data():
         ({0, 1}, 8), ({0, 2}, 4), ({0, 3}, 5), ({1, 3}, 7), ({2, 3}, 7),
         ({0, 2, 3}, 8)
     ]
-    #keys_true = {frozenset(key): intent_i for key, intent_i in keys_true}
-    keys_true = {iset2ba(key, K.shape[1]): intent_i for key, intent_i in keys_true}
+    keys_true = {frozenset(key): intent_i for key, intent_i in keys_true}
+    keys_true_ba = {iset2ba(key, K.shape[1]): intent_i for key, intent_i in keys_true.items()}
 
     passkeys_true = [
         (set(), 0),
         ({0}, 1), ({1}, 6), ({2}, 2), ({3}, 3), ({4}, 8),
         ({0, 2}, 4), ({0, 3}, 5), ({1, 3}, 7), ({2, 3}, 7),
     ]
-    #passkeys_true = {frozenset(key): intent_i for key, intent_i in passkeys_true}
-    passkeys_true = {iset2ba(key, K.shape[1]): intent_i for key, intent_i in passkeys_true}
+    passkeys_true = {frozenset(key): intent_i for key, intent_i in passkeys_true}
+    passkeys_true_ba = {iset2ba(key, K.shape[1]): intent_i for key, intent_i in passkeys_true.items()}
+
     pseudo_intents_true = [{1}, {0, 1, 2}, {2, 3}, {4}]
     proper_premises_true = [frozenset(pp) for pp in [{1}, {4}, {0, 1}, {2, 3}, {0, 2, 3}]]
     parents_ordering_true = [set(), {0}, {0}, {0}, {1, 2}, {1, 3}, {2}, {3, 6}, {4, 5, 7}]

@@ -13,12 +13,14 @@ from collections import deque
 
 def list_intents_via_LCM(itemsets: List[Container[int]], min_supp: float = 1, n_attrs: int = None)\
         -> List[FrozenSet[int]]:
+    n_attrs = max(max(itset) for itset in itemsets if itset) + 1 if n_attrs is None else n_attrs
+
     lcm = LCM(min_supp=min_supp)
     itsets = lcm.fit_discover(itemsets)['itemset']
-    itsets = [frozenset(iset) for iset in itsets]
+    itsets = [iset2ba(iset, n_attrs) for iset in itsets]
     itsets = topological_sorting(itsets)[0]
+    itsets = [ba2iset(ba) for ba in itsets]
 
-    n_attrs = max(max(itset) for itset in itemsets if itset) + 1 if n_attrs is None else n_attrs
     biggest_itset = frozenset(range(n_attrs))
     if itsets[-1] != biggest_itset:
         itsets.append(biggest_itset)

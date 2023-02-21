@@ -51,8 +51,8 @@ def iset2ba(itemset: Iterable[int], length: int) -> fbarray:
     return fbarray(bar)
 
 
-def ba2iset(bar: fbarray) -> Iterator[int]:
-    return bar.itersearch(1)
+def ba2iset(bar: fbarray) -> FrozenSet[int]:
+    return frozenset(bar.itersearch(True))
 
 
 def iter_attribute_extents(K: npt.NDArray[np.bool_]) -> Iterator[fbarray]:
