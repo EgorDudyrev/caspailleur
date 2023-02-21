@@ -96,11 +96,11 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], intents: L
         new_unused_impl, old_unused_impl = list(impl), None
 
         while old_closure != new_closure:
-            old_closure, old_unused_impl = new_closure, new_unused_impl
+            old_closure, old_unused_impl = set(new_closure), new_unused_impl
             new_unused_impl = []
 
             for (ext, prem, cons) in old_unused_impl:
-                if prem <= new_closure:  # if prem is a subset of new_closure
+                if prem < new_closure:  # if prem is a subset of new_closure
                     new_closure = new_closure | cons
                 else:
                     new_unused_impl.append((ext, prem, cons))
@@ -226,53 +226,64 @@ def list_pseudo_intents_incremental(attribute_extents: List[FSetInt], intents: L
 
 
 def list_pseudo_intents_via_keys(
-        intents: Tuple[FSetInt, ...], keys_per_intents: Tuple[FrozenSet[FSetInt], ...],
-        use_tqdm: bool = False
-) -> List[FSetInt]:
+        keys_intent_map: Iterator[Tuple[FSetInt, int]], intents: Tuple[FSetInt, ...],
+        use_tqdm: bool = False, n_keys=None
+) -> List[Tuple[FSetInt, FSetInt, int]]:
     assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
         'The `intents` list should be topologically sorted by ascending order'
 
-    n_attrs, n_intents = len(intents[-1]), len(intents)
-    attrs_descendants = [bazeros(n_intents) for _ in range(n_attrs)]
-    for intent_i, intent in enumerate(intents):
-        for m in intent:
-            attrs_descendants[m][intent_i] = True
-
-    def saturate(new_prem: FSetInt, impls: Tuple[Tuple[FSetInt, int], ...], intents_: Tuple[FSetInt, ...]) -> FSetInt:
+    def saturate(new_prem: FSetInt, impls: List[Tuple[FSetInt, FSetInt, int]], intents_: List[FSetInt]) -> FSetInt:
         """Extend `new_prem` with implications from `impl`"""
         new_closure, old_closure = set(new_prem), None
         new_unused_impl, old_unused_impl = list(impls), None
 
         while old_closure != new_closure:
-            old_closure, old_unused_impl = new_closure, new_unused_impl
+            old_closure, old_unused_impl = set(new_closure), new_unused_impl
             new_unused_impl = []
 
-            for impl in old_unused_impl:
-                if impl[0] <= new_closure:  # if prem is a subset of new_closure
-                    new_closure |= intents_[impl[1]]
+            for (old_key, old_prem, old_closure_i) in old_unused_impl:
+                if not old_prem < new_closure:
+                    new_unused_impl.append((old_key, old_prem, old_closure_i))
                     continue
-
-                new_unused_impl.append(impl)
+                new_closure |= intents_[old_closure_i]
 
         return frozenset(new_closure)
 
-    pseudo_intents: List[Tuple[FSetInt, int]] = []
-    for intent_i, keys in tqdm(enumerate(keys_per_intents), total=len(keys_per_intents),
-                               disable=not use_tqdm, desc="Keys iteration for P.Intents"):
-        for key in keys:
-            key_saturated = saturate(key, pseudo_intents, intents)
+    def add_pintent(
+            new_key: FSetInt, new_pintent: FSetInt, new_intent_i: int,
+            pintents_list: List[Tuple[FSetInt, FSetInt, int]]
+    ) -> List[Tuple[FSetInt, FSetInt, int]]:
 
-            common_descendants = ~bazeros(n_intents)
-            for m in key_saturated:
-                common_descendants &= attrs_descendants[m]
-            intent_idx = common_descendants.find(True)
-            if key_saturated == intents[intent_idx]:
-                continue
+        if not pintents_list or len(pintents_list[-1][1]) < len(new_pintent):
+            pintents_list.append((new_key, new_pintent, new_intent_i))
+            return pintents_list
 
-            pseudo_intents = [
-                (pi, i) for pi, i in pseudo_intents
-                if not (key_saturated <= pi and not (intents[intent_idx] <= pi))
-            ]
-            pseudo_intents.append((key_saturated, intent_idx))
+        for new_idx in range(len(pintents_list)-1, -1, -1):
+            if pintents_list[new_idx][1] == new_pintent:
+                return pintents_list
+            if len(pintents_list[new_idx-1][1]) < len(new_pintent):
+                break
+        pintents_list.insert(new_idx, (new_key, new_pintent, new_intent_i))
 
-    return [pi for pi, i in pseudo_intents]
+        for idx in range(new_idx, len(pintents_list)):
+            if len(pintents_list) <= idx:
+                break
+
+            new_pintents = ((pi_key, saturate(pi_key, pintents_list[:idx], intents), pi_intent_idx)
+                            for pi_key, pintent, pi_intent_idx in pintents_list[idx:])
+            new_pintents = ((pi_key, pintent, intent_idx) for pi_key, pintent, intent_idx in new_pintents
+                            if pintent != intents[intent_idx])
+
+            pintents_list[idx:] = sorted(new_pintents, key=lambda pi_data: len(pi_data[1]))
+
+        return pintents_list
+
+    pseudo_intents: List[Tuple[FSetInt, FSetInt, int]] = []
+    for key, intent_i in tqdm(keys_intent_map, total=n_keys, disable=not use_tqdm, desc="Iterate possible P.Intents"):
+        key_saturated = saturate(key, pseudo_intents, intents)
+        if key_saturated == intents[intent_i]:
+            continue
+
+        pseudo_intents = add_pintent(key, key_saturated, intent_i, pseudo_intents)
+
+    return pseudo_intents
