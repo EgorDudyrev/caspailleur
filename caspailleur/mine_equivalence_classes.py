@@ -6,84 +6,88 @@ from .base_functions import iset2ba, ba2iset
 import numpy as np
 import numpy.typing as npt
 from skmine.itemsets import LCM
-from bitarray import frozenbitarray as fbarray
+from bitarray import bitarray, frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
 from collections import deque
 
 
-def list_intents_via_LCM(itemsets: List[Container[int]], min_supp: float = 1, n_attrs: int = None)\
-        -> List[FrozenSet[int]]:
-    n_attrs = max(max(itset) for itset in itemsets if itset) + 1 if n_attrs is None else n_attrs
+def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1) -> List[fbarray]:
+    n_attrs = len(itemsets[0])
 
     lcm = LCM(min_supp=min_supp)
-    itsets = lcm.fit_discover(itemsets)['itemset']
+    itsets = lcm.fit_discover([ba2iset(ba) for ba in itemsets])['itemset']
     itsets = [iset2ba(iset, n_attrs) for iset in itsets]
     itsets = topological_sorting(itsets)[0]
-    itsets = [ba2iset(ba) for ba in itsets]
 
-    biggest_itset = frozenset(range(n_attrs))
+    biggest_itset = ~bazeros(n_attrs)
     if itsets[-1] != biggest_itset:
-        itsets.append(biggest_itset)
+        itsets.append(fbarray(biggest_itset))
 
-    smallest_itset = set(range(n_attrs))
+    smallest_itset = ~bazeros(n_attrs)
     for itset in itemsets:
-        smallest_itset &= set(itset)
+        smallest_itset &= itset
+        if not smallest_itset.any():
+            break
     if itsets[0] != smallest_itset:
-        itsets.insert(0, frozenset(smallest_itset))
+        itsets.insert(0, fbarray(smallest_itset))
     return itsets
 
 
-def list_attribute_concepts(intents: List[FrozenSet[int]]) -> List[int]:
+def list_attribute_concepts(intents: List[fbarray]) -> List[int]:
     """Get the indices of `intents` selected by each sole attribute"""
     assert (len(a) <= len(b) for a, b in zip(intents, intents[1:])),\
         'The list of `intents` should be topologically sorted. With the cardinality minimal intent being at the start'
 
-    attr_concepts = [-1] * len(intents[-1])
+    attr_concepts = [-1] * len(intents[0])
+    found_attrs = bazeros(len(intents[0]))
     for intent_i, intent in enumerate(intents):
-        for m in intent:
+        for m in intent.itersearch(True):
             if attr_concepts[m] == -1:
                 attr_concepts[m] = intent_i
-        if all(attr_int_idx != -1 for attr_int_idx in attr_concepts):
+        found_attrs |= intent
+        if found_attrs.all():
             break
 
     return attr_concepts
 
 
-def iter_equivalence_class(attribute_extents: List[fbarray], intent: Collection[int] = None) -> Iterator[FrozenSet[int]]:
-    intent = range(len(attribute_extents)) if intent is None else intent
-    intent = sorted(intent)
-    intent_set = frozenset(intent)
-
+def iter_equivalence_class(attribute_extents: List[fbarray], intent: fbarray = None) -> Iterator[fbarray]:
     N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
 
-    def conjunct_extent(bitarrays: Iterator[fbarray]) -> fbarray:
+    intent = bazeros(N_ATTRS) if intent is None else intent
+
+    def conjunct_extent(premise: fbarray) -> fbarray:
         res = ~bazeros(N_OBJS)
-        for ext in bitarrays:
-            res &= ext
+        for m in premise.itersearch(True):
+            res &= attribute_extents[m]
             if not res.any():
                 break
 
         return fbarray(res)
 
-    total_extent = conjunct_extent((attribute_extents[m] for m in intent))
-    stack = [[m] for m in intent[::-1]]
+    total_extent = conjunct_extent(intent)
+    stack = [[m] for m in intent.itersearch(True)][::-1]
 
-    yield intent_set
+    yield intent
     while stack:
         attrs_to_remove = stack.pop(0)
         last_attr = attrs_to_remove[-1]
-        attrs_to_eval = sorted(intent_set - set(attrs_to_remove))
 
-        conj = conjunct_extent((attribute_extents[m] for m in attrs_to_eval))
+        attrs_to_eval = bitarray(intent)
+        for m in attrs_to_remove:
+            attrs_to_eval[m] = False
+        attrs_to_eval = fbarray(attrs_to_eval)
+
+        conj = conjunct_extent(attrs_to_eval)
         if conj != total_extent:
             continue
 
         # conj == total_extent
-        yield frozenset(attrs_to_eval)
-        stack += [attrs_to_remove+[m] for m in intent[::-1] if m > last_attr]
+        yield attrs_to_eval
+        stack += [attrs_to_remove+[m] for m in intent.itersearch(True) if m > last_attr][::-1]
 
 
-def list_keys_via_eqclass(equiv_class: Iterable[FrozenSet[int]]) -> List[FrozenSet[int]]:
+def list_keys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
     potent_keys = []
     for new_key in equiv_class:
         potent_keys = [key for key in potent_keys if new_key & key != new_key]
@@ -91,15 +95,14 @@ def list_keys_via_eqclass(equiv_class: Iterable[FrozenSet[int]]) -> List[FrozenS
     return potent_keys
 
 
-def list_passkeys_via_keys(keys: Iterable[FrozenSet[int]]) -> List[FrozenSet[int]]:
+def list_passkeys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
     passkeys = []
-    for key in keys:
-        if not passkeys or len(key) == len(passkeys[-1]):
-            passkeys.append(key)
-            continue
+    for descr in equiv_class:
+        if not passkeys or descr.count() == passkeys[-1].count():
+            passkeys.append(descr)
 
-        if len(key) < len(passkeys[-1]):
-            passkeys = [key]
+        if descr.count() < passkeys[-1].count():
+            passkeys = [descr]
     return passkeys
 
 
@@ -116,17 +119,12 @@ def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarr
     # assuming that every subset of a key is a key => extending not-a-key cannot result in a key
     # and every subset of a passkey is a passkey
 
-    keys_dict = {fbarray(bazeros(n_attrs)): 0}
-
-    single_attrs = []
-    for m in range(n_attrs):
-        ba = bazeros(n_attrs)
-        ba[m] = True
-        single_attrs.append(fbarray(ba))
+    single_attrs = [fbarray(iset2ba([m], n_attrs)) for m in range(n_attrs)]
 
     if only_passkeys:
         passkey_sizes = [n_attrs] * n_intents
 
+    keys_dict = {fbarray(bazeros(n_attrs)): 0}
     attrs_to_test = deque([m_ba for m_ba in single_attrs])
     while attrs_to_test:
         attrs = attrs_to_test.popleft()
