@@ -27,11 +27,7 @@ def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True
 
     proper_premises = list(ibases.iter_proper_premises_via_keys(
         intents, {frozenset(bfuncs.ba2iset(k)): v for k, v in keys.items()}))
-    distributivity = indicesmod.distributivity_index(
-        [bfuncs.iset2ba(iset, n_attrs) for iset in intents],
-        [bfuncs.ba2iset(parents) for parents in parents_ordering],
-        n_transitive_parents
-    )
+    distributivity = indicesmod.distributivity_index(intents_ba, parents_ordering, n_transitive_parents)
 
     pseudo_intents_ba = [bfuncs.iset2ba(pi, n_attrs) for pi in pseudo_intents]
     proper_premises_ba = [bfuncs.iset2ba(pp, n_attrs) for pp in proper_premises]

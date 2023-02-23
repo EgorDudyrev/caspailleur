@@ -39,8 +39,11 @@ def test_explore_data():
     transitive_parents = [set(), {0}, {0}, {0}, {0, 1, 2}, {0, 1, 3}, {0, 2}, {0, 2, 3, 6}, {0, 1, 2, 3, 4, 5, 6, 7}]
     n_trans_parents = sum(len(tpars) for tpars in transitive_parents)
     linearity_true = linearity_index(n_trans_parents, len(intents_true))
-    distributivity_true = distributivity_index([iset2ba(iset, K.shape[1]) for iset in intents_true],
-                                               parents_ordering_true, n_trans_parents)
+    distributivity_true = distributivity_index(
+        [iset2ba(iset, K.shape[1]) for iset in intents_true],
+        [iset2ba(iset, len(intents_true)) for iset in parents_ordering_true],
+        n_trans_parents
+    )
 
     explore_data_true = dict(
         intents=intents_true, keys=keys_true, passkeys=passkeys_true,
