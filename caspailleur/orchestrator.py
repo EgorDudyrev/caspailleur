@@ -12,29 +12,25 @@ from . import indices as indicesmod
 def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True) -> Dict[str, Any]:
     n_attrs = K.shape[1]
     itemsets = [bfuncs.iset2ba(iset, n_attrs) for iset in bfuncs.np2isets(K)]
-    attr_extents = [frozenset(bfuncs.ba2iset(ext)) for ext in bfuncs.iter_attribute_extents(K)]
 
     intents = mec.list_intents_via_LCM(itemsets, min_supp=min_sup)
     keys = mec.list_keys(intents)
     passkeys = mec.list_passkeys(intents)
-    pseudo_intents = ibases.list_pseudo_intents_incremental(attr_extents, [bfuncs.ba2iset(ba) for ba in intents])
 
     children_ordering = ordermod.sort_intents_inclusion(intents)
     parents_ordering = ordermod.inverse_order(children_ordering)
+
+    pseudo_intents = list(dict(ibases.list_pseudo_intents_via_keys(keys.items(), intents)))
+    proper_premises = list(ibases.iter_proper_premises_via_keys(intents, keys))
+
     n_transitive_parents = sum(tparents.count() for tparents in ordermod.close_transitive_subsumption(parents_ordering))
     linearity = indicesmod.linearity_index(n_transitive_parents, len(intents))
-
-    proper_premises = list(ibases.iter_proper_premises_via_keys(
-        [bfuncs.ba2iset(ba) for ba in intents], {bfuncs.ba2iset(k): v for k, v in keys.items()}))
     distributivity = indicesmod.distributivity_index(intents, parents_ordering, n_transitive_parents)
-
-    pseudo_intents_ba = [bfuncs.iset2ba(pi, n_attrs) for pi in pseudo_intents]
-    proper_premises_ba = [bfuncs.iset2ba(pp, n_attrs) for pp in proper_premises]
 
     output = dict(
         intents=intents,
         keys=keys, passkeys=passkeys,
-        pseudo_intents=pseudo_intents_ba, proper_premises=proper_premises_ba,
+        pseudo_intents=pseudo_intents, proper_premises=proper_premises,
         intents_ordering=parents_ordering,
         linearity=linearity, distributivity=distributivity
     )

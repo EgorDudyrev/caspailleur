@@ -33,7 +33,7 @@ def test_explore_data():
     passkeys_true = {frozenset(key): intent_i for key, intent_i in passkeys_true}
     passkeys_true_ba = {iset2ba(key, K.shape[1]): intent_i for key, intent_i in passkeys_true.items()}
 
-    pseudo_intents_true = [{1}, {0, 1, 2}, {2, 3}, {4}]
+    pseudo_intents_true = [frozenset(pi) for pi in [{4}, {1}, {2, 3}, {0, 1, 2}]]
     proper_premises_true = [frozenset(pp) for pp in [{1}, {4}, {0, 1}, {2, 3}, {0, 2, 3}]]
     parents_ordering_true = [set(), {0}, {0}, {0}, {1, 2}, {1, 3}, {2}, {3, 6}, {4, 5, 7}]
     transitive_parents = [set(), {0}, {0}, {0}, {0, 1, 2}, {0, 1, 3}, {0, 2}, {0, 2, 3, 6}, {0, 1, 2, 3, 4, 5, 6, 7}]
