@@ -1,9 +1,9 @@
 from itertools import chain, combinations
-from typing import Iterable, FrozenSet, List, Dict, Iterator
+from typing import Iterable, FrozenSet, List, Dict, Iterator, BinaryIO
 import numpy.typing as npt
 
 import numpy as np
-from bitarray import frozenbitarray as fbarray
+from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import zeros as bazeros
 
 
@@ -57,3 +57,33 @@ def ba2iset(bar: fbarray) -> FrozenSet[int]:
 
 def iter_attribute_extents(K: npt.NDArray[np.bool_]) -> Iterator[fbarray]:
     return (fbarray(ext.tolist()) for ext in K.T)
+
+
+def load_balist(file: BinaryIO) -> Iterator[bitarray]:
+    basize = b''
+    while True:
+        data = file.read(1)
+        if data == b'\n':
+            break
+        basize += data
+    basize = int(basize.decode())
+
+    while True:
+        data = file.read(basize)
+        if data == b'':
+            break
+
+        ba = bitarray()
+        ba.frombytes(data)
+        yield ba[:basize]
+
+
+def save_balist(file: BinaryIO, bitarrays: List[bitarray]):
+    basize = len(bitarrays[0])
+    assert all(len(ba) == basize for ba in bitarrays), "All bitarrays should be of the same size"
+
+    file.write(str(basize).encode())
+    file.write(b'\n')
+
+    for ba in bitarrays:
+        file.write(ba.tobytes())
