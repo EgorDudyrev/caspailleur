@@ -21,10 +21,10 @@ def is_pseudo_intent(
 ) -> bool:
     """Test whether `P` is a pseudo-intent w.r.t. `crosses_per_columns`
 
-    An attribute set $P$ is a __pseudo-intent__ iff
-    * $P \neq P''$
-    * $Q'' \subset P$ for every pseudo-intent $Q \subset P$
-    """  # NOQA: W605 invalid escape sequence '\s'
+    An attribute set P is a pseudo-intent iff
+    * P is not closed, and
+    * for every smaller pseudo-intent Q, the closure of Q is in P
+    """
     if is_closed_ is None:
         is_closed_ = is_closed(P, crosses_per_columns)
 
@@ -50,17 +50,15 @@ def is_pseudo_intent(
 def is_proper_premise(
         Q: FrozenSet[int],
         crosses_per_columns: List[FrozenSet[int]],
-        is_closed_: bool =None
+        is_closed_: bool = None
 ) -> bool:
     """Test whether `Q` is a proper premise w.r.t. `crosses_per_columns`
 
-    Acc. to S. Kuznetsov "ML on the Basis of FCA":
 
-    "Recall that a set $Q$ is a __proper premise__ of a context $K = (G, M, I)$ if
-    * $Q ⊂ M$
-    * $Q'' \neq Q$, and
-    * $(Q \setminus \{n\})'' \neq Q, \quad \forall n \in Q$
-    """  # NOQA: W605 invalid escape sequence '\s'
+    An attribute set Q is a proper premise
+    * Q is not closed, and
+    * Q | closure(Q-{n1}) | ... | closure(Q - {nk}) != closure(Q), where n1, ..., nk are elements of Q
+    """
     if is_closed_ is None:
         is_closed_ = is_closed(Q, crosses_per_columns)
     if is_closed_:
@@ -76,9 +74,7 @@ def is_proper_premise(
 def is_minimal_gen(D: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]]) -> bool:
     """Test whether `D` is a minimal generator w.r.t. `crosses_per_columns`
 
-    $D \subseteq M$ is a __minimal generator__ iff $$\nexists m \in D: (D\setminus \{m\})'' = D''$$
-    or
-    $$\nexists m \in D: (D\setminus \{m\})' = D'$$
+    An attribute set D is a minimal generator if there is no subset of D with the same closure as D
     """
     intent = set(closure(D, crosses_per_columns))
     return all(set(closure(D-{m}, crosses_per_columns)) != intent for m in D)
@@ -92,10 +88,9 @@ def is_minimum_gen(
 ) -> bool:
     """Test whether `D` is a minimum generator w.r.t. `crosses_per_columns`
 
-    $D \subseteq M$ is a __minimum generator__ iff
-    * $D$ is a minimal generator
-    * $\nexists E \subseteq M$ s.t. $E$ is a minimal generator and $|E| > |D|$
-    """  # NOQA: W605 invalid escape sequence '\s'
+
+    An attribute set D is a minimum generator if there is no attribute set of smaller size with the same closure as D
+    """
     if is_minimal_gen_ is None:
         is_minimal_gen_ = is_minimal_gen(D, crosses_per_columns)
     if is_minimal_gen_ is False:
