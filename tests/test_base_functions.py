@@ -1,5 +1,6 @@
 from bitarray import frozenbitarray as fbarray
 import numpy as np
+import os
 
 from caspailleur import base_functions as bfunc
 
@@ -73,3 +74,15 @@ def test_conversion_pipeline():
 
     X_reconstr = bfunc.bas2np(bfunc.isets2bas(itemsets, 3))
     assert (X == X_reconstr).all()
+
+
+def test_save_load_barrays():
+    bitarrays = [fbarray([True, False]), fbarray([True, False]), fbarray([False, True])]
+    with open('tst.bal', 'wb') as file:
+        bfunc.save_balist(file, bitarrays)
+    with open('tst.bal', 'rb') as file:
+        bitarrays_load = list(bfunc.load_balist(file))
+
+    os.remove('tst.bal')
+
+    assert bitarrays_load == bitarrays

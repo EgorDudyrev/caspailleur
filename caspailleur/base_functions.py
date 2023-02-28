@@ -69,13 +69,14 @@ def load_balist(file: BinaryIO) -> Iterator[bitarray]:
     basize = b''
     while True:
         data = file.read(1)
-        if data == b'\n':
+        if data == b'n':
             break
         basize += data
-    basize = int(basize.decode())
+    basize = int(basize.decode(encoding='utf-8'))
+    basize_bytes = len(bazeros(basize).tobytes())
 
     while True:
-        data = file.read(basize)
+        data = file.read(basize_bytes)
         if data == b'':
             break
 
@@ -88,8 +89,8 @@ def save_balist(file: BinaryIO, bitarrays: List[bitarray]):
     basize = len(bitarrays[0])
     assert all(len(ba) == basize for ba in bitarrays), "All bitarrays should be of the same size"
 
-    file.write(str(basize).encode())
-    file.write(b'\n')
+    file.write(str(basize).encode(encoding='utf-8'))
+    file.write(b'n')
 
     for ba in bitarrays:
         file.write(ba.tobytes())
