@@ -2,7 +2,7 @@ import numpy as np
 
 from caspailleur.orchestrator import explore_data
 from caspailleur.indices import linearity_index, distributivity_index
-from caspailleur.base_functions import iset2ba
+from caspailleur.base_functions import isets2bas
 
 
 def test_explore_data():
@@ -23,7 +23,6 @@ def test_explore_data():
         ({0, 2, 3}, 8)
     ]
     keys_true = {frozenset(key): intent_i for key, intent_i in keys_true}
-    keys_true_ba = {iset2ba(key, K.shape[1]): intent_i for key, intent_i in keys_true.items()}
 
     passkeys_true = [
         (set(), 0),
@@ -31,7 +30,6 @@ def test_explore_data():
         ({0, 2}, 4), ({0, 3}, 5), ({1, 3}, 7), ({2, 3}, 7),
     ]
     passkeys_true = {frozenset(key): intent_i for key, intent_i in passkeys_true}
-    passkeys_true_ba = {iset2ba(key, K.shape[1]): intent_i for key, intent_i in passkeys_true.items()}
 
     pseudo_intents_true = [frozenset(pi) for pi in [{4}, {1}, {2, 3}, {0, 1, 2}]]
     proper_premises_true = [frozenset(pp) for pp in [{1}, {4}, {0, 1}, {2, 3}, {0, 2, 3}]]
@@ -40,8 +38,8 @@ def test_explore_data():
     n_trans_parents = sum(len(tpars) for tpars in transitive_parents)
     linearity_true = linearity_index(n_trans_parents, len(intents_true))
     distributivity_true = distributivity_index(
-        [iset2ba(iset, K.shape[1]) for iset in intents_true],
-        [iset2ba(iset, len(intents_true)) for iset in parents_ordering_true],
+        list(isets2bas(intents_true, K.shape[1])),
+        list(isets2bas(parents_ordering_true, len(intents_true))),
         n_trans_parents
     )
 

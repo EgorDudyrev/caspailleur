@@ -10,8 +10,7 @@ from . import indices as indicesmod
 
 
 def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True) -> Dict[str, Any]:
-    n_attrs = K.shape[1]
-    itemsets = [bfuncs.iset2ba(iset, n_attrs) for iset in bfuncs.np2isets(K)]
+    itemsets = list(bfuncs.np2bas(K))
 
     intents = mec.list_intents_via_LCM(itemsets, min_supp=min_sup)
     keys = mec.list_keys(intents)
@@ -38,9 +37,9 @@ def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True
         for output_k, output_v in output.items():
             itemset_v = output_v
             if isinstance(output_v, dict):
-                itemset_v = {bfuncs.ba2iset(k): v for k, v in output_v.items()}
+                itemset_v = dict(zip(bfuncs.bas2isets(output_v.keys()), output_v.values()))
             if isinstance(output_v, list):
-                itemset_v = [bfuncs.ba2iset(v) for v in output_v]
+                itemset_v = list(bfuncs.bas2isets(output_v))
             output[output_k] = itemset_v
 
     return output

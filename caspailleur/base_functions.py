@@ -1,5 +1,5 @@
 from itertools import chain, combinations
-from typing import Iterable, FrozenSet, List, Dict, Iterator, BinaryIO
+from typing import Iterable, Iterator, List, FrozenSet, BinaryIO
 import numpy.typing as npt
 
 import numpy as np
@@ -40,24 +40,30 @@ def closure(B: Iterator[int], crosses_per_columns: List[FrozenSet[int]]) -> Iter
 ##########################
 # Basic type conversions #
 ##########################
-def np2isets(X: npt.NDArray[np.bool_]) -> List[List[int]]:
-    return [[int(v) for v in row.nonzero()[0]] for row in X]
+def np2bas(X: npt.ArrayLike) -> List[fbarray]:
+    return [fbarray(x) for x in X.tolist()]
 
 
-def iset2ba(itemset: Iterable[int], length: int) -> fbarray:
-    bar = bazeros(length)
-    for m in itemset:
-        bar[m] = True
-    return fbarray(bar)
+def bas2np(barrays: Iterable[fbarray]) -> npt.ArrayLike:
+    return np.vstack([ba.tolist() for ba in barrays]).astype(np.bool_)
 
 
-def ba2iset(bar: fbarray) -> FrozenSet[int]:
-    return frozenset(bar.itersearch(True))
+def isets2bas(itemsets: Iterable[Iterable[int]], length: int) -> Iterator[fbarray]:
+    for iset in itemsets:
+        bar = bazeros(length)
+        for m in iset:
+            bar[m] = True
+        yield fbarray(bar)
 
 
-def iter_attribute_extents(K: npt.NDArray[np.bool_]) -> Iterator[fbarray]:
-    return (fbarray(ext.tolist()) for ext in K.T)
+def bas2isets(bitarrays: Iterable[fbarray]) -> Iterator[FrozenSet[int]]:
+    for bar in bitarrays:
+        yield frozenset(bar.itersearch(True))
 
+
+###########################
+# Save and load functions #
+###########################
 
 def load_balist(file: BinaryIO) -> Iterator[bitarray]:
     basize = b''

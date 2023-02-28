@@ -1,10 +1,7 @@
-from typing import List, FrozenSet, Dict, Tuple, Iterator
+from typing import List, Dict, Tuple, Iterator
 from bitarray import frozenbitarray as fbarray, bitarray
-from bitarray.util import zeros as bazeros
 from tqdm import tqdm
 from caspailleur.order import test_topologically_sorted
-
-FSetInt = FrozenSet[int]
 
 
 def saturate(premise: fbarray, impls: List[Tuple[fbarray, int]], intents: List[fbarray]) -> fbarray:

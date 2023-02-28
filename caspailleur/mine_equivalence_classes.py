@@ -1,10 +1,8 @@
-from typing import List, FrozenSet, Container, Dict, Collection, Iterator, Iterable, Set, Deque
+from typing import List, Dict, Iterator, Iterable
 
 from .order import topological_sorting
-from .base_functions import iset2ba, ba2iset
+from .base_functions import isets2bas, bas2isets
 
-import numpy as np
-import numpy.typing as npt
 from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
@@ -15,22 +13,22 @@ def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1) -> List[f
     n_attrs = len(itemsets[0])
 
     lcm = LCM(min_supp=min_supp)
-    itsets = lcm.fit_discover([ba2iset(ba) for ba in itemsets])['itemset']
-    itsets = [iset2ba(iset, n_attrs) for iset in itsets]
-    itsets = topological_sorting(itsets)[0]
+    intents = lcm.fit_discover(bas2isets(itemsets))['itemset']
+    intents = list(isets2bas(intents, n_attrs))
+    intents = topological_sorting(intents)[0]
 
-    biggest_itset = ~bazeros(n_attrs)
-    if itsets[-1] != biggest_itset:
-        itsets.append(fbarray(biggest_itset))
+    biggest_intent = ~bazeros(n_attrs)
+    if intents[-1] != biggest_intent:
+        intents.append(fbarray(biggest_intent))
 
-    smallest_itset = ~bazeros(n_attrs)
+    smallest_intent = ~bazeros(n_attrs)
     for itset in itemsets:
-        smallest_itset &= itset
-        if not smallest_itset.any():
+        smallest_intent &= itset
+        if not smallest_intent.any():
             break
-    if itsets[0] != smallest_itset:
-        itsets.insert(0, fbarray(smallest_itset))
-    return itsets
+    if intents[0] != smallest_intent:
+        intents.insert(0, fbarray(smallest_intent))
+    return intents
 
 
 def list_attribute_concepts(intents: List[fbarray]) -> List[int]:
@@ -119,7 +117,7 @@ def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarr
     # assuming that every subset of a key is a key => extending not-a-key cannot result in a key
     # and every subset of a passkey is a passkey
 
-    single_attrs = [fbarray(iset2ba([m], n_attrs)) for m in range(n_attrs)]
+    single_attrs = list(isets2bas([[m] for m in range(n_attrs)], n_attrs))
 
     if only_passkeys:
         passkey_sizes = [n_attrs] * n_intents
