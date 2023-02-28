@@ -37,3 +37,17 @@ def test_sort_intents_by_inclusion():
 
     with pytest.raises(AssertionError):
         order.sort_intents_inclusion(elements_ba[::-1])
+
+
+def test_transitive_subsumption():
+    subsumption_order_true = [set(), {0}, {0}, {1}, {2, 3}]
+    transitive_order_true = [set(), {0}, {0}, {0, 1}, {0, 1, 2, 3}]
+    semitransitive_order_true = [set(), {0}, {0}, {0, 1}, {0, 2, 3}]
+
+    subsumption_order_true = list(bfunc.isets2bas(subsumption_order_true, 5))
+    transitive_order_true = list(bfunc.isets2bas(transitive_order_true, 5))
+    semitransitive_order_true = list(bfunc.isets2bas(semitransitive_order_true, 5))
+
+    assert order.close_transitive_subsumption(subsumption_order_true) == transitive_order_true
+    assert order.open_transitive_subsumption(transitive_order_true) == subsumption_order_true
+    assert order.drop_transitive_subsumption(semitransitive_order_true) == subsumption_order_true
