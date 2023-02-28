@@ -1,144 +1,101 @@
-from typing import List, FrozenSet
+from typing import List
 from bitarray import bitarray, frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
 from tqdm import tqdm
 
 
-def topological_sorting(elements: List[FrozenSet[int]]) -> (List[List[FrozenSet[int]]], List[int]):
-    ars_topsort = sorted(elements, key=lambda el: (len(el), sorted(el)))
+def topological_sorting(elements: List[fbarray]) -> (List[fbarray], List[int]):
+    ars_topsort = sorted(elements, key=lambda el: (el.count(), tuple(el.itersearch(True))))
 
     el_idx_map = {el: i for i, el in enumerate(ars_topsort)}
     orig_to_topsort_indices_map = [el_idx_map[el] for el in elements]
     return ars_topsort, orig_to_topsort_indices_map
 
 
-def inverse_order(order: List[FrozenSet[int]]) -> List[FrozenSet[int]]:
-    inversed = [list() for _ in order]
-    for child, parents in enumerate(order):
-        for parent in parents:
-            inversed[parent].append(child)
-    inversed = [frozenset(vs) for vs in inversed]
-    return inversed
+def test_topologically_sorted(elements: List[fbarray]) -> bool:
+    return all(a.count() <= b.count() for a, b in zip(elements, elements[1:]))
 
 
-def inverse_order_ba(order: List[fbarray]) -> List[fbarray]:
+def inverse_order(order: List[fbarray]) -> List[fbarray]:
     inversed = [bazeros(len(order[0])) for _ in order]
-    for child, parents_ba in enumerate(order):
-        for parent in parents_ba.itersearch(True):
-            inversed[parent][child] = True
-    inversed = [fbarray(children) for children in inversed]
-    return inversed
+    for el_i, ordered in enumerate(order):
+        for el_j in ordered.itersearch(True):
+            inversed[el_j][el_i] = True
+
+    return [fbarray(ordered) for ordered in inversed]
 
 
-def sort_intents_inclusion(intents: List[FrozenSet[int]], use_tqdm=False) -> List[FrozenSet[int]]:
-    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
-        'The `intents` list should be topologically sorted by ascending order'
+def sort_intents_inclusion(intents: List[fbarray], use_tqdm=False, return_transitive_order: bool = False)\
+        -> List[fbarray] or (List[fbarray], List[fbarray]):
+    """Returns indices of the smallest intents bigger than each intent. Optionally, return the transitive closure"""
+    assert test_topologically_sorted(intents), 'The `intents` list should be topologically sorted by ascending order'
 
-    lattice = [frozenset()] * len(intents)
-    trans_lattice = [frozenset()] * len(intents)
-    all_attrs = frozenset(intents[-1])
-    n_intents, n_attrs = len(intents), len(all_attrs)
-    ba_ones = ~bazeros(n_intents)
-
-    attrs_descendants = [~ba_ones for _ in range(n_attrs)]
-    for intent_i, intent in enumerate(intents):
-        for m in intent:
-            attrs_descendants[m][intent_i] = True
-
-    for intent_i, intent in tqdm(enumerate(intents[::-1]), total=len(intents), disable=not use_tqdm):
-        intent_i = n_intents - intent_i - 1
-
-        common_descendants = ba_ones.copy()
-        for m in intent:
-            common_descendants &= attrs_descendants[m]
-
-        children = {(common_descendants & attrs_descendants[m]).find(True) for m in all_attrs - intent}
-
-        trans_children = set()
-        for child in children:
-            trans_children |= trans_lattice[child]
-        trans_lattice[intent_i] = frozenset(children | trans_children)
-        lattice[intent_i] = frozenset(children - trans_children)
-
-    return lattice
-
-
-def sort_intents_inclusion_ba(intents: List[fbarray], use_tqdm=False) -> List[fbarray]:
-    assert all(len(a) <= len(b) for a, b in zip(intents, intents[1:])), \
-        'The `intents` list should be topologically sorted by ascending order'
-
-    all_attrs = intents[-1]
-    n_intents, n_attrs = len(intents), len(all_attrs)
-    ba_ones = ~bazeros(n_intents)
+    n_intents, n_attrs = len(intents), len(intents[0])
+    zero_intents = fbarray(bazeros(n_intents))
+    all_attrs = ~fbarray(bazeros(n_attrs))
 
     lattice = [fbarray(bazeros(n_intents))] * len(intents)
     trans_lattice = [fbarray(bazeros(n_intents))] * len(intents)
 
-    attrs_descendants = [~ba_ones for _ in range(n_attrs)]
+    attrs_descendants = [bitarray(zero_intents) for _ in range(n_attrs)]
     for intent_i, intent in enumerate(intents):
         for m in intent.itersearch(True):
             attrs_descendants[m][intent_i] = True
 
-    for intent_i, intent in tqdm(enumerate(intents[::-1]), total=len(intents), disable=not use_tqdm):
-        intent_i = n_intents - intent_i - 1
+    for intent_i in tqdm(range(n_intents-1, -1, -1), disable=not use_tqdm, desc='Sorting intents'):
+        intent = intents[intent_i]
 
-        common_descendants = ba_ones.copy()
+        common_descendants = bitarray(~zero_intents)
         for m in intent.itersearch(True):
             common_descendants &= attrs_descendants[m]
 
-        children = bazeros(n_intents)
-        for m in (all_attrs & ~intent).itersearch(True):
-            meet_idx = (common_descendants & attrs_descendants[m]).find(True)
+        children = bitarray(zero_intents)
+        for new_m in (all_attrs & ~intent).itersearch(True):
+            meet_idx = (common_descendants & attrs_descendants[new_m]).find(True)
             children[meet_idx] = True
 
-        trans_children = bazeros(n_intents)
+        trans_children = bitarray(zero_intents)
         for child in children.itersearch(True):
             trans_children |= trans_lattice[child]
         trans_lattice[intent_i] = fbarray(children | trans_children)
-        lattice[intent_i] = fbarray(children & (~trans_children))
+        lattice[intent_i] = fbarray(children & ~trans_children)
 
+    if return_transitive_order:
+        return lattice, trans_lattice
     return lattice
 
 
-def trans_close_relation(parents_list: List[FrozenSet[int]]) -> List[FrozenSet[int]]:
-    assert all([max(parents_) < i for i, parents_ in enumerate(parents_list) if parents_]), \
-        "`parents_list` relation should be defined on a list, topologically sorted by descending order." \
-        " So all parents_list of element `i` should have smaller indices"
+def close_transitive_subsumption(subsumption_list: List[fbarray]) -> List[fbarray]:
+    assert all([max(subsumed.itersearch(True)) < i for i, subsumed in enumerate(subsumption_list) if subsumed.any()]), \
+        "`subsumption_list` relation should be defined on a list, topologically sorted by descending order." \
+        " So all subsumption_list of element `i` should have smaller indices"
 
-    trans_parents = []
-    for i, parents_ in enumerate(parents_list):
-        trans_pars = set(parents_)
-        for parent in parents_:
-            trans_pars |= trans_parents[parent]
-        trans_parents.append(frozenset(trans_pars))
-    return trans_parents
-
-
-def trans_close_relation_ba(parents_list: List[fbarray]) -> List[fbarray]:
-    assert all([not parents_[i:].any() for i, parents_ in enumerate(parents_list)]), \
-        "`parents_list` relation should be defined on a list, topologically sorted by descending order." \
-        " So all parents_list of element `i` should have smaller indices"
-
-    trans_parents = []
-    for i, parents_ in enumerate(parents_list):
-        trans_pars = bitarray(parents_)
-        for parent in parents_.itersearch(True):
-            trans_pars |= trans_parents[parent]
-        trans_parents.append(fbarray(trans_pars))
-    return trans_parents
+    trans_subsumption_list = []
+    for subsumed in subsumption_list:
+        trans_subsumed = bitarray(subsumed)
+        for el_i in subsumed.itersearch(True):
+            trans_subsumed |= trans_subsumption_list[el_i]
+        trans_subsumption_list.append(fbarray(trans_subsumed))
+    return trans_subsumption_list
 
 
-def drop_transitive_parents(parents_list: List[FrozenSet[int]]) -> List[FrozenSet[int]]:
-    ancestors_list = [set(parents) for parents in parents_list]
-    for el_i, parents in enumerate(parents_list[1:], start=1):
-        for parent_i in parents:
-            ancestors_list[el_i] |= ancestors_list[parent_i]
+def open_transitive_subsumption(trans_subsumption_list: List[fbarray]) -> List[fbarray]:
+    assert all([
+        max(subsumed.itersearch(True)) < i for i, subsumed in enumerate(trans_subsumption_list) if subsumed.any()
+    ]),\
+        "`trans_subsumption_list` relation should be defined on a list, topologically sorted by descending order." \
+        " So all trans_subsumption_list of element `i` should have smaller indices"
 
-    new_parents_list = [set(parents) for parents in parents_list]
-    for el_i, parents in enumerate(parents_list[1:], start=1):
-        for parent_i in sorted(parents, reverse=True):
-            if parent_i in new_parents_list[el_i]:
-                new_parents_list[el_i] -= ancestors_list[parent_i]
+    subsumption_list = []
+    for trans_subsumed in trans_subsumption_list:
+        subsumed = bitarray(trans_subsumed)
+        for el_i in list(subsumed.itersearch(True))[::-1]:
+            if subsumed[el_i]:
+                subsumed &= ~trans_subsumption_list[el_i]
+        subsumption_list.append(fbarray(subsumed))
 
-    new_parents_list = [frozenset(parents) for parents in new_parents_list]
-    return new_parents_list
+    return subsumption_list
+
+
+def drop_transitive_subsumption(subsumption_list: List[fbarray]) -> List[fbarray]:
+    return open_transitive_subsumption(close_transitive_subsumption(subsumption_list))

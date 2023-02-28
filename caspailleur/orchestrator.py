@@ -9,29 +9,37 @@ from . import order as ordermod
 from . import indices as indicesmod
 
 
-def explore_data(K: np.ndarray, min_sup: float = 1) -> Dict[str, Any]:
-    itemsets = bfuncs.np2isets(K)
-    n_attrs = K.shape[1]
-    attr_extents = [frozenset(bfuncs.ba2iset(ext)) for ext in bfuncs.iter_attribute_extents(K)]
+def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True) -> Dict[str, Any]:
+    itemsets = list(bfuncs.np2bas(K))
 
-    intents = mec.list_intents_via_LCM(itemsets, min_supp=min_sup, n_attrs=n_attrs)
-    intents_ba = [bfuncs.iset2ba(iset, n_attrs) for iset in intents]
-    keys = mec.list_keys(intents_ba)
-    passkeys = mec.list_passkeys(intents_ba)
-    pseudo_intents = ibases.list_pseudo_intents_incremental(attr_extents, intents)
+    intents = mec.list_intents_via_LCM(itemsets, min_supp=min_sup)
+    keys = mec.list_keys(intents)
+    passkeys = mec.list_passkeys(intents)
 
     children_ordering = ordermod.sort_intents_inclusion(intents)
     parents_ordering = ordermod.inverse_order(children_ordering)
-    n_transitive_parents = sum(len(tparents) for tparents in ordermod.trans_close_relation(parents_ordering))
+
+    pseudo_intents = list(dict(ibases.list_pseudo_intents_via_keys(keys.items(), intents)))
+    proper_premises = list(ibases.iter_proper_premises_via_keys(intents, keys))
+
+    n_transitive_parents = sum(tparents.count() for tparents in ordermod.close_transitive_subsumption(parents_ordering))
     linearity = indicesmod.linearity_index(n_transitive_parents, len(intents))
+    distributivity = indicesmod.distributivity_index(intents, parents_ordering, n_transitive_parents)
 
-    proper_premises = list(ibases.iter_proper_premises_via_keys(
-        intents, {frozenset(bfuncs.ba2iset(k)): v for k, v in keys.items()}))
-    distributivity = indicesmod.distributivity_index(
-        [bfuncs.iset2ba(iset, n_attrs) for iset in intents], parents_ordering, n_transitive_parents)
-
-    return dict(
-        intents=intents, keys=keys, passkeys=passkeys,
+    output = dict(
+        intents=intents,
+        keys=keys, passkeys=passkeys,
         pseudo_intents=pseudo_intents, proper_premises=proper_premises,
-        intents_ordering=parents_ordering, linearity=linearity, distributivity=distributivity
+        intents_ordering=parents_ordering,
+        linearity=linearity, distributivity=distributivity
     )
+    if return_itemsets:
+        for output_k, output_v in output.items():
+            itemset_v = output_v
+            if isinstance(output_v, dict):
+                itemset_v = dict(zip(bfuncs.bas2isets(output_v.keys()), output_v.values()))
+            if isinstance(output_v, list):
+                itemset_v = list(bfuncs.bas2isets(output_v))
+            output[output_k] = itemset_v
+
+    return output

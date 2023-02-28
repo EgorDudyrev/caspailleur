@@ -1,5 +1,6 @@
-import bitarray
+from bitarray import frozenbitarray as fbarray
 import numpy as np
+import os
 
 from caspailleur import base_functions as bfunc
 
@@ -43,46 +44,45 @@ def test_closure():
     assert list(bfunc.closure([], crosses_per_columns)) == [3]
 
 
-def test_np2isets():
+def test_np_ba_conversions():
     X = np.array([[True, True, False], [False, False, True]])
-    isets_true = [np.array([0, 1]), np.array([2])]
-    isets = bfunc.np2isets(X)
-    assert all([(iset == iset_true).all() for iset, iset_true in zip(isets, isets_true)])
+    bars_true = [fbarray(x) for x in X.tolist()]
+    bars = bfunc.np2bas(X)
+    assert bars == bars_true
+
+    X_reconstr = bfunc.bas2np(bars)
+    assert (X == X_reconstr).all()
+
+    attr_exts_true = [fbarray([True, False]), fbarray([True, False]), fbarray([False, True])]
+    assert bfunc.np2bas(X.T) == attr_exts_true
 
 
 def test_iset_ba_conversions():
-    iset, l = [0, 1], 5
-    ba = bitarray.frozenbitarray([True, True, False, False, False])
+    iset, l = {0, 1}, 5
+    ba = fbarray([True, True, False, False, False])
 
-    assert bfunc.iset2ba(iset, l) == ba
-    assert list(bfunc.ba2iset(ba)) == iset
-    assert bfunc.iset2ba(bfunc.ba2iset(ba), len(ba)) == ba
-
-
-def test_iter_attribute_extents():
-    K = np.array([
-        [True, False, False, True, False],
-        [True, False, True, False, False],
-        [False, True, True, False, False],
-        [False, True, True, True, False],
-    ])
-    attr_extents_true = [bfunc.iset2ba(iset, 4) for iset in [
-        [0, 1], [2, 3], [1, 2, 3], [0, 3], []
-    ]]
-    attr_extents = list(bfunc.iter_attribute_extents(K))
-
-    assert attr_extents == attr_extents_true
+    assert list(bfunc.isets2bas([iset], l)) == [ba]
+    assert list(bfunc.bas2isets([ba])) == [iset]
+    assert list(bfunc.bas2isets(bfunc.isets2bas([iset], l))) == [iset]
 
 
 def test_conversion_pipeline():
     X = np.array([[True, True, False], [False, False, True]])
-    itemsets_true = [[0, 1], [2]]
-    itemsets = bfunc.np2isets(X)
+    itemsets_true = [{0, 1}, {2}]
+    itemsets = list(bfunc.bas2isets(bfunc.np2bas(X)))
     assert itemsets == itemsets_true
 
-    barrays_true = [bitarray.frozenbitarray([bool(v) for v in x]) for x in X]
-    barrays = [bfunc.iset2ba(iset, X.shape[1]) for iset in itemsets]
-    assert barrays == barrays_true
+    X_reconstr = bfunc.bas2np(bfunc.isets2bas(itemsets, 3))
+    assert (X == X_reconstr).all()
 
-    itemsets = [list(bfunc.ba2iset(barray)) for barray in barrays]
-    assert itemsets == itemsets_true
+
+def test_save_load_barrays():
+    bitarrays = [fbarray([True, False]), fbarray([True, False]), fbarray([False, True])]
+    with open('tst.bal', 'wb') as file:
+        bfunc.save_balist(file, bitarrays)
+    with open('tst.bal', 'rb') as file:
+        bitarrays_load = list(bfunc.load_balist(file))
+
+    os.remove('tst.bal')
+
+    assert bitarrays_load == bitarrays

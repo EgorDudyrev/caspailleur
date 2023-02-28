@@ -1,9 +1,9 @@
 from itertools import chain, combinations
-from typing import Iterable, FrozenSet, List, Dict, Iterator
+from typing import Iterable, Iterator, List, FrozenSet, BinaryIO
 import numpy.typing as npt
 
 import numpy as np
-from bitarray import frozenbitarray as fbarray
+from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import zeros as bazeros
 
 
@@ -40,20 +40,57 @@ def closure(B: Iterator[int], crosses_per_columns: List[FrozenSet[int]]) -> Iter
 ##########################
 # Basic type conversions #
 ##########################
-def np2isets(X: npt.NDArray[np.bool_]) -> List[List[int]]:
-    return [[int(v) for v in row.nonzero()[0]] for row in X]
+def np2bas(X: npt.ArrayLike) -> List[fbarray]:
+    return [fbarray(x) for x in X.tolist()]
 
 
-def iset2ba(itemset: Iterable[int], length: int) -> fbarray:
-    bar = bazeros(length)
-    for m in itemset:
-        bar[m] = True
-    return fbarray(bar)
+def bas2np(barrays: Iterable[fbarray]) -> npt.ArrayLike:
+    return np.vstack([ba.tolist() for ba in barrays]).astype(np.bool_)
 
 
-def ba2iset(bar: fbarray) -> Iterator[int]:
-    return bar.itersearch(1)
+def isets2bas(itemsets: Iterable[Iterable[int]], length: int) -> Iterator[fbarray]:
+    for iset in itemsets:
+        bar = bazeros(length)
+        for m in iset:
+            bar[m] = True
+        yield fbarray(bar)
 
 
-def iter_attribute_extents(K: npt.NDArray[np.bool_]) -> Iterator[fbarray]:
-    return (fbarray(ext.tolist()) for ext in K.T)
+def bas2isets(bitarrays: Iterable[fbarray]) -> Iterator[FrozenSet[int]]:
+    for bar in bitarrays:
+        yield frozenset(bar.itersearch(True))
+
+
+###########################
+# Save and load functions #
+###########################
+
+def load_balist(file: BinaryIO) -> Iterator[bitarray]:
+    basize = b''
+    while True:
+        data = file.read(1)
+        if data == b'n':
+            break
+        basize += data
+    basize = int(basize.decode(encoding='utf-8'))
+    basize_bytes = len(bazeros(basize).tobytes())
+
+    while True:
+        data = file.read(basize_bytes)
+        if data == b'':
+            break
+
+        ba = bitarray()
+        ba.frombytes(data)
+        yield ba[:basize]
+
+
+def save_balist(file: BinaryIO, bitarrays: List[bitarray]):
+    basize = len(bitarrays[0])
+    assert all(len(ba) == basize for ba in bitarrays), "All bitarrays should be of the same size"
+
+    file.write(str(basize).encode(encoding='utf-8'))
+    file.write(b'n')
+
+    for ba in bitarrays:
+        file.write(ba.tobytes())
