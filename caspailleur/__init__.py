@@ -3,3 +3,5 @@ from .implication_bases import iter_proper_premises_via_keys, list_pseudo_intent
 from .mine_equivalence_classes import list_intents_via_LCM, list_keys, list_passkeys
 from .order import sort_intents_inclusion, inverse_order
 from .indices import linearity_index, distributivity_index
+
+from .orchestrator import explore_data
