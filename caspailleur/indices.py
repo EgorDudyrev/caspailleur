@@ -7,6 +7,22 @@ from caspailleur.order import test_topologically_sorted
 
 
 def linearity_index(n_trans_parents: int, n_elements: int, include_top_bottom: bool = True) -> float:
+    """Compute linearity index: the percentage of comparable pairs of elements
+
+    Parameters
+    ----------
+    n_trans_parents:
+        Number of transitive parents, i.e. the cardinality of transitive order relation
+    n_elements:
+        Number of elements
+    include_top_bottom:
+        A flag, whether to include top/bottom nodes in the computations
+
+    Returns
+    -------
+    float:
+        Value of the index (from 0 to 1)
+    """
     n_comparable = n_trans_parents
     n_pairs = n_elements * (n_elements - 1) // 2
 
@@ -26,6 +42,26 @@ def distributivity_index(
         intents: List[fbarray], parents: List[fbarray], n_trans_parents: int,
         include_top_bottom: bool = True, use_tqdm: bool = False
 ) -> float:
+    """Compute distributivity index: the percentage of pairs intents that whose union is in an intent
+
+    Parameters
+    ----------
+    intents:
+        The list of intents
+    parents:
+        Parents relation represented by list of bitarrays: each intent_i holds indices of parents of intent_i
+    n_trans_parents:
+        Number of transitive parents, i.e. the cardinality of the transitive relation
+    include_top_bottom:
+        A flag, whether to include top/bottom nodes in the computations
+    use_tqdm:
+        A flag, whether to visualise the computation process via tqdm progressbar
+
+    Returns
+    -------
+    float:
+        Value of the index (from 0 to 1)
+    """
     assert test_topologically_sorted(intents), 'The `intents` list should be topologically sorted by ascending order'
 
     n_distr = n_trans_parents

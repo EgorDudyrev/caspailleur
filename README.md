@@ -25,7 +25,8 @@ These sets are:
 
 Also, caspailleur contains functions to compute linearity and distributivity indices to measure the complexity of the data.
 
-Mathematical definitions of intents, keys and others are presented in the paper: _Buzmakov, A., Dudyrev, E., Kuznetsov, S. O., Makhalova, T., & Napoli, A. Data complexity: An FCA-based approach https://hal.science/hal-03970678v1._
+Mathematical definitions of intents, keys and others are presented in the paper:
+_Buzmakov, A., Dudyrev, E., Kuznetsov, S. O., Makhalova, T., & Napoli, A. Data complexity: An FCA-based approach https://hal.science/hal-03970678v1._
 Definitions in a form of Python code are given in "definitions" module: [caspailleur/definitions.py](https://github.com/EgorDudyrev/caspailleur/blob/cbcb75aedbbe80db56b4dbb086b2419c9bc2194c/caspailleur/definitions.py)
 
 ## Approach for faster computation
