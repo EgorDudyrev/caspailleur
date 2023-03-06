@@ -10,6 +10,21 @@ from collections import deque
 
 
 def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1) -> List[fbarray]:
+    """Get the list of intents by running LCM algorithm from scikit-mine
+
+    Parameters
+    ----------
+    itemsets:
+        The list of itemsets representing the dataset
+    min_supp:
+        Minimal support for the intent
+
+    Returns
+    -------
+    intents:
+        THe found intents
+
+    """
     n_attrs = len(itemsets[0])
 
     lcm = LCM(min_supp=min_supp)
@@ -50,6 +65,25 @@ def list_attribute_concepts(intents: List[fbarray]) -> List[int]:
 
 
 def iter_equivalence_class(attribute_extents: List[fbarray], intent: fbarray = None) -> Iterator[fbarray]:
+    """Iterate subsets of attributes from equivalence class
+
+    The output equivalence class goes from the maximal subsets of attributes to the smallest ones.
+    Equivalent subsets of attributes are the ones that describe the same subset of objects.
+
+
+    Parameters
+    ----------
+    attribute_extents:
+        The list of objects described by each specific attribute (converted to bitarrays)
+    intent:
+        Intent to compute equivalence class for. If None is passed, Iterate equivalence class of all attributes
+
+    Returns
+    -------
+    Iterator[frozenbitarray]:
+        Iterator over bitarrays representing equivalent subsets of attributes
+
+    """
     N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
 
     intent = bazeros(N_ATTRS) if intent is None else intent
@@ -86,6 +120,7 @@ def iter_equivalence_class(attribute_extents: List[fbarray], intent: fbarray = N
 
 
 def list_keys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
+    """List minimal subsets from given equivalence class"""
     potent_keys = []
     for new_key in equiv_class:
         potent_keys = [key for key in potent_keys if new_key & key != new_key]
@@ -94,6 +129,7 @@ def list_keys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
 
 
 def list_passkeys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
+    """List subsets of minimal size from given equivalence class"""
     passkeys = []
     for descr in equiv_class:
         if not passkeys or descr.count() == passkeys[-1].count():
@@ -105,6 +141,7 @@ def list_passkeys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
 
 
 def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarray, int]:
+    """List all keys for all intents (i.e. minimal subsets of attributes selecting specific subsets of objects)"""
     assert all(a.count() <= b.count() for a, b in zip(intents, intents[1:])), \
         'The `intents` list should be topologically sorted by ascending order'
 
@@ -157,4 +194,7 @@ def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarr
 
 
 def list_passkeys(intents: List[fbarray]) -> Dict[fbarray, int]:
+    """List all passkeys for all intents
+
+     (i.e. subsets of attributes of minimal size selecting specific subsets of objects)"""
     return list_keys(intents, only_passkeys=True)
