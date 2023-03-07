@@ -10,6 +10,26 @@ from . import indices as indicesmod
 
 
 def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True) -> Dict[str, Any]:
+    """One function to output all dependencies in the data
+
+    Parameters
+    ----------
+    K:
+        Binary dataset represented with numpy bool 2D array
+    min_sup:
+        Minimal support for intents
+    return_itemsets:
+        A flag whether to return the output as sets of attribute indices or as bitarrays/
+        The second option is memory efficient but less interpretable.
+
+    Returns
+    -------
+    Dictionary with
+        intents, keys, passkeys,
+        pseudo_intents, proper_premises,
+        intents_ordering,
+        and linearity, distributivity indices
+    """
     itemsets = list(bfuncs.np2bas(K))
 
     intents = mec.list_intents_via_LCM(itemsets, min_supp=min_sup)
@@ -19,8 +39,8 @@ def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True
     children_ordering = ordermod.sort_intents_inclusion(intents)
     parents_ordering = ordermod.inverse_order(children_ordering)
 
-    pseudo_intents = list(dict(ibases.list_pseudo_intents_via_keys(keys.items(), intents)))
-    proper_premises = list(ibases.iter_proper_premises_via_keys(intents, keys))
+    pseudo_intents = dict(ibases.list_pseudo_intents_via_keys(keys.items(), intents))
+    proper_premises = dict(ibases.iter_proper_premises_via_keys(intents, keys))
 
     n_transitive_parents = sum(tparents.count() for tparents in ordermod.close_transitive_subsumption(parents_ordering))
     linearity = indicesmod.linearity_index(n_transitive_parents, len(intents))

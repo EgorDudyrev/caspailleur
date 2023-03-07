@@ -31,8 +31,12 @@ def test_explore_data():
     ]
     passkeys_true = {frozenset(key): intent_i for key, intent_i in passkeys_true}
 
-    pseudo_intents_true = [frozenset(pi) for pi in [{4}, {1}, {2, 3}, {0, 1, 2}]]
-    proper_premises_true = [frozenset(pp) for pp in [{1}, {4}, {0, 1}, {2, 3}, {0, 2, 3}]]
+    pseudo_intents_true = [({4}, 8), ({1}, 6), ({2, 3}, 7), ({0, 1, 2}, 8)]
+    pseudo_intents_true = {frozenset(pi): intent_i for pi, intent_i in pseudo_intents_true}
+
+    proper_premises_true = [({1}, 6), ({4}, 8), ({0, 1}, 8), ({2, 3}, 7), ({0, 2, 3}, 8)]
+    proper_premises_true = {frozenset(pp): intent_i for pp, intent_i in proper_premises_true}
+
     parents_ordering_true = [set(), {0}, {0}, {0}, {1, 2}, {1, 3}, {2}, {3, 6}, {4, 5, 7}]
     transitive_parents = [set(), {0}, {0}, {0}, {0, 1, 2}, {0, 1, 3}, {0, 2}, {0, 2, 3, 6}, {0, 1, 2, 3, 4, 5, 6, 7}]
     n_trans_parents = sum(len(tpars) for tpars in transitive_parents)
