@@ -1,4 +1,4 @@
-from typing import FrozenSet, List
+from typing import List
 from collections import deque
 from bitarray import frozenbitarray as fbarray
 from tqdm import tqdm

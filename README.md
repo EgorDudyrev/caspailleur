@@ -21,13 +21,16 @@ df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/
 # Explore the dataset
 import caspailleur as csp
 data_dict = csp.explore_data(df.values)
+print(data_dict.keys())
 ```
+> ['intents', 'keys', 'passkeys', 'pseudo_intents', 'proper_premises', 'intents_ordering', 'linearity', 'distributivity']
 
 <details><summary>Elaborate on results</summary>
 <p>
 
 ### Visualize the output
-By default, caspailleur outputs the data stored in FrozenSets. So we need a bit 
+By default, caspailleur outputs the data stored in frozensets.
+So let us drop all mentions of frozensets from the output to make it more concise.  
 ```python
 # Prettifying the output
 import re
