@@ -39,8 +39,8 @@ def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True
     children_ordering = ordermod.sort_intents_inclusion(intents)
     parents_ordering = ordermod.inverse_order(children_ordering)
 
-    pseudo_intents = list(dict(ibases.list_pseudo_intents_via_keys(keys.items(), intents)))
-    proper_premises = list(ibases.iter_proper_premises_via_keys(intents, keys))
+    pseudo_intents = dict(ibases.list_pseudo_intents_via_keys(keys.items(), intents))
+    proper_premises = dict(ibases.iter_proper_premises_via_keys(intents, keys))
 
     n_transitive_parents = sum(tparents.count() for tparents in ordermod.close_transitive_subsumption(parents_ordering))
     linearity = indicesmod.linearity_index(n_transitive_parents, len(intents))

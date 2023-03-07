@@ -11,7 +11,7 @@ def test_list_proper_premises_via_keys():
 
     pprems_true = list(bfunc.isets2bas([{1}, {4}, {2, 3}, {0, 1}, {0, 2, 3}], 5))
 
-    pprems = impbas.iter_proper_premises_via_keys(intents, keys_to_intents)
+    pprems = dict(impbas.iter_proper_premises_via_keys(intents, keys_to_intents))
     assert set(pprems) == set(pprems_true)
 
 

@@ -90,7 +90,8 @@ def test_if_proper_premise_via_keys(
     return True
 
 
-def iter_proper_premises_via_keys(intents: List[fbarray], keys_to_intents: Dict[fbarray, int]) -> Iterator[fbarray]:
+def iter_proper_premises_via_keys(intents: List[fbarray], keys_to_intents: Dict[fbarray, int])\
+        -> Iterator[Tuple[fbarray, int]]:
     """Obtain the set of proper premises given intents, intents parents relation, and keys
 
     Parameters
@@ -102,12 +103,12 @@ def iter_proper_premises_via_keys(intents: List[fbarray], keys_to_intents: Dict[
 
     Returns
     -------
-    proper_premises: Iterator[fbarray]
+    proper_premises: Iterator[Tuple[frozenbitarray, int]]
         Iterator with found proper premises
 
     """
     return (
-        key for key, intent_idx in keys_to_intents.items()
+        (key, intent_idx) for key, intent_idx in keys_to_intents.items()
         if test_if_proper_premise_via_keys(key, intent_idx, intents, keys_to_intents)
     )
 
