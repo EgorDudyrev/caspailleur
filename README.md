@@ -25,6 +25,8 @@ print(data_dict.keys())
 ```
 > ['intents', 'keys', 'passkeys', 'pseudo_intents', 'proper_premises', 'intents_ordering', 'linearity', 'distributivity']
 
+If you need only some of the fields from `data_dict`, please take a look inside  [explore_data](https://github.com/EgorDudyrev/caspailleur/blob/1e1d5c023dea781b4e7ca5f80099c3fe4d2c12ff/caspailleur/orchestrator.py#L12) function.
+
 <details><summary>Elaborate on results</summary>
 <p>
 
