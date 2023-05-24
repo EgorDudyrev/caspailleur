@@ -40,4 +40,10 @@ jobs:
         pip install pytest pytest-cov
         pytest --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3 -f
+      uses: codecov/codecov-action@v3
+      with:
+        files: junit/test-results.xml # optional
+        # flags: unittests # optional
+        name: codecov-umbrella # optional
+        # fail_ci_if_error: true # optional (default = false)
+        verbose: true # optional (default = false)
