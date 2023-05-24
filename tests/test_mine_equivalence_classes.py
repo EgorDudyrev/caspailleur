@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 
 from caspailleur import mine_equivalence_classes as mec
-from caspailleur import order
 from caspailleur import base_functions as bfunc
 
 from bitarray import frozenbitarray as fbarray

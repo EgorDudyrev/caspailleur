@@ -9,7 +9,7 @@ from bitarray.util import zeros as bazeros
 from collections import deque
 
 
-def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1) -> List[fbarray]:
+def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1, n_jobs: int = 1) -> List[fbarray]:
     """Get the list of intents by running LCM algorithm from scikit-mine
 
     Parameters
@@ -18,6 +18,8 @@ def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1) -> List[f
         The list of itemsets representing the dataset
     min_supp:
         Minimal support for the intent
+    n_jobs:
+        Number of jobs for LCM algorithm
 
     Returns
     -------
@@ -27,8 +29,8 @@ def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1) -> List[f
     """
     n_attrs = len(itemsets[0])
 
-    lcm = LCM(min_supp=min_supp)
-    intents = lcm.fit_discover(bas2isets(itemsets))['itemset']
+    lcm = LCM(min_supp=min_supp, n_jobs=n_jobs)
+    intents = lcm.fit_transform(list(bas2isets(itemsets)))['itemset']
     intents = list(isets2bas(intents, n_attrs))
     intents = topological_sorting(intents)[0]
 
