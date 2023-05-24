@@ -40,4 +40,4 @@ jobs:
         pip install pytest pytest-cov
         pytest --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3 -f junit/test-results.xml
+      uses: codecov/codecov-action@v3 -f
