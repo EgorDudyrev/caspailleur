@@ -5,15 +5,9 @@ def run_install(**kwargs):
     with open("README.md", "r") as fh:
         long_description = fh.read()
 
-    extras_require = {'caspailleur': [
-        'numpy>=1.20',
-        'scikit-mine>=1',
-        'bitarray>=2.5.1',
-        'tqdm'
-    ]
-    }
-    extras_require['all'] = list(set(i for val in extras_require.values() for i in val))
-    extras_require['docs'] = extras_require['all']
+    install_requires = ['numpy>=1.20', 'scikit-mine>=1', 'bitarray>=2.5.1', 'tqdm']
+        
+    extras_require = {}
 
     setuptools.setup(
         name="caspailleur",
@@ -32,7 +26,8 @@ def run_install(**kwargs):
             "Operating System :: OS Independent",
         ],
         python_requires='>=3.8',
-        extras_require=extras_require
+        install_requires=install_requires,
+        extras_require=extras_require,
     )
 
 
