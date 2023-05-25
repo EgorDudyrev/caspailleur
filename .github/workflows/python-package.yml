@@ -5,7 +5,7 @@ name: Python package
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main"]
   pull_request:
     branches: [ "main" ]
 
@@ -38,4 +38,12 @@ jobs:
     - name: Test with pytest
       run: |
         pip install pytest pytest-cov
-        pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+        pytest --doctest-modules --cov=com --cov-report=xml --cov-report=html
+    # - name: Upload coverage reports to Codecov
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     # files: junit/test-results.xml # optional
+    #     # flags: unittests # optional
+    #     # name: codecov-umbrella # optional
+    #     fail_ci_if_error: true # optional (default = false)
+    #     verbose: true # optional (default = false)
