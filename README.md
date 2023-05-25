@@ -6,7 +6,7 @@
 
 # caspailleur
 
-Lightweight python package to explore binary data in FCA terms.
+Minimalistic python package for mining many concise data representations. Part of SmartFCA project.
 
 ## Get started
 
