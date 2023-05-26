@@ -19,7 +19,7 @@ classifiers = [
 ]
 keywords = ["python", "fca", "itemset-mining"]
 dependencies = [
-    'numpy>=1.20', 'scikit-mine>=1', 'bitarray>=2.5.1', 'tqdm', 'toml',
+    'numpy>=1.20', 'scikit-mine>=1', 'bitarray>=2.5.1', 'tqdm',
 ]
 requires-python = ">=3.8"
 

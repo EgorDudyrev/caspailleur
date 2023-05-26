@@ -6,8 +6,7 @@ from .indices import linearity_index, distributivity_index
 
 from .orchestrator import explore_data
 
-import toml
-__version__ = toml.load('pyproject.toml')['project']['version']
+__version__ = '0.1.1'
 
 
 
