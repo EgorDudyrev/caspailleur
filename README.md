@@ -141,6 +141,7 @@ E --> H;
 F --> H;
 G --> H;
 ```
+_In case the diagram is not compiling, visit the GitHub version of README: https://github.com/EgorDudyrev/caspailleur_
 
 The diagram was constructed with the following code: 
 
@@ -296,6 +297,8 @@ The diagram below presents dependencies between the characteristic attribute set
       A --> G; D --> G;
       D --> H; A --> H; 
 ```
+
+_In case the diagram is not compiling, visit the GitHub version of README: https://github.com/EgorDudyrev/caspailleur_
 
 ## How to cite
 
