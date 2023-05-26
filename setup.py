@@ -1,5 +1,7 @@
 import setuptools
+import caspailleur
 
+VERSION = caspailleur.__version__
 
 def run_install(**kwargs):
     with open("README.md", "r") as fh:
@@ -11,7 +13,7 @@ def run_install(**kwargs):
 
     setuptools.setup(
         name="caspailleur",
-        version="0.0.1",
+        version=VERSION,
         author="Egor Dudyrev",
         author_email="egor.dudyrev@yandex.ru",
         description="Minimalistic python package for mining many concise data representations. Part of SmartFCA project",

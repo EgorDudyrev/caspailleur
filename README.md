@@ -1,3 +1,4 @@
+[![PyPi](https://img.shields.io/pypi/v/caspailleur)](https://pypi.org/project/caspailleur)
 [![GitHub Workflow](https://img.shields.io/github/actions/workflow/status/EgorDudyrev/caspailleur/python-package.yml?logo=github)](https://github.com/EgorDudyrev/caspailleur/actions/workflows/python-package.yml)
 [![Licence](https://img.shields.io/github/license/EgorDudyrev/FCApy)](https://github.com/EgorDudyrev/caspailleur/blob/main/LICENSE)
 [![LORIA](https://img.shields.io/badge/Made_in-LORIA-61acdf)](https://www.loria.fr/)
@@ -13,8 +14,7 @@ Minimalistic python package for mining many concise data representations. Part o
 To install the package, please download it from this GitHub page.
 
 ```console
-git clone https://github.com/EgorDudyrev/caspailleur.git
-pip install caspailleur/
+pip install caspailleur
 ```
 
 ## Run example
@@ -33,7 +33,7 @@ print(data_dict.keys())
 
 If you need only some of the fields from `data_dict`, please take a look inside  [explore_data](https://github.com/EgorDudyrev/caspailleur/blob/1e1d5c023dea781b4e7ca5f80099c3fe4d2c12ff/caspailleur/orchestrator.py#L12) function.
 
-<details><summary>Elaborate on results</summary>
+**_<details><summary>Elaborate on results</summary>_**
 <p>
 
 ### Visualize the output
@@ -295,6 +295,19 @@ The diagram below presents dependencies between the characteristic attribute set
       B --> F; A --> F; 
       A --> G; D --> G;
       D --> H; A --> H; 
+```
+
+## How to cite
+
+There are no papers written about caspailleur (yet). So you can cite the package itself.
+
+```bibtex
+@misc{caspailleur,
+  title={caspailleur},
+  author={Dudyrev, Egor},
+  year={2023},
+  howpublished={\url{https://www.smartfca.org/software}},
+}
 ```
 
 ## Funding

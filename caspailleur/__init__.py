@@ -5,3 +5,5 @@ from .order import sort_intents_inclusion, inverse_order
 from .indices import linearity_index, distributivity_index
 
 from .orchestrator import explore_data
+
+__version__ = "0.1"
