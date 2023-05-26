@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "caspailleur"
-version = "0.1.0"
+version = "0.1.1"
 description = "Minimalistic python package for mining many concise data representations. Part of SmartFCA project"
 readme = "README.md"
 authors = [{ name = "Egor Dudyrev" }]
@@ -19,7 +19,7 @@ classifiers = [
 ]
 keywords = ["python", "fca", "itemset-mining"]
 dependencies = [
-    'numpy>=1.20', 'scikit-mine>=1', 'bitarray>=2.5.1', 'tqdm', 'toml',
+    'numpy>=1.20', 'scikit-mine>=1', 'bitarray>=2.5.1', 'tqdm',
 ]
 requires-python = ">=3.8"
 
