@@ -7,4 +7,4 @@ from .indices import linearity_index, distributivity_index
 from .orchestrator import explore_data
 
 import importlib.metadata
-__version__ = importlib.metadata.version("caspailleur")
+__version__ = '0.1.0' #importlib.metadata.version("caspailleur")
