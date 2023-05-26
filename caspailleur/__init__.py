@@ -6,8 +6,8 @@ from .indices import linearity_index, distributivity_index
 
 from .orchestrator import explore_data
 
-import pkg_resources
-__version__ = pkg_resources.get_distribution('caspailleur').version
+import toml
+__version__ = toml.load('pyproject.toml')['project']['version']
 
 
 
