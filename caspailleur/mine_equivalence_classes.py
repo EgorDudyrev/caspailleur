@@ -7,6 +7,7 @@ from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
 from collections import deque
+from tqdm import tqdm
 
 
 def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1, n_jobs: int = 1) -> List[fbarray]:
@@ -200,3 +201,45 @@ def list_passkeys(intents: List[fbarray]) -> Dict[fbarray, int]:
 
      (i.e. subsets of attributes of minimal size selecting specific subsets of objects)"""
     return list_keys(intents, only_passkeys=True)
+
+
+def list_stable_extents_via_sofia(
+        attribute_extents: Iterable[fbarray],
+        n_stable_extents: int, min_supp: int = -1,
+        use_tqdm: bool = False, n_attributes: int = None
+) -> set[fbarray]:
+    stable_extents = set()
+    for attr_extent in tqdm(attribute_extents, disable=not use_tqdm, total=n_attributes):
+        if not stable_extents:  # Set up the top extent, as soon as we know the number of objects
+            stable_extents.add(fbarray(~bazeros(len(attr_extent))))
+
+        if attr_extent.count() < min_supp:
+            continue
+
+        new_extents = (extent & attr_extent for extent in stable_extents)
+        new_extents = filter(lambda extent: extent.count() >= min_supp and extent not in stable_extents, new_extents)
+        stable_extents |= set(new_extents)
+
+        if len(stable_extents) > n_stable_extents:
+            extents_top_sort = sorted(stable_extents, key=lambda extent: extent.count(), reverse=True)
+
+            delta_stabilities = []
+            for i, extent in enumerate(extents_top_sort):
+                child_extent = bazeros(len(extent))
+                for smaller_extent in extents_top_sort[i+1:]:
+                    if smaller_extent & extent != smaller_extent:
+                        continue
+
+                    child_extent = smaller_extent
+                    break
+
+                delta_stability = (extent & (~child_extent)).count()
+                delta_stabilities.append(delta_stability)
+
+            stab_thold = sorted(delta_stabilities)[-n_stable_extents]
+            stable_extents = {extent for extent, stab in zip(extents_top_sort, delta_stabilities) if stab >= stab_thold}
+
+    if len(stable_extents) > n_stable_extents:
+        stable_extents = {extent for extent, stab in zip(extents_top_sort, delta_stabilities) if stab > stab_thold}
+
+    return stable_extents

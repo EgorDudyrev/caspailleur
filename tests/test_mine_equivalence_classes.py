@@ -112,3 +112,36 @@ def test_list_passkeys():
 
     with pytest.raises(AssertionError):
         mec.list_passkeys(intents[::-1])
+
+
+def test_list_stable_extents_via_sofia():
+    # Data inspired by Animal Movement Context
+    all_extents = [
+        fbarray('1111111111111111'),  # delta_stab: 8
+        fbarray('0000000111111110'),  # delta_stab: 3
+        fbarray('0000111101111000'),  # delta_stab: 3
+        fbarray('1011111000000000'),  # delta_stab: 3
+        fbarray('0000000101111000'),  # delta_stab: 5
+        fbarray('0000111000000000'),  # delta_stab: 3
+        fbarray('0011000000000000'),  # delta_stab: 2
+        fbarray('0000000000000000'),  # delta_stab: 0
+    ]
+
+    bin_attributes = [
+        fbarray('1011111000000000'),
+        fbarray('0000111101111000'),
+        fbarray('0000000111111110'),
+        fbarray('0011000000000000'),
+    ]
+
+    stable_extents = mec.list_stable_extents_via_sofia(bin_attributes, 8)
+    assert set(all_extents) == stable_extents
+
+    stable_extents = mec.list_stable_extents_via_sofia(bin_attributes, 8, min_supp=3)
+    assert set(all_extents[:-2]) == stable_extents
+
+    stable_extents = mec.list_stable_extents_via_sofia(bin_attributes, 6)
+    assert set(all_extents[:-2]) == stable_extents
+
+    stable_extents = mec.list_stable_extents_via_sofia(bin_attributes, 5)
+    assert {all_extents[0], all_extents[4]} == stable_extents
