@@ -31,12 +31,26 @@ def is_psubset_of(A: FrozenSet[int] or fbarray, B: FrozenSet[int] or fbarray) ->
     return (A & B == A) and A != B
 
 
-def closure(D: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> Iterator[int]:
-    """Iterate indices of all columns whose intersection equals to the intersection of columns `D`
+def extension(description: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> FrozenSet[int]:
+    """Select the indices of rows described by `description`"""
+    n_rows = max(max(col) + 1 for col in crosses_per_columns if col)
+    extent = set(range(n_rows))
+    for m in description:
+        extent &= crosses_per_columns[m]
+    return frozenset(extent)
+
+
+def intention(objects: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> Iterator[int]:
+    """Iterate the indices of columns that describe the `objects`"""
+    return (m for m, col in enumerate(crosses_per_columns) if is_subset_of(objects, col))
+
+
+def closure(description: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> Iterator[int]:
+    """Iterate indices of all columns who describe the same rows as `description`
 
     Parameters
     ----------
-    D: Iterable[int]
+    description: Iterable[int]
         Indices of some columns from `crosses_per_columns`
     crosses_per_columns: List[FrozenSet[int]]
         List of indices of 'True' rows for each column
@@ -47,14 +61,7 @@ def closure(D: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> Iter
         Indices of All columns with the same intersection as `D`
 
     """
-    n_rows = max(max(col) + 1 for col in crosses_per_columns if col)
-
-    extent = set(range(n_rows))
-    for m in D:
-        extent &= crosses_per_columns[m]
-
-    intent = (m for m, col in enumerate(crosses_per_columns) if is_subset_of(extent, col))
-    return intent
+    return intention(extension(description, crosses_per_columns), crosses_per_columns)
 
 
 ##########################
