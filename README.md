@@ -11,7 +11,7 @@ Minimalistic python package for mining many concise data representations. Part o
 
 ## Get started
 
-To install the package, please download it from this GitHub page.
+The package can be installed from PyPI with:
 
 ```console
 pip install caspailleur
