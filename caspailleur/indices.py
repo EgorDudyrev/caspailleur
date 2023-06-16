@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Iterator
 from collections import deque
 from bitarray import frozenbitarray as fbarray
 from tqdm import tqdm
@@ -107,3 +107,18 @@ def distributivity_index(
         raise ValueError('Distributivity index is computed in a wrong way (There should be problem with the code)')
 
     return n_distr / n_pairs if n_pairs else 0
+
+
+def delta_stability_index(extents: List[fbarray]) -> Iterator[int]:
+    """Compute the delta stability index: the difference in supports of an extent and its maximal smaller neighbour"""
+    assert test_topologically_sorted(extents)
+
+    for i, extent in enumerate(extents):
+        for smaller_extent in extents[i-1::-1]:
+            if smaller_extent & extent != smaller_extent:
+                continue
+
+            yield (extent & ~smaller_extent).count()
+            break
+        else:  # no break, i.e. no child extent found
+            yield extent.count()

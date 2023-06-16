@@ -2,6 +2,7 @@ from typing import List, Dict, Iterator, Iterable
 
 from .order import topological_sorting
 from .base_functions import isets2bas, bas2isets
+from .indices import delta_stability_index
 
 from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray
@@ -221,21 +222,8 @@ def list_stable_extents_via_sofia(
         stable_extents |= set(new_extents)
 
         if len(stable_extents) > n_stable_extents:
-            extents_top_sort = sorted(stable_extents, key=lambda extent: extent.count(), reverse=True)
-
-            delta_stabilities = []
-            for i, extent in enumerate(extents_top_sort):
-                child_extent = bazeros(len(extent))
-                for smaller_extent in extents_top_sort[i+1:]:
-                    if smaller_extent & extent != smaller_extent:
-                        continue
-
-                    child_extent = smaller_extent
-                    break
-
-                delta_stability = (extent & (~child_extent)).count()
-                delta_stabilities.append(delta_stability)
-
+            extents_top_sort = sorted(stable_extents, key=lambda extent: extent.count())
+            delta_stabilities = list(delta_stability_index(extents_top_sort))
             stab_thold = sorted(delta_stabilities)[-n_stable_extents]
             stable_extents = {extent for extent, stab in zip(extents_top_sort, delta_stabilities) if stab >= stab_thold}
 
