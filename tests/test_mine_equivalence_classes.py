@@ -28,6 +28,22 @@ def test_list_intents_via_LCM():
     intents = mec.list_intents_via_LCM(itemsets)
     assert intents == intents_true
 
+def test_list_intents_via_Lindig():
+    itemsets, attr_extents = [bitarray('1001'), bitarray('1010'), bitarray('0110'), bitarray('0111')], [bitarray('1100'), bitarray('0011'), bitarray('0111'), bitarray('1001')] 
+
+    list_data_intents_true = [[],
+    [bitarray('1001')],
+    [bitarray('1010')],
+    [bitarray('0111')],
+    [bitarray('1001'), bitarray('1010')],
+    [bitarray('1010'), bitarray('0110'), bitarray('0111')],
+    [bitarray('1001'), bitarray('0111')],
+    [bitarray('1001'), bitarray('1010'), bitarray('0110'), bitarray('0111')],
+    [bitarray('0110'), bitarray('0111')]]
+
+    list_data_intents = mec.list_intents_via_Lindig(itemsets, attr_extents)
+
+    assert list_data_intents == list_data_intents_true
 
 def test_list_attribute_concepts():
     intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3},  {0, 1, 2, 3, 4}]
