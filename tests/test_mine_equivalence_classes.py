@@ -41,7 +41,7 @@ def test_list_intents_via_Lindig():
     [bitarray('1001'), bitarray('1010'), bitarray('0110'), bitarray('0111')],
     [bitarray('0110'), bitarray('0111')]]
 
-    list_data_intents = list_intents_via_Lindig(itemsets, attr_extents)
+    list_data_intents = mec.list_intents_via_Lindig(itemsets, attr_extents)
 
     assert list_data_intents == list_data_intents_true
 
