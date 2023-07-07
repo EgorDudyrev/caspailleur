@@ -49,7 +49,23 @@ def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1, n_jobs: i
         intents.insert(0, fbarray(smallest_intent))
     return intents
 
-def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarray]):
+def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarray]) -> List[List[bitarray]]:
+    """Get the list of lists of intents of itemsets grouped by equivalent classes of itemsets running Lindig algorithm
+    from "Fast Concept Analysis" by Christian Lindig, Harvard University, Division of Engineering and Applied Sciences
+
+    Parameters
+    ----------
+    itemsets:
+        list of bitarrays representing objects descriptions
+    attr_extents:
+        list of bitarrays representing extents of attributes
+
+    Returns
+    -------
+    Lattice_data_intents:
+        the list of lists of intents of itemsets grouped by equivalent classes
+
+    """
 
     class NotFound(Exception):
         pass
