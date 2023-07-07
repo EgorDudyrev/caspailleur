@@ -6,7 +6,7 @@ from caspailleur import base_functions as bfunc
 
 from bitarray import frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
-
+from bitarray import bitarray
 
 def test_list_intents_via_LCM():
     itemsets = [
