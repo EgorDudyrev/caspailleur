@@ -139,7 +139,7 @@ def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarra
               Lattice_data_intents.append(parent)
 
         try:
-            concept_extent = find_next_concept_extent(concept_extent, Lattice_data_intents)
+            concept_extent = find_next_concept_extent(concept_extent, Lattice_data_intents, attr_extents)
         except NotFound:
             break
     return Lattice_data_intents
