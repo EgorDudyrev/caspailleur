@@ -42,7 +42,7 @@ def test_list_intents_via_lindig():
     intents_true = [bitarray(x) for x in intents_true]
 
     intents = mec.list_intents_via_Lindig(itemsets, attr_extents)
-    assert set(intents) == set(intents_true)
+    assert intents == intents_true
 
 def test_list_attribute_concepts():
     intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3},  {0, 1, 2, 3, 4}]
