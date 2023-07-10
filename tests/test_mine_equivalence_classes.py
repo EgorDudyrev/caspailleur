@@ -28,22 +28,21 @@ def test_list_intents_via_LCM():
     intents = mec.list_intents_via_LCM(itemsets)
     assert intents == intents_true
 
-def test_list_intents_via_Lindig():
-    itemsets, attr_extents = [bitarray('1001'), bitarray('1010'), bitarray('0110'), bitarray('0111')], [bitarray('1100'), bitarray('0011'), bitarray('0111'), bitarray('1001')] 
+def test_list_intents_via_lindig():
+    K = np.array([
+    [True, False, False, True],
+    [True, False, True, False],
+    [False, True, True, False],
+    [False, True, True, True]])
 
-    list_data_intents_true = [[],
-    [bitarray('1001')],
-    [bitarray('1010')],
-    [bitarray('0111')],
-    [bitarray('1001'), bitarray('1010')],
-    [bitarray('1010'), bitarray('0110'), bitarray('0111')],
-    [bitarray('1001'), bitarray('0111')],
-    [bitarray('1001'), bitarray('1010'), bitarray('0110'), bitarray('0111')],
-    [bitarray('0110'), bitarray('0111')]]
+    itemsets = bfunc.np2bas(K)
+    attr_extents = bfunc.np2bas(K.T)
+    intents_true = ['1111', '1001', '1010', '0111', '1000', '0010', '0001', '0000', '0110']
+ 
+    intents_true = [bitarray(x) for x in intents_true]
 
-    list_data_intents = mec.list_intents_via_Lindig(itemsets, attr_extents)
-
-    assert list_data_intents == list_data_intents_true
+    intents = mec.list_intents_via_Lindig(itemsets, attr_extents)
+    assert set(intents) == set(intents_true)
 
 def test_list_attribute_concepts():
     intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3},  {0, 1, 2, 3, 4}]
