@@ -114,6 +114,10 @@ def delta_stability_index(extents: List[fbarray]) -> Iterator[int]:
     assert test_topologically_sorted(extents)
 
     for i, extent in enumerate(extents):
+        if i == 0:
+            yield extent.count()
+            continue
+            
         for smaller_extent in extents[i-1::-1]:
             if smaller_extent & extent != smaller_extent:
                 continue
