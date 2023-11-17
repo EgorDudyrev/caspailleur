@@ -75,6 +75,8 @@ def sort_intents_inclusion(intents: List[fbarray], use_tqdm=False, return_transi
         children = bitarray(zero_intents)
         for new_m in (all_attrs & ~intent).itersearch(True):
             meet_idx = (common_descendants & attrs_descendants[new_m]).find(True)
+            if meet_idx == -1:  # no meet found
+                continue
             children[meet_idx] = True
 
         trans_children = bitarray(zero_intents)
