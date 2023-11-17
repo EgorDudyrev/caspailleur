@@ -8,7 +8,7 @@ from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
 from collections import deque
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1, n_jobs: int = 1) -> List[fbarray]:

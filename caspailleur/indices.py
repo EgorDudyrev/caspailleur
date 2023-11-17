@@ -1,7 +1,7 @@
 from typing import List, Iterator
 from collections import deque
 from bitarray import frozenbitarray as fbarray
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from caspailleur.order import test_topologically_sorted
 
