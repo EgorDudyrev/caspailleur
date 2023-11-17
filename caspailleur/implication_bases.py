@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple, Iterator, Iterable
 from bitarray import frozenbitarray as fbarray, bitarray
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from caspailleur.order import test_topologically_sorted
 
 

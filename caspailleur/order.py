@@ -1,7 +1,7 @@
 from typing import List
 from bitarray import bitarray, frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 def topological_sorting(elements: List[fbarray]) -> (List[fbarray], List[int]):
