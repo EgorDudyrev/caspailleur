@@ -1,5 +1,5 @@
 from itertools import chain, combinations
-from typing import Iterable, Iterator, List, FrozenSet, BinaryIO
+from typing import Iterable, Iterator, List, FrozenSet, BinaryIO, Union
 import numpy.typing as npt
 
 import numpy as np
@@ -21,12 +21,12 @@ def powerset(iterable: Iterable[int]) -> Iterable[FrozenSet[int]]:
     return map(frozenset, chain.from_iterable(combinations(s, r) for r in range(len(s)+1)))
 
 
-def is_subset_of(A: FrozenSet[int] or fbarray, B: FrozenSet[int] or fbarray) -> bool:
+def is_subset_of(A: Union[FrozenSet[int], fbarray], B: Union[FrozenSet[int], fbarray]) -> bool:
     """Test whether `A` is a subset of `B`"""
     return A & B == A
 
 
-def is_psubset_of(A: FrozenSet[int] or fbarray, B: FrozenSet[int] or fbarray) -> bool:
+def is_psubset_of(A: Union[FrozenSet[int], fbarray], B: Union[FrozenSet[int], fbarray]) -> bool:
     """Test whether `A` is a proper subset of `B`"""
     return (A & B == A) and A != B
 
