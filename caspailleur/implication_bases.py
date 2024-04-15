@@ -48,7 +48,7 @@ def saturate(premise: fbarray, impls: List[Tuple[fbarray, int]], intents: List[f
     return fbarray(new_closure)
 
 
-def test_if_proper_premise_via_keys(
+def verify_proper_premise_via_keys(
         key: fbarray, intent_idx: int, intents: List[fbarray], keys_prevsize: Dict[fbarray, int]
 ) -> bool:
     """Test if `key` is a proper premise given dict of keys of smaller size
@@ -109,7 +109,7 @@ def iter_proper_premises_via_keys(intents: List[fbarray], keys_to_intents: Dict[
     """
     return (
         (key, intent_idx) for key, intent_idx in keys_to_intents.items()
-        if test_if_proper_premise_via_keys(key, intent_idx, intents, keys_to_intents)
+        if verify_proper_premise_via_keys(key, intent_idx, intents, keys_to_intents)
     )
 
 
