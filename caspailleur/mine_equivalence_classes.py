@@ -1,7 +1,7 @@
 from typing import List, Dict, Iterator, Iterable
 
 from .order import topological_sorting
-from .base_functions import isets2bas, bas2isets
+from .io import isets2bas, bas2isets
 from .indices import delta_stability_index
 
 from skmine.itemsets import LCM

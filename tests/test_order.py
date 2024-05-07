@@ -1,11 +1,12 @@
 import pytest
 
-from caspailleur import order, base_functions as bfunc
+from caspailleur import order
+from caspailleur import io
 
 
 def test_topological_sorting():
     elements = [frozenset(x) for x in [[], [1], [2], [0, 1], [0, 1, 2]]]
-    elements_ba = list(bfunc.isets2bas(elements, 5))
+    elements_ba = list(io.isets2bas(elements, 5))
     assert order.topological_sorting(elements_ba) == (elements_ba, [0, 1, 2, 3, 4])
 
     idxs_unordered = [1, 0, 3, 2, 4]
@@ -18,8 +19,8 @@ def test_inverse_order():
     inclusion_order = [set(), {0}, {1}, {0}, {2, 3}]
     subsumption_order_true = [{1, 3}, {2}, {4}, {4}, set()]
 
-    inclusion_order_ba = list(bfunc.isets2bas(inclusion_order, 5))
-    subsumption_order_true_ba = list(bfunc.isets2bas(subsumption_order_true, 5))
+    inclusion_order_ba = list(io.isets2bas(inclusion_order, 5))
+    subsumption_order_true_ba = list(io.isets2bas(subsumption_order_true, 5))
 
     assert order.inverse_order(inclusion_order_ba) == subsumption_order_true_ba
     assert order.inverse_order(order.inverse_order(inclusion_order_ba)) == inclusion_order_ba
@@ -27,10 +28,10 @@ def test_inverse_order():
 
 def test_sort_intents_by_inclusion():
     elements = [set(), {1}, {2}, {0, 1}, {0, 1, 2}]
-    elements_ba = list(bfunc.isets2bas(elements, 3))
+    elements_ba = list(io.isets2bas(elements, 3))
 
     inclusion_order_true = [{1, 2}, {3}, {4}, {4}, set()]
-    inclusion_order_true_ba = list(bfunc.isets2bas(inclusion_order_true, 5))
+    inclusion_order_true_ba = list(io.isets2bas(inclusion_order_true, 5))
 
     inclusion_order = order.sort_intents_inclusion(elements_ba)
     assert inclusion_order == inclusion_order_true_ba
@@ -44,9 +45,9 @@ def test_transitive_subsumption():
     transitive_order_true = [set(), {0}, {0}, {0, 1}, {0, 1, 2, 3}]
     semitransitive_order_true = [set(), {0}, {0}, {0, 1}, {0, 2, 3}]
 
-    subsumption_order_true = list(bfunc.isets2bas(subsumption_order_true, 5))
-    transitive_order_true = list(bfunc.isets2bas(transitive_order_true, 5))
-    semitransitive_order_true = list(bfunc.isets2bas(semitransitive_order_true, 5))
+    subsumption_order_true = list(io.isets2bas(subsumption_order_true, 5))
+    transitive_order_true = list(io.isets2bas(transitive_order_true, 5))
+    semitransitive_order_true = list(io.isets2bas(semitransitive_order_true, 5))
 
     assert order.close_transitive_subsumption(subsumption_order_true) == transitive_order_true
     assert order.open_transitive_subsumption(transitive_order_true) == subsumption_order_true

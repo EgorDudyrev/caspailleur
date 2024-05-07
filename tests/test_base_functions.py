@@ -1,7 +1,3 @@
-from bitarray import frozenbitarray as fbarray
-import numpy as np
-import os
-
 from caspailleur import base_functions as bfunc
 
 
@@ -42,47 +38,3 @@ def test_closure():
     assert list(bfunc.closure([0, 1], crosses_per_columns)) == [0, 1, 3]
     assert list(bfunc.closure([1, 2], crosses_per_columns)) == [1, 2, 3]
     assert list(bfunc.closure([], crosses_per_columns)) == [3]
-
-
-def test_np_ba_conversions():
-    X = np.array([[True, True, False], [False, False, True]])
-    bars_true = [fbarray(x) for x in X.tolist()]
-    bars = bfunc.np2bas(X)
-    assert bars == bars_true
-
-    X_reconstr = bfunc.bas2np(bars)
-    assert (X == X_reconstr).all()
-
-    attr_exts_true = [fbarray([True, False]), fbarray([True, False]), fbarray([False, True])]
-    assert bfunc.np2bas(X.T) == attr_exts_true
-
-
-def test_iset_ba_conversions():
-    iset, l = {0, 1}, 5
-    ba = fbarray([True, True, False, False, False])
-
-    assert list(bfunc.isets2bas([iset], l)) == [ba]
-    assert list(bfunc.bas2isets([ba])) == [iset]
-    assert list(bfunc.bas2isets(bfunc.isets2bas([iset], l))) == [iset]
-
-
-def test_conversion_pipeline():
-    X = np.array([[True, True, False], [False, False, True]])
-    itemsets_true = [{0, 1}, {2}]
-    itemsets = list(bfunc.bas2isets(bfunc.np2bas(X)))
-    assert itemsets == itemsets_true
-
-    X_reconstr = bfunc.bas2np(bfunc.isets2bas(itemsets, 3))
-    assert (X == X_reconstr).all()
-
-
-def test_save_load_barrays():
-    bitarrays = [fbarray([True, False]), fbarray([True, False]), fbarray([False, True])]
-    with open('tst.bal', 'wb') as file:
-        bfunc.save_balist(file, bitarrays)
-    with open('tst.bal', 'rb') as file:
-        bitarrays_load = list(bfunc.load_balist(file))
-
-    os.remove('tst.bal')
-
-    assert bitarrays_load == bitarrays

@@ -2,7 +2,7 @@ import numpy as np
 
 from caspailleur.orchestrator import explore_data
 from caspailleur.indices import linearity_index, distributivity_index
-from caspailleur.base_functions import isets2bas
+from caspailleur.io import isets2bas
 
 
 def test_explore_data():
