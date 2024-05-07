@@ -1,11 +1,14 @@
 from typing import List, Dict, Tuple, Iterator, Iterable
 from bitarray import frozenbitarray as fbarray, bitarray
+from bitarray.util import subset
 from tqdm.auto import tqdm
 from caspailleur.order import test_topologically_sorted
 
 
-def saturate(premise: fbarray, impls: List[Tuple[fbarray, int]], intents: List[fbarray]) -> fbarray:
-    """Extend `premise` with implications from `impl` and intents `intents`
+def saturate_bruteforce(
+        premise: fbarray, impls: List[Tuple[fbarray, int]], intents: List[fbarray]
+) -> fbarray:
+    """Extend `premise` with implications from `impl` and intents `intents` in the slow bruteforce manner
 
     Parameters
     ----------
@@ -48,7 +51,58 @@ def saturate(premise: fbarray, impls: List[Tuple[fbarray, int]], intents: List[f
     return fbarray(new_closure)
 
 
-def test_if_proper_premise_via_keys(
+def saturate(
+        premise: fbarray, impls: List[Tuple[fbarray, int]], intents: List[fbarray],
+        flg_increasing_intents: bool = False
+) -> fbarray:
+    """Extend `premise` with implications from `impl` and intents `intents`
+
+    Parameters
+    ----------
+    premise: frozenbitarray
+        bitarray to saturate with implications (`impls`) and intents
+    impls:
+        List of implications to saturate with. Each implication is a pair of a bitarray and an intent index.
+        Intent serves as the conclusion of each implication.
+    intents: List[frozenbitarray]
+        List of intents
+    flg_increasing_intents: bool
+        Flag whether intents are known to be placed in increasing order
+        (i.e. first intent is the minimal top intent, the last intent is the maximal bottom one)
+
+    Returns
+    -------
+    saturated_premise: frozenbitarray
+        `Premise` saturated with implications and intents
+
+
+    Examples
+    --------
+    intents = [ bitarray('0000'), bitarray('0110'), bitarray('1111') ]
+    impls = [ (bitarray('0100'), 1),  (bitarray('0001'), 2) ]
+
+    Then premise '0101' contains the left part of the first implication, so it should be extended by intent #1: '0111'.
+    New premise '0111' contains the left part of the second implication, so it should be extended by intent #2: '1111'.
+
+    saturate( bitarray('0101'), impls, intents ) --> bitarray('0101') | intents[1] | intents[2] = bitarray('1111')
+    """
+    if not flg_increasing_intents:
+        assert test_topologically_sorted(intents), "For the function to work properly, " \
+                                                   "`intents` should be ordered from the smallest to the biggest one"
+
+    impls = sorted(impls, key=lambda impl: impl[1])
+    new_closure = bitarray(premise)
+
+    for premise, intent_i in impls:
+        if subset(intents[intent_i], new_closure):
+            continue
+
+        if subset(premise, new_closure):
+            new_closure |= intents[intent_i]
+    return fbarray(new_closure)
+
+
+def verify_proper_premise_via_keys(
         key: fbarray, intent_idx: int, intents: List[fbarray], keys_prevsize: Dict[fbarray, int]
 ) -> bool:
     """Test if `key` is a proper premise given dict of keys of smaller size
@@ -109,7 +163,7 @@ def iter_proper_premises_via_keys(intents: List[fbarray], keys_to_intents: Dict[
     """
     return (
         (key, intent_idx) for key, intent_idx in keys_to_intents.items()
-        if test_if_proper_premise_via_keys(key, intent_idx, intents, keys_to_intents)
+        if verify_proper_premise_via_keys(key, intent_idx, intents, keys_to_intents)
     )
 
 
