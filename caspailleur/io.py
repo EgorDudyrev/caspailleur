@@ -1,8 +1,27 @@
+from dataclasses import dataclass
 from typing import Iterable, Iterator, List, FrozenSet, BinaryIO
 import numpy.typing as npt
 import numpy as np
+import pandas as pd
+from functools import reduce
+
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import zeros as bazeros
+
+
+ContextType = pd.DataFrame | dict[str, frozenset[str]] | list[set[int]] | list[list[bool]] | list[fbarray]
+
+@dataclass
+class UnknownContextTypeError(TypeError):
+    submitted_type: type
+
+    def __str__(self) -> str:
+        return f"Received context is of unknown type: {self.submitted_type}." \
+                "Supported types are: pd.DataFrame (with bool values), " \
+                    "dictionary with object names as keys and object descriptions as values, " \
+                    "list of sets of indices of True-valued columns (so, list of itemsets) " \
+                    "list of lists of bool values for every pair of object-attribute " \
+                    "list of bitarrays representing objects' descriptions." 
 
 
 
@@ -43,6 +62,60 @@ def bas2isets(bitarrays: Iterable[fbarray]) -> Iterator[FrozenSet[int]]:
     for bar in bitarrays:
         yield frozenset(bar.itersearch(True))
 
+
+def to_itemsets(data: ContextType) -> tuple[list[frozenset[int]], list[str], list[str]]:
+    if len(data) == 0:
+        return [], [], []
+    
+    if isinstance(data, pd.DataFrame):
+        return list(bas2isets(np2bas(data.values))), list(map(str, data.index)), list(map(str, data.columns))
+    
+    if isinstance(data, dict):
+        objects = sorted(data.keys())
+        attributes = sorted(reduce(set.union, data.values(), set()))
+        attrs_idx_map = {attr: attr_i for attr_i, attr in enumerate(attributes)}
+    
+        itemsets = [[attrs_idx_map[attr] for attr in data[obj]] for obj in objects]
+        return list(map(frozenset, itemsets)), list(map(str, objects)), list(map(str, attributes))
+    
+    if isinstance(data, list):
+        objects = [f'object_{i}' for i in range(len(data))]        
+        
+        if data[0] and (isinstance(data[0][0], bool) or isinstance(data[0], bitarray)):
+            attributes = [f'attribute_{j}' for j in range(len(data[0]))]
+            itemsets = list(bas2isets(map(bitarray, data)))
+            return itemsets, objects, attributes
+        
+        # if data is given by a list of itemsets
+        attributes = sorted(reduce(set.union, data, set()))
+        attrs_idx_map = {attr: attr_i for attr_i, attr in enumerate(attributes)}
+        itemsets = [[attrs_idx_map[attr] for attr in row] for row in data]
+        
+        if not isinstance(attributes[0], str):
+            attributes = [f'attribute_{j}' for j in range(len(attributes))]
+
+        return list(map(frozenset, itemsets)), list(map(str, objects)), list(map(str, attributes))
+
+    raise UnknownContextTypeError(type(data))
+
+
+def to_dictionary(data: ContextType) -> dict[str, frozenset[str]]:
+    itemsets, objects, attributes = to_itemsets(data)
+    return {obj: frozenset([attributes[attr_i] for attr_i in itemset]) for obj, itemset in zip(objects, itemsets)}
+
+
+def to_bitarrays(data: ContextType) -> tuple[list[fbarray], list[str], list[str]]:
+    itemsets, objects, attributes = to_itemsets(data)
+    return list(isets2bas(itemsets, len(attributes))), objects, attributes
+    
+
+def to_pandas(data: ContextType) -> pd.DataFrame:
+    itemsets, objects, attributes = to_itemsets(data)
+    df = pd.DataFrame(False, index=objects, columns=attributes).fillna(False)
+    for obj_i, itemset in enumerate(itemsets):
+        df.iloc[obj_i, list(itemset)] = True
+    return df
+    
 
 ###########################
 # Save and load functions #
