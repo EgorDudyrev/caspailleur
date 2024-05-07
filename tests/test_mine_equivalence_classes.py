@@ -28,6 +28,7 @@ def test_list_intents_via_LCM():
     intents = mec.list_intents_via_LCM(itemsets)
     assert intents == intents_true
 
+
 def test_list_intents_via_lindig():
     K = np.array([
     [True, False, False, True],
@@ -43,6 +44,7 @@ def test_list_intents_via_lindig():
 
     intents = mec.list_intents_via_Lindig(itemsets, attr_extents)
     assert intents == intents_true
+
 
 def test_list_attribute_concepts():
     intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3},  {0, 1, 2, 3, 4}]
