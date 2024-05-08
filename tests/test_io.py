@@ -76,7 +76,7 @@ def test_to_itemsets():
     assert objects == objects_true
     assert attributes == attributes_true
 
-    itsets = [[0, 1], [2]]
+    itsets = [{0, 1}, {2}]
     itemsets, objects, attributes = io.to_itemsets(itsets)
     assert itemsets == itemsets_true
     assert objects == objects_true
@@ -104,7 +104,7 @@ def test_to_dictionary():
     dct = io.to_dictionary(bools)
     assert dct == dct_true
 
-    itsets = [[0, 1], [2]]
+    itsets = [{0, 1}, {2}]
     dct = io.to_dictionary(itsets)
     assert dct == dct_true
 
@@ -139,7 +139,7 @@ def test_to_bitarrays():
     assert objects == objects_true
     assert attributes == attributes_true
 
-    itsets = [[0, 1], [2]]
+    itsets = [{0, 1}, {2}]
     bas, objects, attributes = io.to_bitarrays(itsets)
     assert bas == bas_true
     assert objects == objects_true
@@ -168,7 +168,7 @@ def test_to_pandas():
     df = io.to_pandas(bools)
     assert (df == df_true).all(None)
 
-    itsets = [[0, 1], [2]]
+    itsets = [{0, 1}, {2}]
     df = io.to_pandas(itsets)
     assert (df == df_true).all(None)
 
@@ -177,3 +177,34 @@ def test_to_pandas():
 
 
     assert (io.to_pandas([]) == pd.DataFrame()).all(None)
+
+
+def test_transpose_context():
+    df = pd.DataFrame(
+        [[True, True, False], [False, False, True]],
+        index=['object_0', 'object_1'], columns=['attribute_0', 'attribute_1', 'attribute_2'])
+    df_transposed_true = pd.DataFrame(
+        [[True, False], [True, False], [False, True]],
+        index=['attribute_0', 'attribute_1', 'attribute_2'], columns=['object_0', 'object_1']
+    )
+    df_transposed = io.transpose_context(df)
+    assert (df_transposed == df_transposed_true).all(None)
+    assert (io.transpose_context(io.transpose_context(df)) == df).all(None)
+
+    dct = {'object_0': {'attribute_0', 'attribute_1'}, 'object_1': {'attribute_2'}}    
+    dct_transposed_true = {'attribute_0': {'object_0'}, 'attribute_1': {'object_0'}, 'attribute_2': {'object_1'}}
+    dct_transposed = io.transpose_context(dct)
+    assert dct_transposed == dct_transposed_true
+    assert io.transpose_context(io.transpose_context(dct)) == dct
+
+    bools = [[True, True, False], [False, False, True]]
+    bools_transposed_true = [[True, False], [True, False], [False, True]]
+    bools_transposed = io.transpose_context(bools)
+    assert bools_transposed == bools_transposed_true
+    assert io.transpose_context(io.transpose_context(bools)) == bools
+
+    itsets = [{0, 1}, {2}]
+    itsets_transposed_true = [{0}, {0}, {1}]
+    itsets_transposed = io.transpose_context(itsets)
+    assert itsets_transposed == itsets_transposed_true
+    assert io.transpose_context(io.transpose_context(itsets)) == itsets

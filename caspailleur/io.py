@@ -81,7 +81,9 @@ def to_itemsets(data: ContextType) -> tuple[list[frozenset[int]], list[str], lis
     if isinstance(data, list):
         objects = [f'object_{i}' for i in range(len(data))]        
         
-        if data[0] and (isinstance(data[0][0], bool) or isinstance(data[0], bitarray)):
+        is_bitarray = data[0] and isinstance(data[0], bitarray)
+        is_bool_list = data[0] and isinstance(data[0], (list, tuple)) and isinstance(data[0][0], bool)
+        if is_bitarray or is_bool_list:
             attributes = [f'attribute_{j}' for j in range(len(data[0]))]
             itemsets = list(bas2isets(map(bitarray, data)))
             return itemsets, objects, attributes
@@ -115,6 +117,56 @@ def to_pandas(data: ContextType) -> pd.DataFrame:
     for obj_i, itemset in enumerate(itemsets):
         df.iloc[obj_i, list(itemset)] = True
     return df
+    
+
+def transpose_context(data: ContextType) -> ContextType:
+    if len(data) == 0:
+        return data
+    
+    if isinstance(data, pd.DataFrame):
+        return data.T
+    
+    if isinstance(data, dict):
+        transposed = {}
+        for obj, description in data.items():
+            for attr in description:
+                if attr not in transposed:
+                    transposed[attr] = []
+                transposed[attr].append(obj)
+        return {k: frozenset(v) for k, v in transposed.items()}
+    
+    if isinstance(data, list):
+        n_objs = len(data)
+        if data[0] and isinstance(data[0], bitarray):
+            n_attrs = len(data[0])
+            transposed = [bazeros(n_objs) for _ in range(n_attrs)]
+            for obj_i, ba in enumerate(data):
+                for attr_i in ba.itersearch(True):
+                    transposed[attr_i][obj_i] = True
+            return list(map(fbarray, transposed))
+
+        if data[0] and isinstance(data[0], (list, tuple)) and isinstance(data[0][0], bool):
+            n_attrs = len(data[0])
+            transposed = [[False]*n_objs for _ in range(n_attrs)]
+            for obj_i, bools in enumerate(data):
+                for attr_i, b in enumerate(bools):
+                    if b:
+                        transposed[attr_i][obj_i] = True
+            return transposed
+        
+        # if data is given by a list of itemsets
+        attributes = sorted(reduce(set.union, data, set()))
+        attrs_idx_map = {attr: attr_i for attr_i, attr in enumerate(attributes)}
+
+        transposed = [[] for _ in range(len(attributes))]
+        for obj_i, itemset in enumerate(data):
+            for attr in itemset:
+                attr_i = attrs_idx_map[attr]
+                transposed[attr_i].append(obj_i)
+        return list(map(frozenset, transposed))
+
+    raise UnknownContextTypeError(type(data))
+
     
 
 ###########################
