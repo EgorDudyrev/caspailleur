@@ -2,18 +2,20 @@
 from typing import Iterator
 import pandas as pd
 
-from .base_functions import powerset
-from .io import ContextType, to_itemsets, to_pandas
+from .base_functions import powerset, extension
+from .io import ContextType, to_itemsets, transpose_context
 
 
 def iter_descriptions(data: ContextType) -> Iterator[dict]:
-    df = to_pandas(data)
-    for description in powerset(df.columns):
-        extent = set(df.index[df[list(description)].all(1)].to_list()) if description else set(df.index.to_list())
+    itemsets, objects, attributes = to_itemsets(data)
+    attr_extents = transpose_context(itemsets)
+    
+    for description_idxs in powerset(range(len(attributes))):
+        extent_idxs = extension(description_idxs, attr_extents)
         yield {
-            'description': set(description), 
-            'extent': extent,
-            'support': len(extent)
+            'description': {attributes[attr_i] for attr_i in description_idxs}, 
+            'extent': {objects[obj_i] for obj_i in extent_idxs},
+            'support': len(extent_idxs)
         }
 
 
