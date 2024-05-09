@@ -1,10 +1,52 @@
-from typing import List, Iterator
+from functools import reduce
+from typing import List, Iterator, Iterable
 from collections import deque
-from bitarray import frozenbitarray as fbarray
+from bitarray import frozenbitarray as fbarray, bitarray
 from tqdm.auto import tqdm
 
 from caspailleur.order import test_topologically_sorted
 
+
+############################
+# Indices for descriptions #
+############################
+def delta_stability_by_extents(extents: List[fbarray]) -> Iterator[int]:
+    """Compute the delta stability index: the difference in supports of an extent and its maximal smaller neighbour"""
+    assert test_topologically_sorted(extents)
+
+    for i, extent in enumerate(extents):
+        if i == 0:
+            yield extent.count()
+            continue
+
+        for smaller_extent in extents[i - 1::-1]:
+            if smaller_extent & extent != smaller_extent:
+                continue
+
+            yield (extent & ~smaller_extent).count()
+            break
+        else:  # no break, i.e. no child extent found
+            yield extent.count()
+
+
+def delta_stability_by_description(
+        description: Iterable[int] | bitarray, crosses_per_columns: list[fbarray], extent: fbarray = None
+) -> int:
+    description = set(description.itersearch(True)) if isinstance(description, bitarray) else set(description)
+
+    if extent is None:
+        top_extent = crosses_per_columns[0] | (~crosses_per_columns[0])
+        extent = reduce(bitarray.__and__, (crosses_per_columns[m_i] for m_i in description), top_extent)
+
+    out_attrs = ((m_i, m_ext) for m_i, m_ext in enumerate(crosses_per_columns) if m_i not in description)
+    max_sub_support = max((extent & m_ext).count() for m_i, m_ext in out_attrs)
+    delta_stab = extent.count() - max_sub_support
+    return delta_stab
+
+
+##############################
+# Lattice complexity indices #
+##############################
 
 def linearity_index(n_trans_parents: int, n_elements: int, include_top_bottom: bool = True) -> float:
     """Compute linearity index: the percentage of comparable pairs of elements
@@ -107,22 +149,3 @@ def distributivity_index(
         raise ValueError('Distributivity index is computed in a wrong way (There should be problem with the code)')
 
     return n_distr / n_pairs if n_pairs else 0
-
-
-def delta_stability_index(extents: List[fbarray]) -> Iterator[int]:
-    """Compute the delta stability index: the difference in supports of an extent and its maximal smaller neighbour"""
-    assert test_topologically_sorted(extents)
-
-    for i, extent in enumerate(extents):
-        if i == 0:
-            yield extent.count()
-            continue
-            
-        for smaller_extent in extents[i-1::-1]:
-            if smaller_extent & extent != smaller_extent:
-                continue
-
-            yield (extent & ~smaller_extent).count()
-            break
-        else:  # no break, i.e. no child extent found
-            yield extent.count()

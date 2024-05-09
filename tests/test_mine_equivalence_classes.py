@@ -8,6 +8,7 @@ from bitarray import frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
 from bitarray import bitarray
 
+
 def test_list_intents_via_LCM():
     itemsets = [
         {0, 3},

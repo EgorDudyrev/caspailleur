@@ -27,6 +27,6 @@ def test_mine_descriptions():
         'description': [set(), {'a'}, {'b'}, {'c'}, {'a', 'b'}, {'a','c'}, {'b','c'}, {'a','b','c'}],
         'extent': [{'g1','g2'}, {'g1'}, {'g1','g2'}, {'g2'}, {'g1'}, set(), {'g2'}, set()],
         'support': [2, 1, 2, 1, 1, 0, 1, 0],
-    }).set_index('description')
+    })
     descriptions_data = api.mine_descriptions(data)
     assert (descriptions_data == descriptions_data_true).all(None)
