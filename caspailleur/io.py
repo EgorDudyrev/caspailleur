@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, Iterator, List, FrozenSet, BinaryIO
+from typing import Iterable, Iterator, List, FrozenSet, BinaryIO, Generator
 import numpy.typing as npt
 import numpy as np
 import pandas as pd
@@ -167,7 +167,16 @@ def transpose_context(data: ContextType) -> ContextType:
 
     raise UnknownContextTypeError(type(data))
 
-    
+
+def verbalise(description: bitarray | Iterable[int], names: list[str]) -> Iterable[str]:
+    if isinstance(description, bitarray):
+        return {names[i] for i in description.itersearch(True)}
+
+    if isinstance(description, Generator):
+        return (names[i] for i in description)
+
+    return type(description)([names[i] for i in description])
+
 
 ###########################
 # Save and load functions #
