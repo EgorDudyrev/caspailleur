@@ -1,8 +1,8 @@
+from functools import reduce
 from itertools import chain, combinations
-from typing import Iterable, Iterator, List, FrozenSet, Union, Any
+from typing import Iterable, Iterator, List, FrozenSet, Union, Any, AbstractSet
 
-
-from bitarray import frozenbitarray as fbarray
+from bitarray import frozenbitarray as fbarray, bitarray
 
 
 ################
@@ -29,13 +29,26 @@ def is_psubset_of(A: Union[FrozenSet[int], fbarray], B: Union[FrozenSet[int], fb
     return (A & B == A) and A != B
 
 
-def extension(description: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> FrozenSet[int]:
+def maximal_description(crosses_per_columns: list[set] | list[bitarray]) -> set | bitarray:
+    first_column = crosses_per_columns[0]
+    if isinstance(first_column, bitarray):
+        return first_column | (~first_column)
+    if any(column and isinstance(next(iter(column)), int) for column in crosses_per_columns):
+        n_rows = max(max(column) for column in crosses_per_columns if column) + 1
+        return type(first_column)(range(n_rows))
+
+    all_attrs = reduce(first_column.__or__ , crosses_per_columns)
+    return type(first_column)(all_attrs)
+
+
+def extension(description: Iterable[int] | bitarray, crosses_per_columns: list[set] | list[bitarray]) -> set | bitarray:
     """Select the indices of rows described by `description`"""
-    n_rows = max(max(col) + 1 for col in crosses_per_columns if col)
-    extent = set(range(n_rows))
-    for m in description:
-        extent &= crosses_per_columns[m]
-    return frozenset(extent)
+    column_type = type(crosses_per_columns[0])
+    description = description.itersearch(True) if isinstance(description, bitarray) else description
+
+    total_extent = column_type(maximal_description(crosses_per_columns))
+    extent = reduce(column_type.__and__, (crosses_per_columns[attr_i] for attr_i in description), total_extent)
+    return extent
 
 
 def intention(objects: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> Iterator[int]:

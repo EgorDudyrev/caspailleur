@@ -5,6 +5,7 @@ from bitarray import frozenbitarray as fbarray, bitarray
 from tqdm.auto import tqdm
 
 from caspailleur.order import test_topologically_sorted
+from caspailleur.base_functions import extension
 
 
 ############################
@@ -34,14 +35,21 @@ def delta_stability_by_description(
 ) -> int:
     description = set(description.itersearch(True)) if isinstance(description, bitarray) else set(description)
 
-    if extent is None:
-        top_extent = crosses_per_columns[0] | (~crosses_per_columns[0])
-        extent = reduce(bitarray.__and__, (crosses_per_columns[m_i] for m_i in description), top_extent)
+    extent = extension(description, crosses_per_columns) if extent is None else extent
+    out_attrs = [(m_i, m_ext) for m_i, m_ext in enumerate(crosses_per_columns) if m_i not in description]
+    if not out_attrs:
+        return extent.count()
 
-    out_attrs = ((m_i, m_ext) for m_i, m_ext in enumerate(crosses_per_columns) if m_i not in description)
     max_sub_support = max((extent & m_ext).count() for m_i, m_ext in out_attrs)
     delta_stab = extent.count() - max_sub_support
     return delta_stab
+
+
+def support_by_description(
+        description: Iterable[int] | bitarray, crosses_per_columns: list[fbarray], extent: fbarray = None
+) -> int:
+    extent = extension(description, crosses_per_columns) if extent is None else extent
+    return extent.count()
 
 
 ##############################
