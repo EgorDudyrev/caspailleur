@@ -8,7 +8,7 @@ from bitarray import frozenbitarray as fbarray, bitarray
 ################
 # Math notions #
 ################
-def powerset(iterable: Iterable[Any]) -> Iterable[FrozenSet[Any]]:
+def powerset(iterable: Iterable[Any]) -> Iterable[frozenset[Any]]:
     """Iterate through all subsets of elements of set `iterable`
 
     Examples
@@ -19,12 +19,12 @@ def powerset(iterable: Iterable[Any]) -> Iterable[FrozenSet[Any]]:
     return map(frozenset, chain.from_iterable(combinations(s, r) for r in range(len(s)+1)))
 
 
-def is_subset_of(A: Union[FrozenSet[int], fbarray], B: Union[FrozenSet[int], fbarray]) -> bool:
+def is_subset_of(A: Union[set[int], fbarray], B: Union[set[int], fbarray]) -> bool:
     """Test whether `A` is a subset of `B`"""
     return A & B == A
 
 
-def is_psubset_of(A: Union[FrozenSet[int], fbarray], B: Union[FrozenSet[int], fbarray]) -> bool:
+def is_psubset_of(A: Union[set[int], fbarray], B: Union[set[int], fbarray]) -> bool:
     """Test whether `A` is a proper subset of `B`"""
     return (A & B == A) and A != B
 
@@ -41,7 +41,8 @@ def maximal_description(crosses_per_columns: list[set] | list[bitarray]) -> set 
     return type(first_column)(all_attrs)
 
 
-def extension(description: Iterable[int] | bitarray, crosses_per_columns: list[set] | list[bitarray]) -> set | bitarray:
+def extension(description: Iterable[int] | bitarray, crosses_per_columns: list[set] | list[bitarray])\
+        -> set[int] | bitarray:
     """Select the indices of rows described by `description`"""
     column_type = type(crosses_per_columns[0])
     description = description.itersearch(True) if isinstance(description, bitarray) else description
@@ -51,12 +52,12 @@ def extension(description: Iterable[int] | bitarray, crosses_per_columns: list[s
     return extent
 
 
-def intention(objects: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> Iterator[int]:
+def intention(objects: set[int], crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int]:
     """Iterate the indices of columns that describe the `objects`"""
     return (m for m, col in enumerate(crosses_per_columns) if is_subset_of(objects, col))
 
 
-def closure(description: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> Iterator[int]:
+def closure(description: Iterable[int], crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int]:
     """Iterate indices of all columns who describe the same rows as `description`
 
     Parameters
