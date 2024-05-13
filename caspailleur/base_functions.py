@@ -4,6 +4,8 @@ from typing import Iterable, Iterator, List, FrozenSet, Union, Any, AbstractSet
 
 from bitarray import frozenbitarray as fbarray, bitarray
 
+from . import io
+
 
 ################
 # Math notions #
@@ -52,12 +54,18 @@ def extension(description: Iterable[int] | bitarray, crosses_per_columns: list[s
     return extent
 
 
-def intention(objects: set[int], crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int]:
+def intention(objects: set[int] | bitarray, crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int] | bitarray:
     """Iterate the indices of columns that describe the `objects`"""
+    if isinstance(objects, bitarray):
+        return bitarray([is_subset_of(objects, col) for col in crosses_per_columns])
+
+    if isinstance(crosses_per_columns[0], bitarray) and not isinstance(objects, bitarray):
+        objects = next(io.isets2bas([objects], len(crosses_per_columns[0])))
+
     return (m for m, col in enumerate(crosses_per_columns) if is_subset_of(objects, col))
 
 
-def closure(description: Iterable[int], crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int]:
+def closure(description: Iterable[int] | bitarray, crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int] | bitarray:
     """Iterate indices of all columns who describe the same rows as `description`
 
     Parameters
@@ -73,4 +81,7 @@ def closure(description: Iterable[int], crosses_per_columns: list[set[int]] | li
         Indices of All columns with the same intersection as `D`
 
     """
-    return intention(extension(description, crosses_per_columns), crosses_per_columns)
+    result = intention(extension(description, crosses_per_columns), crosses_per_columns)
+    if not isinstance(description, bitarray) and isinstance(result, bitarray):
+        return (i for i in result.itersearch(True))
+    return result

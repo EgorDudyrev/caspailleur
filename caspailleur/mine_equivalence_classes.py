@@ -1,3 +1,4 @@
+from functools import reduce
 from typing import List, Dict, Iterator, Iterable
 
 from .order import topological_sorting
@@ -11,7 +12,7 @@ from collections import deque
 from tqdm.auto import tqdm
 
 
-def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1, n_jobs: int = 1) -> List[fbarray]:
+def list_intents_via_LCM(itemsets: List[fbarray], min_supp: int | float = 0, n_jobs: int = 1) -> List[fbarray]:
     """Get the list of intents by running LCM algorithm from scikit-mine
 
     Parameters
@@ -29,22 +30,20 @@ def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1, n_jobs: i
         THe found intents
 
     """
+    min_supp = int(min_supp * len(itemsets) if isinstance(min_supp, float) else min_supp)
     n_attrs = len(itemsets[0])
 
-    lcm = LCM(min_supp=min_supp, n_jobs=n_jobs)
+    lcm = LCM(min_supp=max(min_supp, 1), n_jobs=n_jobs)
     intents = lcm.fit_transform(list(bas2isets(itemsets)))['itemset']
     intents = list(isets2bas(intents, n_attrs))
     intents = topological_sorting(intents)[0]
 
-    biggest_intent = ~bazeros(n_attrs)
-    if intents[-1] != biggest_intent:
-        intents.append(fbarray(biggest_intent))
+    biggest_intent_support = sum(itemset.all() for itemset in itemsets)
+    if biggest_intent_support >= min_supp:
+        if not intents[-1].all():
+            intents.append(fbarray(~bazeros(n_attrs)))
 
-    smallest_intent = ~bazeros(n_attrs)
-    for itset in itemsets:
-        smallest_intent &= itset
-        if not smallest_intent.any():
-            break
+    smallest_intent = reduce(bitarray.__and__, itemsets, ~bazeros(n_attrs))
     if intents[0] != smallest_intent:
         intents.insert(0, fbarray(smallest_intent))
     return intents

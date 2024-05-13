@@ -22,6 +22,11 @@ def test_list_intents_via_LCM():
     intents = mec.list_intents_via_LCM(list(io.isets2bas(itemsets, 5)))
     assert intents == intents_true
 
+    freq_intents = mec.list_intents_via_LCM(list(io.isets2bas(itemsets, 5)), min_supp=2)
+    freq_intents_true = list(io.isets2bas([set(), {0}, {2}, {3}, {1, 2}], 5))
+    assert freq_intents == freq_intents_true
+    assert mec.list_intents_via_LCM(list(io.isets2bas(itemsets, 5)), min_supp=0.5) == freq_intents_true
+
     K = np.array([[True, False, False, False, False, True], [False, True, False, False, False, False]])
     itemsets = io.np2bas(K)
     intents_true = list(io.isets2bas([set(), {1}, {0, 5}, {0, 1, 2, 3, 4, 5}], 6))

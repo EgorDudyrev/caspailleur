@@ -178,6 +178,12 @@ def verbalise(description: bitarray | Iterable[int], names: list[str]) -> Iterab
     return type(description)([names[i] for i in description])
 
 
+def to_absolute_number(percentage: int | float, total_size: int) -> int:
+    if isinstance(percentage, int):
+        return percentage
+    return int(percentage * total_size)
+
+
 ###########################
 # Save and load functions #
 ###########################

@@ -4,7 +4,7 @@ from bitarray.util import zeros as bazeros
 from tqdm.auto import tqdm
 
 
-def topological_sorting(elements: List[fbarray]) -> (List[fbarray], List[int]):
+def topological_sorting(elements: list[fbarray]) -> tuple[list[fbarray], list[int]]:
     """Sort the list of `elements` by cardinality and lexicographical order
 
     In the output, the first element is the smallest one, the last one is the biggest

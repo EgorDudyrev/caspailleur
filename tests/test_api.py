@@ -3,6 +3,13 @@ import pandas as pd
 from caspailleur import api
 
 
+def assert_df_equality(df1: pd.DataFrame, df2: pd.DataFrame):
+    assert list(df1.index) == list(df2.index)
+    assert list(df1.columns) == list(df2.columns)
+    for f in df1:
+        assert list(df1[f]) == list(df2[f]), f"Problematic column: {f}"
+
+
 def test_mine_descriptions():
     data = {'g1': ['a', 'b'], 'g2': ['b', 'c']}
 
@@ -19,17 +26,32 @@ def test_mine_descriptions():
         'is_pseudo_intent': [True, False, False, False, False, False, False, False]
     })
     descriptions_data = api.mine_descriptions(data)
-    assert list(descriptions_data.index) == list(descriptions_data_true.index)
-    assert list(descriptions_data.columns) == list(descriptions_data_true.columns)
-    for f in descriptions_data:
-        assert (descriptions_data[f] == descriptions_data_true[f]).all(), f"Problematic column {f}"
+    assert_df_equality(descriptions_data, descriptions_data_true)
+
+    # test min_support threshold
+    for min_supp in [1, 2]:
+        freq_df_true = descriptions_data_true[descriptions_data_true['support'] >= min_supp].reset_index(drop=True)
+        freq_df = api.mine_descriptions(data, min_support=min_supp)
+        assert_df_equality(freq_df, freq_df_true)
+
+    for min_supp in [0.5, 1.0]:
+        freq_df_true = descriptions_data_true[descriptions_data_true['support']/len(data) >= min_supp].reset_index(drop=True)
+        freq_df = api.mine_descriptions(data, min_support=min_supp)
+        assert_df_equality(freq_df, freq_df_true)
+
+    # test n_most_stable threshold
+    delta_stab = descriptions_data_true['delta-stability']
+    stable_df_true = descriptions_data_true[delta_stab == delta_stab.max()].reset_index(drop=True)
+    stable_df_true = stable_df_true.drop(columns=['is_key', 'is_passkey', 'is_proper_premise', 'is_pseudo_intent'])
+    stable_df = api.mine_descriptions(data, n_most_stable=len(stable_df_true))
+    assert_df_equality(stable_df, stable_df_true)
 
 
 def test_iter_descriptions():
     data = {'g1': ['a', 'b'], 'g2': ['b', 'c']}
 
     descriptions_data = list(api.iter_descriptions(data))
-    assert (pd.DataFrame(descriptions_data) == api.mine_descriptions(data)).all(None)
+    assert_df_equality(pd.DataFrame(descriptions_data), api.mine_descriptions(data))
 
 
 def test_mine_concepts():
@@ -47,10 +69,7 @@ def test_mine_concepts():
     })
 
     concepts_df = api.mine_concepts(data)
-    assert list(concepts_df.index) == list(concepts_df_true.index)
-    assert list(concepts_df.columns) == list(concepts_df_true.columns)
-    for f in concepts_df:
-        assert (concepts_df[f] == concepts_df_true[f]).all(), f'Problematic column {f}'
+    assert_df_equality(concepts_df, concepts_df_true)
 
 
 def test_mine_implications():
@@ -65,13 +84,7 @@ def test_mine_implications():
     })
 
     impls_df = api.mine_implications(data, 'proper premise')
-    assert list(impls_df.index) == list(impls_df_true.index)
-    assert list(impls_df.columns) == list(impls_df_true.columns)
-    for f in impls_df:
-        assert (impls_df[f] == impls_df_true[f]).all(), f'Problematic column {f}'
+    assert_df_equality(impls_df, impls_df_true)
 
     impls_df = api.mine_implications(data, 'pseudo-intent')
-    assert list(impls_df.index) == list(impls_df_true.index)
-    assert list(impls_df.columns) == list(impls_df_true.columns)
-    for f in impls_df:
-        assert (impls_df[f] == impls_df_true[f]).all(), f'Problematic column {f}'
+    assert_df_equality(impls_df, impls_df_true)

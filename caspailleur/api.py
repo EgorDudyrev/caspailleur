@@ -1,11 +1,12 @@
 """Module with easy to use general functions for working with Caspailleur"""
+from operator import itemgetter
 from typing import Iterator, Iterable, Literal
 import pandas as pd
 from bitarray import frozenbitarray as fbarray
 
-import io
-from .base_functions import powerset, extension
-from .io import ContextType, to_bitarrays, transpose_context, isets2bas, verbalise
+from .base_functions import powerset, extension, intention
+from .io import ContextType, to_bitarrays, to_itemsets, transpose_context, isets2bas, verbalise, to_absolute_number
+from .order import topological_sorting
 from . import indices as idxs
 from . import definitions
 from . import mine_equivalence_classes as mec, implication_bases as ibases
@@ -36,34 +37,68 @@ def iter_descriptions(data: ContextType) -> Iterator[dict]:
             sub_pseudo_intents.append(description_idxs)
 
 
-def mine_descriptions(data: ContextType) -> pd.DataFrame:
+def mine_descriptions(
+        data: ContextType,
+        min_support: int | float = 0,
+        n_most_stable: int = None,
+) -> pd.DataFrame:
     bitarrays, objects, attributes = to_bitarrays(data)
+
+    n_objects = len(objects)
+    min_support = to_absolute_number(min_support, n_objects)
+
     attr_extents = transpose_context(bitarrays)
+    descriptions = None
+    if n_most_stable is None:
+        intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
+        extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
+        keys_ba = mec.list_keys(intents_ba)
+        passkeys_ba = mec.list_passkeys(intents_ba)
+        ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
+        pintents_ba = dict(ibases.list_pseudo_intents_via_keys(ppremises_ba.items(), intents_ba))
 
-    intents_ba = mec.list_intents_via_LCM(bitarrays)
-    extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
+    else:  # n_most_stable is defined
+        extents_ba = mec.list_stable_extents_via_sofia(
+            attr_extents, n_most_stable, min_supp=min_support,
+            use_tqdm=False, n_attributes=len(attributes)
+        )
+        intents_ba = [fbarray(intention(extent, attr_extents)) for extent in extents_ba]
+        intents_ba, old_new_id_map = topological_sorting(intents_ba)
+        extents_ba = list(map(itemgetter(1), sorted(zip(old_new_id_map, extents_ba), key=itemgetter(0))))
+        descriptions = to_itemsets(intents_ba)[0]
+
     ext_int_map = dict(zip(extents_ba, intents_ba))
-    keys_ba = mec.list_keys(intents_ba)
-    passkeys_ba = mec.list_passkeys(intents_ba)
-    ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
-    pintents_ba = dict(ibases.list_pseudo_intents_via_keys(ppremises_ba.items(), intents_ba))
 
-    descr_df = pd.DataFrame(index=pd.Series(list(map(set, powerset(range(len(attributes))))), name='description_idxs'))
+    descriptions = list(map(set, powerset(range(len(attributes))))) if descriptions is None else descriptions
+    descr_df = pd.DataFrame(index=pd.Series(descriptions, name='description_idxs'))
     descr_df['description'] = [set(verbalise(descr_idxs, attributes)) for descr_idxs in descr_df.index]
     descr_df['extent_ba'] = [extension(descr, attr_extents) for descr in descr_df.index]
+    descr_df['support'] = [idxs.support_by_description(..., ..., extent) for extent in descr_df['extent_ba']]
+    descr_df = descr_df[descr_df['support'] >= min_support]
+
     descr_df['extent'] = [set(verbalise(extent_ba, objects)) for extent_ba in descr_df['extent_ba']]
     descr_df['intent'] = [set(verbalise(ext_int_map[extent_ba], attributes)) for extent_ba in descr_df['extent_ba']]
-    descr_df['support'] = [idxs.support_by_description(..., ..., extent) for extent in descr_df['extent_ba']]
     descr_df['delta-stability'] = [idxs.delta_stability_by_description(descr, attr_extents, extent)
                                    for descr, extent in descr_df['extent_ba'].items()]
     descr_df['is_closed'] = descr_df['intent'] == descr_df['description']
     descr_df['descr_ba'] = list(isets2bas(descr_df.index, len(attributes)))
-    descr_df['is_key'] = [descr_ba in keys_ba for descr_ba in descr_df['descr_ba']]
-    descr_df['is_passkey'] = [descr_ba in passkeys_ba for descr_ba in descr_df['descr_ba']]
-    descr_df['is_proper_premise'] = [descr_ba in ppremises_ba for descr_ba in descr_df['descr_ba']]
-    descr_df['is_pseudo_intent'] = [descr_ba in pintents_ba for descr_ba in descr_df['descr_ba']]
 
-    descr_df = descr_df.drop(columns=['extent_ba', 'descr_ba']).reset_index(drop=True)
+    # TODO: Compute keys and passkeys for stable concepts
+    if n_most_stable is None:
+        descr_df['is_key'] = [descr_ba in keys_ba for descr_ba in descr_df['descr_ba']]
+        descr_df['is_passkey'] = [descr_ba in passkeys_ba for descr_ba in descr_df['descr_ba']]
+
+    if n_most_stable is None:  # otherwise, I do not know how to compute implication bases
+        descr_df['is_proper_premise'] = [descr_ba in ppremises_ba for descr_ba in descr_df['descr_ba']]
+        descr_df['is_pseudo_intent'] = [descr_ba in pintents_ba for descr_ba in descr_df['descr_ba']]
+
+    cols_order = [
+        'description', 'extent', 'intent',
+        'support', 'delta-stability',
+        'is_closed', 'is_key', 'is_passkey', 'is_proper_premise', 'is_pseudo_intent'
+    ]
+
+    descr_df = descr_df.reset_index(drop=True).reindex(columns=cols_order).dropna(axis='columns')
     return descr_df
 
 
