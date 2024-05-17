@@ -1,4 +1,5 @@
 """Module with easy to use general functions for working with Caspailleur"""
+import typing
 from operator import itemgetter
 from typing import Iterator, Iterable, Literal
 import pandas as pd
@@ -102,37 +103,76 @@ def mine_descriptions(
     return descr_df
 
 
-def mine_concepts(data: ContextType) -> pd.DataFrame:
+MINE_CONCEPTS_COLUMN = Literal[
+    "extent", "intent", "support", "delta-stability",
+    "keys", "passkeys", "proper_premises", "pseudo_intents"
+]
+
+
+def mine_concepts(
+        data: ContextType,
+        to_compute: list[MINE_CONCEPTS_COLUMN] | Literal['all'] | None = ('extent', 'intent', 'support', 'delta-stability', 'keys', 'passkeys', 'proper_premises'),
+        min_support: int | float = 0,
+        use_tqdm: bool = False,
+        return_all_computed: bool = False
+) -> pd.DataFrame:
     def group_by_concept(pairs: Iterable[tuple[fbarray, int]], n_cncpts: int, attrs: list[str]) -> list[list[set[str]]]:
         per_concept = [[] for _ in range(n_cncpts)]
         for ba, cncpt_i in pairs:
             per_concept[cncpt_i].append(verbalise(ba, attrs))
         return per_concept
 
+    all_cols = list(typing.get_args(MINE_CONCEPTS_COLUMN))
+    cols_to_compute = set(to_compute if to_compute and to_compute != 'all' else all_cols)
+    for step, dependencies in [
+        ('pseudo_intents', {'proper_premises', 'intent'}),
+        ('proper_premises', {'intent', 'keys'}),
+        ('passkeys', {'intent'}),
+        ('keys', {'intent'}),
+        ('delta-stability', {'intent', 'extent'}),
+        ('support', {'extent'}),
+        ('extent', {'intent'})
+    ]:
+        cols_to_compute.update(dependencies if step in cols_to_compute else [])
+
+    cols_to_return = all_cols
+    if to_compute and to_compute != 'all':
+        cols_to_return = sorted(cols_to_compute, key=all_cols.index) if return_all_computed else list(to_compute)
+
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
-    intents_ba = mec.list_intents_via_LCM(bitarrays)
-    extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
-    keys_ba = mec.list_keys(intents_ba)
-    passkeys_ba = mec.list_passkeys(intents_ba)
-    ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
-    pintents_ba = dict(ibases.list_pseudo_intents_via_keys(ppremises_ba.items(), intents_ba))
-
-    n_concepts = len(intents_ba)
+    n_objects = len(objects)
+    min_support = to_absolute_number(min_support, n_objects)
 
     concepts_df = pd.DataFrame()
-    concepts_df['extent'] = [verbalise(extent_ba, objects) for extent_ba in extents_ba]
-    concepts_df['intent'] = [verbalise(intent_ba, attributes) for intent_ba in intents_ba]
-    concepts_df['support'] = [idxs.support_by_description(..., ..., extent_ba) for extent_ba in extents_ba]
-    concepts_df['delta-stability'] = [idxs.delta_stability_by_description(descr, attr_extents, extent_ba)
-                                      for descr, extent_ba in zip(intents_ba, extents_ba)]
+    if 'intent' in cols_to_compute:
+        intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
+        concepts_df['intent'] = [verbalise(intent_ba, attributes) for intent_ba in intents_ba]
+        n_concepts = len(intents_ba)
+    if 'extent' in cols_to_compute:
+        extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
+        concepts_df['extent'] = [verbalise(extent_ba, objects) for extent_ba in extents_ba]
+    if 'support' in cols_to_compute:
+        concepts_df['support'] = [idxs.support_by_description(..., ..., extent_ba) for extent_ba in extents_ba]
+    if 'delta-stability' in cols_to_compute:
+        concepts_df['delta-stability'] = [idxs.delta_stability_by_description(descr, attr_extents, extent_ba)
+                                          for descr, extent_ba in zip(intents_ba, extents_ba)]
+    if 'keys' in cols_to_compute:
+        keys_ba = mec.list_keys(intents_ba)
+        concepts_df['keys'] = group_by_concept(keys_ba.items(), n_concepts, attributes)
+    if 'passkeys' in cols_to_compute:
+        passkeys_ba = mec.list_passkeys(intents_ba)
+        concepts_df['passkeys'] = group_by_concept(passkeys_ba.items(), n_concepts, attributes)
+    if 'proper_premises' in cols_to_compute:
+        ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
+        concepts_df['proper_premises'] = group_by_concept(ppremises_ba.items(), n_concepts, attributes)
+    if 'pseudo_intents' in cols_to_compute:
+        pintents_ba = dict(ibases.list_pseudo_intents_via_keys(
+            ppremises_ba.items(), intents_ba, use_tqdm=use_tqdm, n_keys=len(ppremises_ba)))
+        concepts_df['pseudo_intents'] = group_by_concept(pintents_ba.items(), n_concepts, attributes)
 
-    concepts_df['keys'] = group_by_concept(keys_ba.items(), n_concepts, attributes)
-    concepts_df['passkeys'] = group_by_concept(passkeys_ba.items(), n_concepts, attributes)
-    concepts_df['proper_premises'] = group_by_concept(ppremises_ba.items(), n_concepts, attributes)
-    concepts_df['pseudo_intents'] = group_by_concept(pintents_ba.items(), n_concepts, attributes)
-    return concepts_df
+    return concepts_df[cols_to_return]
 
 
 def mine_implications(data: ContextType, basis_name: Literal['proper premise', 'pseudo-intent'] = 'proper premise') -> pd.DataFrame:

@@ -68,7 +68,7 @@ def test_mine_concepts():
         'pseudo_intents': [[set()], [], [], []]
     })
 
-    concepts_df = api.mine_concepts(data)
+    concepts_df = api.mine_concepts(data, to_compute='all')
     assert_df_equality(concepts_df, concepts_df_true)
 
 

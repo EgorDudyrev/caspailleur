@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, Iterator, List, FrozenSet, BinaryIO, Generator
+from typing import Iterable, Iterator, List, FrozenSet, BinaryIO, Generator, Union
 import numpy.typing as npt
 import numpy as np
 import pandas as pd
@@ -9,7 +9,8 @@ from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import zeros as bazeros
 
 
-ContextType = pd.DataFrame | dict[str, frozenset[str]] | list[set[int]] | list[list[bool]] | list[fbarray]
+ContextType = Union[pd.DataFrame, dict[str, frozenset[str]], list[set[int]], list[list[bool]], list[fbarray]]
+
 
 @dataclass
 class UnknownContextTypeError(TypeError):
