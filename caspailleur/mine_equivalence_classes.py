@@ -4,10 +4,11 @@ from typing import List, Dict, Iterator, Iterable
 from .order import topological_sorting
 from .io import isets2bas, bas2isets
 from .indices import delta_stability_by_extents
+from .base_functions import extension
 
 from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray
-from bitarray.util import zeros as bazeros
+from bitarray.util import zeros as bazeros, subset as basubset
 from collections import deque
 from tqdm.auto import tqdm
 
@@ -236,6 +237,69 @@ def list_passkeys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
         if descr.count() < passkeys[-1].count():
             passkeys = [descr]
     return passkeys
+
+
+def iter_keys_of_intent(intent: fbarray, attr_extents: list[fbarray]) -> Iterator[fbarray]:
+    n_attrs = len(intent)
+    single_attrs = list(isets2bas([{attr_idx} for attr_idx in range(n_attrs)], n_attrs))
+    extent = extension(intent, attr_extents)
+
+    def subdescriptions(description: fbarray) -> Iterator[fbarray]:
+        return (description & ~single_attrs[m_i] for m_i in description.itersearch(True))
+
+    key_candidates = deque([intent])
+    while key_candidates:
+        key_candidate = key_candidates.popleft()
+        equiv_subdescrs = [descr for descr in subdescriptions(key_candidate)
+                           if extension(descr, attr_extents) == extent]
+        if not equiv_subdescrs:
+            yield key_candidate
+            continue
+
+        key_candidates.extend(equiv_subdescrs)
+
+
+def iter_keys_of_intent_pretentious(intent: fbarray, attr_extents: list[fbarray]) -> list[fbarray]:
+    # TODO: Test the function and check if it works right and faster than the straightforward solution
+    n_attrs = len(intent)
+    intent = set(intent.search(True))
+    extent = extension(intent, attr_extents)
+
+    # The cycle structure is inspired by Talky-G algorithm and reverse pre-order traversal by L. Szathmary et al.
+    key_candidates = [intent]
+    sub_descrs_to_remove = deque([{attr_idx} for attr_idx in sorted(intent)
+                                  if extension(intent-{attr_idx}, attr_extents) == extent])
+    while sub_descrs_to_remove:
+        attrs_to_remove = sub_descrs_to_remove.pop()
+        key_candidate = intent - attrs_to_remove
+
+        rightmost_attr = max(attrs_to_remove) if attrs_to_remove else -1
+        attrs_to_remove_next = [attr_idx for attr_idx in intent
+                                if rightmost_attr < attr_idx
+                                and extension(key_candidate - {attr_idx}, attr_extents) == extent]
+        if not attrs_to_remove_next:
+            key_candidates.append(key_candidate)
+            continue
+
+        sub_descrs_to_remove.extend([attrs_to_remove | {attr_idx} for attr_idx in attrs_to_remove_next])
+
+    single_attrs = list(isets2bas([{attr_idx} for attr_idx in range(n_attrs)], n_attrs))
+    key_candidates = [reduce(fbarray.__or__, map(single_attrs.__getitem__, candidate), fbarray(bazeros(n_attrs)))
+                      for candidate in key_candidates]
+    key_candidates = deque(sorted(key_candidates, key=lambda candidate: candidate.count()))
+    for i in range(len(key_candidates)):
+        if i >= len(key_candidates):
+            break
+
+        key = key_candidates[i]
+        j = i+1
+        while j < len(key_candidates):
+            if basubset(key, key_candidates[j]):
+                del key_candidates[j]
+                continue
+            j += 1
+
+    return list(key_candidates)
 
 
 def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarray, int]:

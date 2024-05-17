@@ -98,6 +98,58 @@ def test_list_passkeys_via_keys():
     assert pkeys == list(io.isets2bas(pkeys_true, 5))
 
 
+def test_iter_keys_of_intent():
+    n_attrs = 5
+    intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]
+    intents = list(io.isets2bas(intents, n_attrs))
+
+    attr_extents = [{0, 1}, {2, 3}, {0, 2, 3}, {1, 2}, set()]
+    attr_extents = list(io.isets2bas(attr_extents, n_attrs))
+
+    keys_true = [
+        [set()],  # intent: set()
+        [{0}],  # intent: {0}
+        [{2}],  # intent: {2}
+        [{3}],  # intent: {3}
+        [{0, 2}],  # intent: {0, 2}
+        [{0, 3}],  # intent: {0, 3}
+        [{1}],  # intent: {1, 2}
+        [{1, 3}, {2, 3}],  # intent: {1, 2, 3}
+        [{4}, {0, 1}, {0, 2, 3}],  # intent: {0, 1, 2, 3, 4}
+    ]
+    keys_true = [list(io.isets2bas(keys, n_attrs)) for keys in keys_true]
+
+    for key_list_true, intent in zip(keys_true, intents):
+        key_list = list(mec.iter_keys_of_intent(intent, attr_extents))
+        assert set(key_list) == set(key_list_true), f'Problematic intent: {intent}'
+
+
+def test_iter_keys_of_intent_pretentious():
+    n_attrs = 5
+    intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]
+    intents = list(io.isets2bas(intents, n_attrs))
+
+    attr_extents = [{0, 1}, {2, 3}, {0, 2, 3}, {1, 2}, set()]
+    attr_extents = list(io.isets2bas(attr_extents, n_attrs))
+
+    keys_true = [
+        [set()],  # intent: set()
+        [{0}],  # intent: {0}
+        [{2}],  # intent: {2}
+        [{3}],  # intent: {3}
+        [{0, 2}],  # intent: {0, 2}
+        [{0, 3}],  # intent: {0, 3}
+        [{1}],  # intent: {1, 2}
+        [{1, 3}, {2, 3}],  # intent: {1, 2, 3}
+        [{4}, {0, 1}, {0, 2, 3}],  # intent: {0, 1, 2, 3, 4}
+    ]
+    keys_true = [list(io.isets2bas(keys, n_attrs)) for keys in keys_true]
+
+    for key_list_true, intent in zip(keys_true, intents):
+        key_list = list(mec.iter_keys_of_intent_pretentious(intent, attr_extents))
+        assert set(key_list) == set(key_list_true), f'Problematic intent: {intent}'
+
+
 def test_list_keys():
     n_attrs = 5
     intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]
