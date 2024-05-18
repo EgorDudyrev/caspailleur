@@ -189,6 +189,40 @@ def test_list_passkeys():
         mec.list_passkeys(intents[::-1])
 
 
+def test_list_keys_for_extents():
+    attr_extents = [{0, 1}, {2, 3}, {0, 2, 3}, {1, 2}, set()]
+    extents = [{0, 1, 2, 3},
+               {0, 1}, {0, 2, 3}, {1, 2},
+               {0}, {1}, {2, 3}, {2}, set()]
+    keys_true = [
+        (set(), 0),
+        ({0}, 1), ({1}, 6), ({2}, 2), ({3}, 3), ({4}, 8),
+        ({0, 1}, 8), ({0, 2}, 4), ({0, 3}, 5), ({1, 3}, 7), ({2, 3}, 7),
+        ({0, 2, 3}, 8)
+    ]
+
+    n_attrs, n_objs = len(attr_extents), len(extents[0])
+    attr_extents, extents = [list(io.isets2bas(isets, n_objs)) for isets in [attr_extents, extents]]
+    keys_true = {next(io.isets2bas([key], n_attrs)): intent_i for key, intent_i in keys_true}
+
+    keys = mec.list_keys_for_extents(extents, attr_extents)
+    assert keys == keys_true
+
+    # Partially Ordered Set case
+    attr_extents = [{0, 1, 2}, {0, 1, 3}, {0}, {0}, {1}]
+    extents = [{0, 1, 2}, {0, 1, 3}, {0}, {1}, set()]
+    keys_true = [
+        ({0}, 0), ({1}, 1), ({2}, 2), ({3}, 2),
+        ({4}, 3), ({2, 4}, 4), ({3, 4}, 4)
+    ]
+    n_attrs, n_objs = len(attr_extents), 4
+    attr_extents, extents = [list(io.isets2bas(isets, n_objs)) for isets in [attr_extents, extents]]
+    keys_true = {next(io.isets2bas([key], n_attrs)): intent_i for key, intent_i in keys_true}
+
+    keys = mec.list_keys_for_extents(extents, attr_extents)
+    assert keys == keys_true
+
+
 def test_list_stable_extents_via_sofia():
     # Data inspired by Animal Movement Context
     all_extents = [

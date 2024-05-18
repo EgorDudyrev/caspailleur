@@ -4,7 +4,7 @@ from collections import deque
 from bitarray import frozenbitarray as fbarray, bitarray
 from tqdm.auto import tqdm
 
-from caspailleur.order import test_topologically_sorted
+from caspailleur.order import check_topologically_sorted
 from caspailleur.base_functions import extension
 
 
@@ -13,7 +13,7 @@ from caspailleur.base_functions import extension
 ############################
 def delta_stability_by_extents(extents: List[fbarray]) -> Iterator[int]:
     """Compute the delta stability index: the difference in supports of an extent and its maximal smaller neighbour"""
-    assert test_topologically_sorted(extents)
+    assert check_topologically_sorted(extents)
 
     for i, extent in enumerate(extents):
         if i == 0:
@@ -112,7 +112,7 @@ def distributivity_index(
     float:
         Value of the index (from 0 to 1)
     """
-    assert test_topologically_sorted(intents), 'The `intents` list should be topologically sorted by ascending order'
+    assert check_topologically_sorted(intents), 'The `intents` list should be topologically sorted by ascending order'
 
     n_distr = n_trans_parents
 
