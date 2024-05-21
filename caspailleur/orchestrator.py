@@ -2,14 +2,14 @@ from typing import Dict, Any
 
 import numpy as np
 
-from . import base_functions as bfuncs
+from . import io
 from . import implication_bases as ibases
 from . import mine_equivalence_classes as mec
 from . import order as ordermod
 from . import indices as indicesmod
 
 
-def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True) -> Dict[str, Any]:
+def explore_data(K: np.ndarray, min_sup: int | float = 0, return_itemsets: bool = True) -> Dict[str, Any]:
     """One function to output all dependencies in the data
 
     Parameters
@@ -30,7 +30,7 @@ def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True
         intents_ordering,
         and linearity, distributivity indices
     """
-    itemsets = list(bfuncs.np2bas(K))
+    itemsets = list(io.np2bas(K))
 
     intents = mec.list_intents_via_LCM(itemsets, min_supp=min_sup)
     keys = mec.list_keys(intents)
@@ -57,9 +57,9 @@ def explore_data(K: np.ndarray, min_sup: float = 1, return_itemsets: bool = True
         for output_k, output_v in output.items():
             itemset_v = output_v
             if isinstance(output_v, dict):
-                itemset_v = dict(zip(bfuncs.bas2isets(output_v.keys()), output_v.values()))
+                itemset_v = dict(zip(io.bas2isets(output_v.keys()), output_v.values()))
             if isinstance(output_v, list):
-                itemset_v = list(bfuncs.bas2isets(output_v))
+                itemset_v = list(io.bas2isets(output_v))
             output[output_k] = itemset_v
 
     return output

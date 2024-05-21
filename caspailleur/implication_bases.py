@@ -2,7 +2,7 @@ from typing import List, Dict, Tuple, Iterator, Iterable
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import subset
 from tqdm.auto import tqdm
-from caspailleur.order import test_topologically_sorted
+from caspailleur.order import check_topologically_sorted
 
 
 def saturate_bruteforce(
@@ -87,7 +87,7 @@ def saturate(
     saturate( bitarray('0101'), impls, intents ) --> bitarray('0101') | intents[1] | intents[2] = bitarray('1111')
     """
     if not flg_increasing_intents:
-        assert test_topologically_sorted(intents), "For the function to work properly, " \
+        assert check_topologically_sorted(intents), "For the function to work properly, " \
                                                    "`intents` should be ordered from the smallest to the biggest one"
 
     impls = sorted(impls, key=lambda impl: impl[1])
@@ -190,7 +190,7 @@ def list_pseudo_intents_via_keys(
         List of pseudo-intents and the indices of corresponding intents
 
     """
-    assert test_topologically_sorted(intents), 'The `intents` list should be topologically sorted by ascending order'
+    assert check_topologically_sorted(intents), 'The `intents` list should be topologically sorted by ascending order'
 
     def add_pintent(
             new_key: fbarray, new_pintent: fbarray, new_intent_i: int,

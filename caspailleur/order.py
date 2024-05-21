@@ -4,7 +4,7 @@ from bitarray.util import zeros as bazeros
 from tqdm.auto import tqdm
 
 
-def topological_sorting(elements: List[fbarray]) -> (List[fbarray], List[int]):
+def topological_sorting(elements: list[fbarray], ascending: bool = True) -> tuple[list[fbarray], list[int]]:
     """Sort the list of `elements` by cardinality and lexicographical order
 
     In the output, the first element is the smallest one, the last one is the biggest
@@ -20,19 +20,22 @@ def topological_sorting(elements: List[fbarray]) -> (List[fbarray], List[int]):
     orig_to_topsort_indices_map: List[int]
         THe mapping from the original indices to the indices of topologically sorted array.
     """
-    ars_topsort = sorted(elements, key=lambda el: (el.count(), tuple(el.itersearch(True))))
+    ascending = 1 if ascending else -1
+    ars_topsort = sorted(elements, key=lambda el: (el.count() * ascending, tuple(el.itersearch(True))))
 
     el_idx_map = {el: i for i, el in enumerate(ars_topsort)}
     orig_to_topsort_indices_map = [el_idx_map[el] for el in elements]
     return ars_topsort, orig_to_topsort_indices_map
 
 
-def test_topologically_sorted(elements: List[fbarray]) -> bool:
+def check_topologically_sorted(elements: list[fbarray], ascending: bool = True) -> bool:
     """Test if the list of `elements` is topologically sorted (from the smallest to the biggest element)
 
     One can obtain topologically sorted list of elements with ``topological_sorting(elements)`` function
     """
-    return all(a.count() <= b.count() for a, b in zip(elements, elements[1:]))
+    if ascending:
+        return all(a.count() <= b.count() for a, b in zip(elements, elements[1:]))
+    return all(a.count() >= b.count() for a, b in zip(elements, elements[1:]))
 
 
 def inverse_order(order: List[fbarray]) -> List[fbarray]:
@@ -51,7 +54,7 @@ def sort_intents_inclusion(intents: List[fbarray], use_tqdm=False, return_transi
 
     Returned is the list `lattice` so that intent with index `i` is included in intents with indices `lattice[i]`
     """
-    assert test_topologically_sorted(intents), 'The `intents` list should be topologically sorted by ascending order'
+    assert check_topologically_sorted(intents), 'The `intents` list should be topologically sorted by ascending order'
 
     n_intents, n_attrs = len(intents), len(intents[0])
     zero_intents = fbarray(bazeros(n_intents))

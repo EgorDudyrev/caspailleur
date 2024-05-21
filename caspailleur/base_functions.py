@@ -1,16 +1,16 @@
+from functools import reduce
 from itertools import chain, combinations
-from typing import Iterable, Iterator, List, FrozenSet, BinaryIO, Union
-import numpy.typing as npt
+from typing import Iterable, Iterator, List, FrozenSet, Union, Any, AbstractSet
 
-import numpy as np
 from bitarray import frozenbitarray as fbarray, bitarray
-from bitarray.util import zeros as bazeros
+
+from . import io
 
 
 ################
 # Math notions #
 ################
-def powerset(iterable: Iterable[int]) -> Iterable[FrozenSet[int]]:
+def powerset(iterable: Iterable[Any]) -> Iterable[frozenset[Any]]:
     """Iterate through all subsets of elements of set `iterable`
 
     Examples
@@ -21,31 +21,51 @@ def powerset(iterable: Iterable[int]) -> Iterable[FrozenSet[int]]:
     return map(frozenset, chain.from_iterable(combinations(s, r) for r in range(len(s)+1)))
 
 
-def is_subset_of(A: Union[FrozenSet[int], fbarray], B: Union[FrozenSet[int], fbarray]) -> bool:
+def is_subset_of(A: Union[set[int], fbarray], B: Union[set[int], fbarray]) -> bool:
     """Test whether `A` is a subset of `B`"""
     return A & B == A
 
 
-def is_psubset_of(A: Union[FrozenSet[int], fbarray], B: Union[FrozenSet[int], fbarray]) -> bool:
+def is_psubset_of(A: Union[set[int], fbarray], B: Union[set[int], fbarray]) -> bool:
     """Test whether `A` is a proper subset of `B`"""
     return (A & B == A) and A != B
 
 
-def extension(description: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> FrozenSet[int]:
+def maximal_description(crosses_per_columns: list[set] | list[bitarray]) -> set | bitarray:
+    first_column = crosses_per_columns[0]
+    if isinstance(first_column, bitarray):
+        return first_column | (~first_column)
+    if any(column and isinstance(next(iter(column)), int) for column in crosses_per_columns):
+        n_rows = max(max(column) for column in crosses_per_columns if column) + 1
+        return type(first_column)(range(n_rows))
+
+    all_attrs = reduce(first_column.__or__ , crosses_per_columns)
+    return type(first_column)(all_attrs)
+
+
+def extension(description: Iterable[int] | bitarray, crosses_per_columns: list[set] | list[bitarray])\
+        -> set[int] | bitarray:
     """Select the indices of rows described by `description`"""
-    n_rows = max(max(col) + 1 for col in crosses_per_columns if col)
-    extent = set(range(n_rows))
-    for m in description:
-        extent &= crosses_per_columns[m]
-    return frozenset(extent)
+    column_type = type(crosses_per_columns[0])
+    description = description.itersearch(True) if isinstance(description, bitarray) else description
+
+    total_extent = column_type(maximal_description(crosses_per_columns))
+    extent = reduce(column_type.__and__, (crosses_per_columns[attr_i] for attr_i in description), total_extent)
+    return extent
 
 
-def intention(objects: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> Iterator[int]:
+def intention(objects: set[int] | bitarray, crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int] | bitarray:
     """Iterate the indices of columns that describe the `objects`"""
+    if isinstance(objects, bitarray):
+        return bitarray([is_subset_of(objects, col) for col in crosses_per_columns])
+
+    if isinstance(crosses_per_columns[0], bitarray) and not isinstance(objects, bitarray):
+        objects = next(io.isets2bas([objects], len(crosses_per_columns[0])))
+
     return (m for m, col in enumerate(crosses_per_columns) if is_subset_of(objects, col))
 
 
-def closure(description: Iterable[int], crosses_per_columns: List[FrozenSet[int]]) -> Iterator[int]:
+def closure(description: Iterable[int] | bitarray, crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int] | bitarray:
     """Iterate indices of all columns who describe the same rows as `description`
 
     Parameters
@@ -61,79 +81,7 @@ def closure(description: Iterable[int], crosses_per_columns: List[FrozenSet[int]
         Indices of All columns with the same intersection as `D`
 
     """
-    return intention(extension(description, crosses_per_columns), crosses_per_columns)
-
-
-##########################
-# Basic type conversions #
-##########################
-def np2bas(X: npt.ArrayLike) -> List[fbarray]:
-    """Convert numpy boolean matrix to the list of bitarrays (one per row of the matrix)"""
-    return [fbarray(x) for x in X.tolist()]
-
-
-def bas2np(barrays: Iterable[fbarray]) -> npt.ArrayLike:
-    """Convert the list of bitarrays to numpy boolean matrix (bitarrays become rows in of the matrix)"""
-    return np.vstack([ba.tolist() for ba in barrays]).astype(np.bool_)
-
-
-def isets2bas(itemsets: Iterable[Iterable[int]], length: int) -> Iterator[fbarray]:
-    """Convert the list of lists of indices of 'True' elements to bitarrays of given length
-
-    Examples
-    --------
-    isets2bas([ [0, 1], [1,3,4] ], 5) --> [bitarray('01000'), bitarray('01011')]
-    """
-    for iset in itemsets:
-        bar = bazeros(length)
-        for m in iset:
-            bar[m] = True
-        yield fbarray(bar)
-
-
-def bas2isets(bitarrays: Iterable[fbarray]) -> Iterator[FrozenSet[int]]:
-    """Convert the list of bitarrays to the list of lists of indices of 'True' elements of the bitarrays
-
-    Examples
-    --------
-    bas2isets([ bitarray('01000'), bitarray('01011') ]) --> [ [0,1], [1,3,4] ]
-    """
-    for bar in bitarrays:
-        yield frozenset(bar.itersearch(True))
-
-
-###########################
-# Save and load functions #
-###########################
-
-def load_balist(file: BinaryIO) -> Iterator[bitarray]:
-    """Load the list of bitarrays from binary file"""
-    basize = b''
-    while True:
-        data = file.read(1)
-        if data == b'n':
-            break
-        basize += data
-    basize = int(basize.decode(encoding='utf-8'))
-    basize_bytes = len(bazeros(basize).tobytes())
-
-    while True:
-        data = file.read(basize_bytes)
-        if data == b'':
-            break
-
-        ba = bitarray()
-        ba.frombytes(data)
-        yield ba[:basize]
-
-
-def save_balist(file: BinaryIO, bitarrays: List[bitarray]):
-    """Save the list of bitarrays to the binary file (proposed file extension '.bal')"""
-    basize = len(bitarrays[0])
-    assert all(len(ba) == basize for ba in bitarrays), "All bitarrays should be of the same size"
-
-    file.write(str(basize).encode(encoding='utf-8'))
-    file.write(b'n')
-
-    for ba in bitarrays:
-        file.write(ba.tobytes())
+    result = intention(extension(description, crosses_per_columns), crosses_per_columns)
+    if not isinstance(description, bitarray) and isinstance(result, bitarray):
+        return (i for i in result.itersearch(True))
+    return result

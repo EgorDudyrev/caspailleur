@@ -1,17 +1,19 @@
+from functools import reduce
 from typing import List, Dict, Iterator, Iterable
 
-from .order import topological_sorting
-from .base_functions import isets2bas, bas2isets
-from .indices import delta_stability_index
+from .order import topological_sorting, check_topologically_sorted
+from .io import isets2bas, bas2isets
+from .indices import delta_stability_by_extents
+from .base_functions import extension
 
 from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray
-from bitarray.util import zeros as bazeros
+from bitarray.util import zeros as bazeros, subset as basubset
 from collections import deque
 from tqdm.auto import tqdm
 
 
-def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1, n_jobs: int = 1) -> List[fbarray]:
+def list_intents_via_LCM(itemsets: List[fbarray], min_supp: int | float = 0, n_jobs: int = 1) -> List[fbarray]:
     """Get the list of intents by running LCM algorithm from scikit-mine
 
     Parameters
@@ -29,22 +31,20 @@ def list_intents_via_LCM(itemsets: List[fbarray], min_supp: float = 1, n_jobs: i
         THe found intents
 
     """
+    min_supp = int(min_supp * len(itemsets) if isinstance(min_supp, float) else min_supp)
     n_attrs = len(itemsets[0])
 
-    lcm = LCM(min_supp=min_supp, n_jobs=n_jobs)
+    lcm = LCM(min_supp=max(min_supp, 1), n_jobs=n_jobs)
     intents = lcm.fit_transform(list(bas2isets(itemsets)))['itemset']
     intents = list(isets2bas(intents, n_attrs))
     intents = topological_sorting(intents)[0]
 
-    biggest_intent = ~bazeros(n_attrs)
-    if intents[-1] != biggest_intent:
-        intents.append(fbarray(biggest_intent))
+    biggest_intent_support = sum(itemset.all() for itemset in itemsets)
+    if biggest_intent_support >= min_supp:
+        if not intents[-1].all():
+            intents.append(fbarray(~bazeros(n_attrs)))
 
-    smallest_intent = ~bazeros(n_attrs)
-    for itset in itemsets:
-        smallest_intent &= itset
-        if not smallest_intent.any():
-            break
+    smallest_intent = reduce(bitarray.__and__, itemsets, ~bazeros(n_attrs))
     if intents[0] != smallest_intent:
         intents.insert(0, fbarray(smallest_intent))
     return intents
@@ -239,6 +239,69 @@ def list_passkeys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
     return passkeys
 
 
+def iter_keys_of_intent(intent: fbarray, attr_extents: list[fbarray]) -> Iterator[fbarray]:
+    n_attrs = len(intent)
+    single_attrs = list(isets2bas([{attr_idx} for attr_idx in range(n_attrs)], n_attrs))
+    extent = extension(intent, attr_extents)
+
+    def subdescriptions(description: fbarray) -> Iterator[fbarray]:
+        return (description & ~single_attrs[m_i] for m_i in description.itersearch(True))
+
+    key_candidates = deque([intent])
+    while key_candidates:
+        key_candidate = key_candidates.popleft()
+        equiv_subdescrs = [descr for descr in subdescriptions(key_candidate)
+                           if extension(descr, attr_extents) == extent]
+        if not equiv_subdescrs:
+            yield key_candidate
+            continue
+
+        key_candidates.extend(equiv_subdescrs)
+
+
+def iter_keys_of_intent_pretentious(intent: fbarray, attr_extents: list[fbarray]) -> list[fbarray]:
+    # TODO: Test the function and check if it works right and faster than the straightforward solution
+    n_attrs = len(intent)
+    intent = set(intent.search(True))
+    extent = extension(intent, attr_extents)
+
+    # The cycle structure is inspired by Talky-G algorithm and reverse pre-order traversal by L. Szathmary et al.
+    key_candidates = [intent]
+    sub_descrs_to_remove = deque([{attr_idx} for attr_idx in sorted(intent)
+                                  if extension(intent-{attr_idx}, attr_extents) == extent])
+    while sub_descrs_to_remove:
+        attrs_to_remove = sub_descrs_to_remove.pop()
+        key_candidate = intent - attrs_to_remove
+
+        rightmost_attr = max(attrs_to_remove) if attrs_to_remove else -1
+        attrs_to_remove_next = [attr_idx for attr_idx in intent
+                                if rightmost_attr < attr_idx
+                                and extension(key_candidate - {attr_idx}, attr_extents) == extent]
+        if not attrs_to_remove_next:
+            key_candidates.append(key_candidate)
+            continue
+
+        sub_descrs_to_remove.extend([attrs_to_remove | {attr_idx} for attr_idx in attrs_to_remove_next])
+
+    single_attrs = list(isets2bas([{attr_idx} for attr_idx in range(n_attrs)], n_attrs))
+    key_candidates = [reduce(fbarray.__or__, map(single_attrs.__getitem__, candidate), fbarray(bazeros(n_attrs)))
+                      for candidate in key_candidates]
+    key_candidates = deque(sorted(key_candidates, key=lambda candidate: candidate.count()))
+    for i in range(len(key_candidates)):
+        if i >= len(key_candidates):
+            break
+
+        key = key_candidates[i]
+        j = i+1
+        while j < len(key_candidates):
+            if basubset(key, key_candidates[j]):
+                del key_candidates[j]
+                continue
+            j += 1
+
+    return list(key_candidates)
+
+
 def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarray, int]:
     """List all keys for all intents (i.e. minimal subsets of attributes selecting specific subsets of objects)"""
     assert all(a.count() <= b.count() for a, b in zip(intents, intents[1:])), \
@@ -267,12 +330,12 @@ def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarr
         if any(attrs & (~single_attrs[m]) not in keys_dict for m in attrs_indices):
             continue
 
-        max_attr_idx = attrs_indices[-1] if attrs_indices else -1
         common_descendants = ~bazeros(n_intents)
         for m in attrs.itersearch(True):
             common_descendants &= attrs_descendants[m]
-
-        meet_intent_idx = common_descendants.find(True)
+        if not common_descendants.any():
+            continue
+        meet_intent_idx = common_descendants.index(True)
 
         if only_passkeys:
             # `attrs` is not a passkey because of the size
@@ -286,7 +349,8 @@ def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarr
         keys_dict[attrs] = meet_intent_idx
         if only_passkeys:
             passkey_sizes[meet_intent_idx] = attrs.count()
-        if meet_intent_idx != n_intents-1:
+        if not intents[meet_intent_idx].all():
+            max_attr_idx = attrs_indices[-1] if attrs_indices else -1
             attrs_to_test.extend([attrs | m_ba for m_ba in single_attrs[max_attr_idx+1:]])
 
     return keys_dict
@@ -297,6 +361,68 @@ def list_passkeys(intents: List[fbarray]) -> Dict[fbarray, int]:
 
      (i.e. subsets of attributes of minimal size selecting specific subsets of objects)"""
     return list_keys(intents, only_passkeys=True)
+
+
+def list_keys_for_extents(
+        extents: list[fbarray], attr_extents: list[fbarray],
+        only_passkeys: bool = False
+) -> dict[fbarray, int]:
+    """List all keys for given extents (i.e. minimal subsets of attributes selecting given closed subsets of objects)"""
+    if not check_topologically_sorted(extents, ascending=False):
+        extents, orig_to_topsort_idx_map = topological_sorting(extents, ascending=False)
+    else:
+        orig_to_topsort_idx_map = list(range(len(extents)))
+    topsort_to_orig_idx_map = {sort_idx: orig_idx for orig_idx, sort_idx in enumerate(orig_to_topsort_idx_map)}
+
+    extents_idx_map: dict[fbarray, int] = {extent: extent_i for extent_i, extent in enumerate(extents)}
+    min_support = extents[-1].count()
+
+    n_attrs, n_objs, n_extents = len(attr_extents), len(attr_extents[0]), len(extents)
+    total_extent = attr_extents[0] | ~attr_extents[0]
+
+    single_attrs = list(isets2bas([[m] for m in range(n_attrs)], n_attrs))
+
+    if only_passkeys:
+        passkey_sizes = [n_attrs] * n_extents
+
+    keys_dict: dict[fbarray, tuple[int, int|None]] = {fbarray(bazeros(n_attrs)): (n_objs, extents_idx_map.get(total_extent))}
+    testing_stack = deque(single_attrs)  # iteration order is inspired by Talky-G algorithm
+    while testing_stack:
+        attrs = testing_stack.pop()
+        attrs_indices = list(attrs.itersearch(True))
+        sub_descriptions = [attrs & (~single_attrs[m]) for m in attrs_indices]
+
+        # check that every subset of attrs is a key
+        if any(subattrs not in keys_dict for subattrs in sub_descriptions):
+            continue
+
+        curr_extent: fbarray = reduce(fbarray.__and__, map(attr_extents.__getitem__, attrs_indices), total_extent)
+        curr_extent_i = extents_idx_map[curr_extent] if curr_extent in extents_idx_map else None
+
+        if only_passkeys and curr_extent_i is not None:
+            # `attrs` is not a passkey because of the size
+            if passkey_sizes[curr_extent_i] < attrs.count():
+                continue
+
+        # if subset of attrs has the same support then it is not a key
+        support = curr_extent.count()
+        if any(keys_dict[subattrs][0] <= support for subattrs in sub_descriptions):
+            continue
+
+        keys_dict[attrs] = (support, curr_extent_i)
+        if only_passkeys and curr_extent_i is not None:
+            passkey_sizes[curr_extent_i] = attrs.count()
+
+        has_smaller_extents = support > min_support
+        if curr_extent_i is not None and has_smaller_extents:
+            has_smaller_extents = any(basubset(ext, curr_extent) for ext in extents[curr_extent_i+1:])
+
+        if has_smaller_extents:
+            max_attr_idx = attrs_indices[-1] if attrs_indices else -1
+            testing_stack.extend([attrs | m_ba for m_ba in single_attrs[max_attr_idx+1:]])
+
+    return {key: topsort_to_orig_idx_map[extent_i]
+            for key, (support, extent_i) in keys_dict.items() if extent_i is not None}
 
 
 def list_stable_extents_via_sofia(
@@ -318,7 +444,7 @@ def list_stable_extents_via_sofia(
 
         if len(stable_extents) > n_stable_extents:
             extents_top_sort = sorted(stable_extents, key=lambda extent: extent.count())
-            delta_stabilities = list(delta_stability_index(extents_top_sort))
+            delta_stabilities = list(delta_stability_by_extents(extents_top_sort))
             stab_thold = sorted(delta_stabilities)[-n_stable_extents]
             stable_extents = {extent for extent, stab in zip(extents_top_sort, delta_stabilities) if stab >= stab_thold}
 
