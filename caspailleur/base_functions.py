@@ -1,6 +1,6 @@
 from functools import reduce
 from itertools import chain, combinations
-from typing import Iterable, Iterator, List, FrozenSet, Union, Any, AbstractSet
+from typing import Iterable, Iterator, Union, Any
 
 from bitarray import frozenbitarray as fbarray, bitarray
 
@@ -31,7 +31,7 @@ def is_psubset_of(A: Union[set[int], fbarray], B: Union[set[int], fbarray]) -> b
     return (A & B == A) and A != B
 
 
-def maximal_description(crosses_per_columns: list[set] | list[bitarray]) -> set | bitarray:
+def maximal_description(crosses_per_columns: Union[list[set], list[bitarray]]) -> Union[set, bitarray]:
     first_column = crosses_per_columns[0]
     if isinstance(first_column, bitarray):
         return first_column | (~first_column)
@@ -43,8 +43,8 @@ def maximal_description(crosses_per_columns: list[set] | list[bitarray]) -> set 
     return type(first_column)(all_attrs)
 
 
-def extension(description: Iterable[int] | bitarray, crosses_per_columns: list[set] | list[bitarray])\
-        -> set[int] | bitarray:
+def extension(description: Union[Iterable[int], bitarray], crosses_per_columns: Union[list[set], list[bitarray]])\
+        -> Union[set[int], bitarray]:
     """Select the indices of rows described by `description`"""
     column_type = type(crosses_per_columns[0])
     description = description.itersearch(True) if isinstance(description, bitarray) else description
@@ -54,7 +54,9 @@ def extension(description: Iterable[int] | bitarray, crosses_per_columns: list[s
     return extent
 
 
-def intention(objects: set[int] | bitarray, crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int] | bitarray:
+def intention(
+        objects: Union[set[int], bitarray], crosses_per_columns: Union[list[set[int]], list[bitarray]]
+) -> Union[Iterator[int], bitarray]:
     """Iterate the indices of columns that describe the `objects`"""
     if isinstance(objects, bitarray):
         return bitarray([is_subset_of(objects, col) for col in crosses_per_columns])
@@ -65,19 +67,21 @@ def intention(objects: set[int] | bitarray, crosses_per_columns: list[set[int]] 
     return (m for m, col in enumerate(crosses_per_columns) if is_subset_of(objects, col))
 
 
-def closure(description: Iterable[int] | bitarray, crosses_per_columns: list[set[int]] | list[bitarray]) -> Iterator[int] | bitarray:
+def closure(
+        description: Union[Iterable[int], bitarray], crosses_per_columns: Union[list[set[int]], list[bitarray]]
+) -> Union[Iterator[int], bitarray]:
     """Iterate indices of all columns who describe the same rows as `description`
 
     Parameters
     ----------
-    description: Iterable[int]
+    description:
         Indices of some columns from `crosses_per_columns`
-    crosses_per_columns: List[FrozenSet[int]]
+    crosses_per_columns:
         List of indices of 'True' rows for each column
 
     Returns
     -------
-    intent: Iterator[int]
+    intent:
         Indices of All columns with the same intersection as `D`
 
     """

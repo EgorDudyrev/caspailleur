@@ -1,7 +1,7 @@
 """Module with easy to use general functions for working with Caspailleur"""
-import typing
 from operator import itemgetter
-from typing import Iterator, Iterable, Literal
+import typing
+from typing import Iterator, Iterable, Literal, Union, Optional
 import pandas as pd
 from bitarray import frozenbitarray as fbarray
 
@@ -40,7 +40,7 @@ def iter_descriptions(data: ContextType) -> Iterator[dict]:
 
 def mine_descriptions(
         data: ContextType,
-        min_support: int | float = 0,
+        min_support: Union[int, float] = 0,
         n_most_stable: int = None,
 ) -> pd.DataFrame:
     bitarrays, objects, attributes = to_bitarrays(data)
@@ -111,8 +111,8 @@ MINE_CONCEPTS_COLUMN = Literal[
 
 def mine_concepts(
         data: ContextType,
-        to_compute: list[MINE_CONCEPTS_COLUMN] | Literal['all'] | None = ('extent', 'intent', 'support', 'delta-stability', 'keys', 'passkeys', 'proper_premises'),
-        min_support: int | float = 0,
+        to_compute: Optional[Union[list[MINE_CONCEPTS_COLUMN], Literal['all']]] = ('extent', 'intent', 'support', 'delta-stability', 'keys', 'passkeys', 'proper_premises'),
+        min_support: Union[int, float] = 0,
         use_tqdm: bool = False,
         return_all_computed: bool = False
 ) -> pd.DataFrame:
@@ -175,7 +175,9 @@ def mine_concepts(
     return concepts_df[cols_to_return]
 
 
-def mine_implications(data: ContextType, basis_name: Literal['proper premise', 'pseudo-intent'] = 'proper premise') -> pd.DataFrame:
+def mine_implications(
+        data: ContextType, basis_name: Literal['proper premise', 'pseudo-intent'] = 'proper premise'
+) -> pd.DataFrame:
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 

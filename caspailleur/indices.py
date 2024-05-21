@@ -1,5 +1,4 @@
-from functools import reduce
-from typing import List, Iterator, Iterable
+from typing import Iterator, Iterable, Union
 from collections import deque
 from bitarray import frozenbitarray as fbarray, bitarray
 from tqdm.auto import tqdm
@@ -11,7 +10,7 @@ from caspailleur.base_functions import extension
 ############################
 # Indices for descriptions #
 ############################
-def delta_stability_by_extents(extents: List[fbarray]) -> Iterator[int]:
+def delta_stability_by_extents(extents: list[fbarray]) -> Iterator[int]:
     """Compute the delta stability index: the difference in supports of an extent and its maximal smaller neighbour"""
     assert check_topologically_sorted(extents)
 
@@ -31,7 +30,7 @@ def delta_stability_by_extents(extents: List[fbarray]) -> Iterator[int]:
 
 
 def delta_stability_by_description(
-        description: Iterable[int] | bitarray, crosses_per_columns: list[fbarray], extent: fbarray = None
+        description: Union[Iterable[int], bitarray], crosses_per_columns: list[fbarray], extent: fbarray = None
 ) -> int:
     description = set(description.itersearch(True)) if isinstance(description, bitarray) else set(description)
 
@@ -46,7 +45,7 @@ def delta_stability_by_description(
 
 
 def support_by_description(
-        description: Iterable[int] | bitarray, crosses_per_columns: list[fbarray], extent: fbarray = None
+        description: Union[Iterable[int], bitarray], crosses_per_columns: list[fbarray], extent: fbarray = None
 ) -> int:
     extent = extension(description, crosses_per_columns) if extent is None else extent
     return extent.count()
@@ -89,7 +88,7 @@ def linearity_index(n_trans_parents: int, n_elements: int, include_top_bottom: b
 
 
 def distributivity_index(
-        intents: List[fbarray], parents: List[fbarray], n_trans_parents: int,
+        intents: list[fbarray], parents: list[fbarray], n_trans_parents: int,
         include_top_bottom: bool = True, use_tqdm: bool = False
 ) -> float:
     """Compute distributivity index: the percentage of pairs intents that whose union is in an intent
