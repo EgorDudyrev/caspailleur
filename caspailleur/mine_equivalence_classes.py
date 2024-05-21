@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import List, Dict, Iterator, Iterable
+from typing import Iterator, Iterable, Union
 
 from .order import topological_sorting, check_topologically_sorted
 from .io import isets2bas, bas2isets
@@ -13,7 +13,7 @@ from collections import deque
 from tqdm.auto import tqdm
 
 
-def list_intents_via_LCM(itemsets: List[fbarray], min_supp: int | float = 0, n_jobs: int = 1) -> List[fbarray]:
+def list_intents_via_LCM(itemsets: list[fbarray], min_supp: Union[int, float] = 0, n_jobs: int = 1) -> list[fbarray]:
     """Get the list of intents by running LCM algorithm from scikit-mine
 
     Parameters
@@ -50,7 +50,7 @@ def list_intents_via_LCM(itemsets: List[fbarray], min_supp: int | float = 0, n_j
     return intents
 
 
-def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarray]) -> List[bitarray]:
+def list_intents_via_Lindig(itemsets: list[bitarray], attr_extents: list[bitarray]) -> list[bitarray]:
     """Get the list of intents of itemsets grouped by equivalent classes running Lindig algorithm
     from "Fast Concept Analysis" by Christian Lindig, Harvard University, Division of Engineering and Applied Sciences
 
@@ -71,7 +71,7 @@ def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarra
     class NotFound(Exception):
         pass
 
-    def __down__(intent: List[bitarray], itemsets: List[bitarray]):
+    def __down__(intent: list[bitarray], itemsets: list[bitarray]):
         if intent == []:
             return itemsets
         down = intent[0]
@@ -80,7 +80,7 @@ def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarra
         down =  [itemsets[i] for i in range(len(down)) if down[i] == 1]
         return down
 
-    def __up__(extent: List[bitarray], attr_extents: List[bitarray]):
+    def __up__(extent: list[bitarray], attr_extents: list[bitarray]):
         if extent == []:
             return(attr_extents)
         up = extent[0]
@@ -89,7 +89,7 @@ def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarra
         up = [attr_extents[i] for i in range(len(up)) if up[i] == 1]
         return up
 
-    def check_intersection(list1: List[bitarray], list2: List[bitarray]):
+    def check_intersection(list1: list[bitarray], list2: list[bitarray]):
         has_intersection = False
         for bitarray1 in list1:
             for bitarray2 in list2:
@@ -98,7 +98,7 @@ def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarra
                     break
         return has_intersection
     
-    def compute_extent_bit(extent: List[bitarray], attr_extents: List[bitarray]):
+    def compute_extent_bit(extent: list[bitarray], attr_extents: list[bitarray]):
         if extent == []:
             return(bitarray([1 for _ in range(len(attr_extents))]))
         bit_extent = extent[0]
@@ -106,7 +106,7 @@ def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarra
             bit_extent = bit_extent & obj
         return(bit_extent)
     
-    def find_upper_neighbors(concept_extent: List[bitarray], itemsets: List[bitarray], attr_extents: List[bitarray]):
+    def find_upper_neighbors(concept_extent: list[bitarray], itemsets: list[bitarray], attr_extents: list[bitarray]):
         min_set = [obj for obj in itemsets if obj not in concept_extent]
         neighbors = []
         for g in [obj for obj in itemsets if obj not in concept_extent]:
@@ -118,7 +118,7 @@ def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarra
                 min_set.remove(g)
         return neighbors
     
-    def find_next_concept_extent(concept_extent: List[bitarray], List_extents: List[bitarray], attr_extents: List[bitarray]):
+    def find_next_concept_extent(concept_extent: list[bitarray], List_extents: list[bitarray], attr_extents: list[bitarray]):
         next_concept_extent = None
         for extent in List_extents:
             if compute_extent_bit(extent, attr_extents) < compute_extent_bit(concept_extent, attr_extents) and (next_concept_extent is None or compute_extent_bit(extent, attr_extents) > compute_extent_bit(next_concept_extent, attr_extents)):
@@ -145,7 +145,7 @@ def list_intents_via_Lindig(itemsets: List[bitarray], attr_extents: List[bitarra
     return Lattice_data_intents
 
 
-def list_attribute_concepts(intents: List[fbarray]) -> List[int]:
+def list_attribute_concepts(intents: list[fbarray]) -> list[int]:
     """Get the indices of `intents` selected by each sole attribute"""
     assert (len(a) <= len(b) for a, b in zip(intents, intents[1:])),\
         'The list of `intents` should be topologically sorted. With the cardinality minimal intent being at the start'
@@ -163,7 +163,7 @@ def list_attribute_concepts(intents: List[fbarray]) -> List[int]:
     return attr_concepts
 
 
-def iter_equivalence_class(attribute_extents: List[fbarray], intent: fbarray = None) -> Iterator[fbarray]:
+def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = None) -> Iterator[fbarray]:
     """Iterate subsets of attributes from equivalence class
 
     The output equivalence class goes from the maximal subsets of attributes to the smallest ones.
@@ -218,7 +218,7 @@ def iter_equivalence_class(attribute_extents: List[fbarray], intent: fbarray = N
         stack += [attrs_to_remove+[m] for m in intent.itersearch(True) if m > last_attr][::-1]
 
 
-def list_keys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
+def list_keys_via_eqclass(equiv_class: Iterable[fbarray]) -> list[fbarray]:
     """List minimal subsets from given equivalence class"""
     potent_keys = []
     for new_key in equiv_class:
@@ -227,7 +227,7 @@ def list_keys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
     return potent_keys
 
 
-def list_passkeys_via_eqclass(equiv_class: Iterable[fbarray]) -> List[fbarray]:
+def list_passkeys_via_eqclass(equiv_class: Iterable[fbarray]) -> list[fbarray]:
     """List subsets of minimal size from given equivalence class"""
     passkeys = []
     for descr in equiv_class:
@@ -302,7 +302,7 @@ def iter_keys_of_intent_pretentious(intent: fbarray, attr_extents: list[fbarray]
     return list(key_candidates)
 
 
-def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarray, int]:
+def list_keys(intents: list[fbarray], only_passkeys: bool = False) -> dict[fbarray, int]:
     """List all keys for all intents (i.e. minimal subsets of attributes selecting specific subsets of objects)"""
     assert all(a.count() <= b.count() for a, b in zip(intents, intents[1:])), \
         'The `intents` list should be topologically sorted by ascending order'
@@ -356,7 +356,7 @@ def list_keys(intents: List[fbarray], only_passkeys: bool = False) -> Dict[fbarr
     return keys_dict
 
 
-def list_passkeys(intents: List[fbarray]) -> Dict[fbarray, int]:
+def list_passkeys(intents: list[fbarray]) -> dict[fbarray, int]:
     """List all passkeys for all intents
 
      (i.e. subsets of attributes of minimal size selecting specific subsets of objects)"""
@@ -423,6 +423,12 @@ def list_keys_for_extents(
 
     return {key: topsort_to_orig_idx_map[extent_i]
             for key, (support, extent_i) in keys_dict.items() if extent_i is not None}
+
+
+def list_passkeys_for_extents(
+        extents: list[fbarray], attr_extents: list[fbarray],
+) -> dict[fbarray, int]:
+    return list_keys_for_extents(extents, attr_extents, only_passkeys=True)
 
 
 def list_stable_extents_via_sofia(
