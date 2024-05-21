@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, Iterator, List, FrozenSet, BinaryIO, Generator, Union
+from typing import Iterable, Iterator, FrozenSet, BinaryIO, Generator, Union
 import numpy.typing as npt
 import numpy as np
 import pandas as pd
@@ -29,7 +29,7 @@ class UnknownContextTypeError(TypeError):
 ##########################
 # Basic type conversions #
 ##########################
-def np2bas(X: npt.ArrayLike) -> List[fbarray]:
+def np2bas(X: npt.ArrayLike) -> list[fbarray]:
     """Convert numpy boolean matrix to the list of bitarrays (one per row of the matrix)"""
     return [fbarray(x) for x in X.tolist()]
 
@@ -169,7 +169,7 @@ def transpose_context(data: ContextType) -> ContextType:
     raise UnknownContextTypeError(type(data))
 
 
-def verbalise(description: bitarray | Iterable[int], names: list[str]) -> Iterable[str]:
+def verbalise(description: Union[bitarray, Iterable[int]], names: list[str]) -> Iterable[str]:
     if isinstance(description, bitarray):
         return {names[i] for i in description.itersearch(True)}
 
@@ -179,7 +179,7 @@ def verbalise(description: bitarray | Iterable[int], names: list[str]) -> Iterab
     return type(description)([names[i] for i in description])
 
 
-def to_absolute_number(percentage: int | float, total_size: int) -> int:
+def to_absolute_number(percentage: Union[int, float], total_size: int) -> int:
     if isinstance(percentage, int):
         return percentage
     return int(percentage * total_size)
@@ -210,7 +210,7 @@ def load_balist(file: BinaryIO) -> Iterator[bitarray]:
         yield ba[:basize]
 
 
-def save_balist(file: BinaryIO, bitarrays: List[bitarray]):
+def save_balist(file: BinaryIO, bitarrays: list[bitarray]):
     """Save the list of bitarrays to the binary file (proposed file extension '.bal')"""
     basize = len(bitarrays[0])
     assert all(len(ba) == basize for ba in bitarrays), "All bitarrays should be of the same size"

@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 import numpy as np
 
@@ -9,7 +9,7 @@ from . import order as ordermod
 from . import indices as indicesmod
 
 
-def explore_data(K: np.ndarray, min_sup: int | float = 0, return_itemsets: bool = True) -> Dict[str, Any]:
+def explore_data(K: np.ndarray, min_sup: Union[int, float] = 0, return_itemsets: bool = True) -> Dict[str, Any]:
     """One function to output all dependencies in the data
 
     Parameters
