@@ -11,7 +11,7 @@ from .base_functions import extension
 
 from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray
-from bitarray.util import zeros as bazeros, ones as baones, subset as basubset
+from bitarray.util import zeros as bazeros, subset as basubset
 from collections import deque
 from tqdm.auto import tqdm
 
@@ -538,7 +538,7 @@ def list_stable_extents_via_gsofia(
     min_supp = to_absolute_number(min_supp, n_objects)
 
     # Create dict with a format:  extent => (delta_index, children_extents)
-    top_extent = fbarray(baones(n_objects))
+    top_extent = fbarray(~bazeros(n_objects))
     stable_extents: dict[fbarray, tuple[int, set[fbarray]]] = {top_extent: (n_objects, set())}
 
     # noinspection PyTypeChecker
