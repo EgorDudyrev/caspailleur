@@ -1,14 +1,17 @@
+import heapq
 from functools import reduce
 from typing import Iterator, Iterable, Union
 
+import deprecation
+
 from .order import topological_sorting, check_topologically_sorted
-from .io import isets2bas, bas2isets
+from .io import isets2bas, bas2isets, to_absolute_number
 from .indices import delta_stability_by_extents
 from .base_functions import extension
 
 from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray
-from bitarray.util import zeros as bazeros, subset as basubset
+from bitarray.util import zeros as bazeros, ones as baones, subset as basubset
 from collections import deque
 from tqdm.auto import tqdm
 
@@ -431,9 +434,11 @@ def list_passkeys_for_extents(
     return list_keys_for_extents(extents, attr_extents, only_passkeys=True)
 
 
+@deprecation.deprecated(deprecated_in="0.1.4", removed_in="0.1.5",
+                        details="Use `list_stable_extents_via_gsofia` function instead. It is faster and more reliable")
 def list_stable_extents_via_sofia(
         attribute_extents: Iterable[fbarray],
-        n_stable_extents: int, min_supp: int = -1,
+        n_stable_extents: int, min_supp: int = 0,
         use_tqdm: bool = False, n_attributes: int = None
 ) -> set[fbarray]:
     stable_extents = set()
@@ -458,3 +463,146 @@ def list_stable_extents_via_sofia(
         stable_extents = {extent for extent, stab in zip(extents_top_sort, delta_stabilities) if stab > stab_thold}
 
     return stable_extents
+
+
+def list_stable_extents_via_gsofia(
+        attribute_extents: Iterable[fbarray], n_objects: int = None,
+        min_delta_stability: Union[int, float] = 0,
+        n_stable_extents: int = None,
+        min_supp: Union[int, float] = 0,
+        use_tqdm: bool = False, n_attributes: int = None,
+) -> set[fbarray]:
+    """Select the most stable extents restricted by min. delta stability value, n. most stable extents, and min. support
+
+    An extent is ∆-stable if there exists no sub-extent that covers ∆ fewer objects than the given extent.
+
+    Extent is a subset of objects, described by some attributes.
+    Every extent is an intersection of a subset of `attribute_extents`.
+
+
+    Parameters
+    ----------
+    attribute_extents:
+        Iterable over extents of attributes.
+        Every extent is a set of objects, described by an attribute represented with a bitarray.
+    n_objects:
+        The number of objects in the data.
+        Have to be specified unless it can be computed as `len(attribute_extents[0])`.
+    min_delta_stability:
+        A lower bound for delta stability of the returned extents.
+        The parameter should represent either an absolute number or a percentage of objects in the data.
+        Delta stability shows how many objects a description will lose if made a bit more precise.
+        Delta-stable extents are the ones that are selected by delta-stable descriptions.
+    n_stable_extents:
+        An upper bound on the number of the returned extents.
+        The bigger is the number, the longer it takes to run the algorithm and the more precise are the results.
+    min_supp:
+        A lower bound on the support of the returned extents.
+        Support of the extent shows how many objects are contained in this extent.
+    use_tqdm:
+        A flag, whether to visualise the progress bar via tqdm package.
+        If set to True and `attribute_extents` is a generator,
+         please specify `n_attributes` parameter to define the maximal amount of steps of the algorithm.
+    n_attributes:
+        The number of elements in `attribute_extents` iterator.
+        Optional parameter that one might need to specify in order to set up the width of tqdm progress bar
+        (if `use_tqdm` is set to True, and the length of `attribute_extents` cannot be computed automatically).
+
+
+    Returns
+    -------
+    set[frozenbitarray]:
+        A set of stable extents computed w.r.t. the other parameters.
+
+    Notes
+    -----
+    The algorithm falls in line with gSofia algorithm presented in
+    paper "Efficient Mining of Subsample-Stable Graph Patterns"
+    by A. Buzmakov, S.O. Kuznetsov, and A. Napoli from International Conference on Data Mining of 2017.
+    However, we remove the graph-specific part of the algorithm to make it applicable for any type of attributes.
+
+    """
+    if n_objects is None:
+        try:
+            n_objects = len(attribute_extents[0])
+        except TypeError:
+            raise TypeError('The function cannot establish the number of objects. '
+                            'Please, either provide the number of objects with `n_objects` parameter '
+                            'or convert `attribute_extents` parameter into a list')
+    if n_attributes is None:
+        try:
+            n_attributes = len(attribute_extents)
+        except:
+            pass
+    min_delta_stability = to_absolute_number(min_delta_stability, n_objects)
+    min_supp = to_absolute_number(min_supp, n_objects)
+
+    # Create dict with a format:  extent => (delta_index, children_extents)
+    top_extent = fbarray(baones(n_objects))
+    stable_extents: dict[fbarray, tuple[int, set[fbarray]]] = {top_extent: (n_objects, set())}
+
+    # noinspection PyTypeChecker
+    attr_extent_iterator: Iterable[fbarray] = tqdm(attribute_extents, total=n_attributes, disable=not use_tqdm)
+    for attr_extent in attr_extent_iterator:
+        # The following code mimics "ExtendProjection" function from gSofia algorithm
+        old_stable_extents, stable_extents = dict(stable_extents), dict()
+        for extent, (delta, children) in old_stable_extents.items():
+            # Create new extent
+            extent_new = extent & attr_extent
+            if extent_new == extent:
+                stable_extents[extent] = (delta, children)
+                continue
+
+            # Update the stability of the old extent given its new child: `extent_new`
+            delta = min(delta, extent.count() - extent_new.count())
+            if delta >= min_delta_stability:
+                children.add(extent_new)
+                stable_extents[extent] = (delta, children)
+
+            # Skip the new extent if it is too small
+            if extent_new.count() < min_supp:
+                continue
+
+            # Find the delta-index of the new extent and its children extents
+            delta_new, children_new = extent_new.count(), []
+            for child in children:
+                child_new = child & attr_extent
+                delta_new = min(delta_new, extent_new.count() - child_new.count())
+                if delta_new < min_delta_stability:
+                    children_new = []
+                    break
+                children_new.append(child_new)
+
+            # Skip the new extent if it is too unstable
+            if delta_new < min_delta_stability:
+                continue
+
+            # Filter the maximal children (so filter out transitive children that are children to other children)
+            children_new, i = sorted(children_new, key=lambda ext: ext.count(), reverse=True), 0
+            while i < len(children_new):
+                child = children_new[i]
+                has_bigger_child = any(basubset(child, bigger_child) for bigger_child in children_new[:i])
+                if has_bigger_child:
+                    del children_new[i]
+                else:
+                    i += 1
+            children_new = set(children_new)
+
+            # At this point, we know that `extent_new` is big enough and is stable enough
+            stable_extents[extent_new] = (delta_new, children_new)
+
+        # If only the best stable concepts required
+        if n_stable_extents is not None and len(stable_extents) > n_stable_extents:
+            most_stable_extents = heapq.nlargest(n_stable_extents, stable_extents.items(), key=lambda x: x[1][0])
+            thold = most_stable_extents[-1][1][0]
+            n_border_stable = 0
+            for (_, (stab, _)) in most_stable_extents[::-1]:
+                if stab > thold:
+                    continue
+                n_border_stable += 1
+            n_border_stable_total = sum(stab == thold for _, (stab, _) in stable_extents.items())
+            if n_border_stable < n_border_stable_total:
+                most_stable_extents = most_stable_extents[:-n_border_stable]
+            stable_extents = dict(most_stable_extents)
+
+    return set(stable_extents)

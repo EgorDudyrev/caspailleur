@@ -254,3 +254,51 @@ def test_list_stable_extents_via_sofia():
 
     stable_extents = mec.list_stable_extents_via_sofia(bin_attributes, 5)
     assert {all_extents[0], all_extents[4]} == stable_extents
+
+
+def test_list_stable_extents_via_gsofia():
+    attr_extents = [fbarray('110'),  fbarray('101'), fbarray('011')]
+    extents_true = {
+        fbarray('111'),
+        fbarray('110'), fbarray('101'), fbarray('011'),
+        fbarray('100'), fbarray('010'), fbarray('001'),
+        fbarray('000')
+    }
+
+    #stable_extents = mec.list_stable_extents_via_gsofia(attr_extents, 0)
+    #assert stable_extents == extents_true
+
+    #stable_extents = mec.list_stable_extents_via_gsofia(attr_extents, 1)
+    #assert stable_extents == extents_true - {fbarray('000')}
+
+    #stable_extents = mec.list_stable_extents_via_gsofia(attr_extents, 2)
+    #assert stable_extents == set()
+
+    # Data inspired by Animal Movement Context
+    all_extents = [
+        fbarray('1111111111111111'),  # delta_stab: 8
+        fbarray('0000000111111110'),  # delta_stab: 3
+        fbarray('0000111101111000'),  # delta_stab: 3
+        fbarray('1011111000000000'),  # delta_stab: 3
+        fbarray('0000000101111000'),  # delta_stab: 5
+        fbarray('0000111000000000'),  # delta_stab: 3
+        fbarray('0011000000000000'),  # delta_stab: 2
+        fbarray('0000000000000000'),  # delta_stab: 0
+    ]
+    bin_attributes = [
+        fbarray('1011111000000000'),
+        fbarray('0000111101111000'),
+        fbarray('0000000111111110'),
+        fbarray('0011000000000000'),
+    ]
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, 0)
+    assert set(all_extents) == stable_extents
+
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, 3)
+    assert set(all_extents[:-2]) == stable_extents
+
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, 4)
+    assert {all_extents[0], all_extents[4]} == stable_extents
+
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, 0.25)
+    assert {all_extents[0], all_extents[4]} == stable_extents
