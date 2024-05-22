@@ -265,14 +265,14 @@ def test_list_stable_extents_via_gsofia():
         fbarray('000')
     }
 
-    #stable_extents = mec.list_stable_extents_via_gsofia(attr_extents, 0)
-    #assert stable_extents == extents_true
+    stable_extents = mec.list_stable_extents_via_gsofia(attr_extents, min_delta_stability=0)
+    assert stable_extents == extents_true
 
-    #stable_extents = mec.list_stable_extents_via_gsofia(attr_extents, 1)
-    #assert stable_extents == extents_true - {fbarray('000')}
+    stable_extents = mec.list_stable_extents_via_gsofia(attr_extents, min_delta_stability=1)
+    assert stable_extents == extents_true - {fbarray('000')}
 
-    #stable_extents = mec.list_stable_extents_via_gsofia(attr_extents, 2)
-    #assert stable_extents == set()
+    stable_extents = mec.list_stable_extents_via_gsofia(attr_extents, min_delta_stability=2)
+    assert stable_extents == set()
 
     # Data inspired by Animal Movement Context
     all_extents = [
@@ -291,14 +291,24 @@ def test_list_stable_extents_via_gsofia():
         fbarray('0000000111111110'),
         fbarray('0011000000000000'),
     ]
-    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, 0)
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, min_delta_stability=0)
     assert set(all_extents) == stable_extents
 
-    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, 3)
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, min_delta_stability=3)
     assert set(all_extents[:-2]) == stable_extents
 
-    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, 4)
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, min_delta_stability=4)
     assert {all_extents[0], all_extents[4]} == stable_extents
 
-    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, 0.25)
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, min_delta_stability=0.25)
+    assert {all_extents[0], all_extents[4]} == stable_extents
+
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, min_delta_stability=3, min_supp=6)
+    assert {all_extents[0], all_extents[1], all_extents[2], all_extents[3]} == stable_extents
+
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes,
+                                                        min_delta_stability=3, min_supp=5, n_stable_extents=2)
+    assert {all_extents[0], all_extents[4]} == stable_extents
+
+    stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, n_stable_extents=3)
     assert {all_extents[0], all_extents[4]} == stable_extents

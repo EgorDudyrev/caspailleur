@@ -556,8 +556,7 @@ def list_stable_extents_via_gsofia(
             # Update the stability of the old extent given its new child: `extent_new`
             delta = min(delta, extent.count() - extent_new.count())
             if delta >= min_delta_stability:
-                children.add(extent_new)
-                stable_extents[extent] = (delta, children)
+                stable_extents[extent] = (delta, children | {extent_new})
 
             # Skip the new extent if it is too small
             if extent_new.count() < min_supp:
