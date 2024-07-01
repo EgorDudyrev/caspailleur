@@ -88,3 +88,15 @@ def test_mine_implications():
 
     impls_df = api.mine_implications(data, 'pseudo-intent')
     assert_df_equality(impls_df, impls_df_true)
+
+    impls_df_true_unit = pd.DataFrame({
+        'premise': [set()],
+        'conclusion': ['b'],
+        'conclusion_full': [{'b'}],
+        'extent': [{'g1', 'g2'}],
+        'support': 2
+    })
+    impls_df = api.mine_implications(data, 'proper premise', unit_base=True)
+    assert_df_equality(impls_df, impls_df_true_unit)
+
+    # TODO: Add refined tests for implication (and especially unit) base

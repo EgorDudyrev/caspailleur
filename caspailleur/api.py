@@ -176,8 +176,11 @@ def mine_concepts(
 
 
 def mine_implications(
-        data: ContextType, basis_name: Literal['proper premise', 'pseudo-intent'] = 'proper premise'
+        data: ContextType, basis_name: Literal['proper premise', 'pseudo-intent'] = 'proper premise',
+        unit_base: bool = False
 ) -> pd.DataFrame:
+    assert basis_name in {'pseudo-intent', 'proper premise'}, 'Only "proper premise" and "pseudo-intent" bases are supported'
+
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
@@ -186,18 +189,28 @@ def mine_implications(
     int_ext_map = dict(zip(intents_ba, extents_ba))
     keys_ba = mec.list_keys(intents_ba)
     ppremises_ba = list(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
+    basis = ppremises_ba
     if basis_name == 'pseudo-intent':
         basis = ibases.list_pseudo_intents_via_keys(ppremises_ba, intents_ba)
-    elif basis_name == 'proper premise':
-        basis = ppremises_ba
-    else:
-        raise ValueError('Only "proper premise" and "pseudo-intent" bases are supported')
 
-    impls_df = pd.DataFrame()
-    impls_df['premise'] = [verbalise(premise, attributes) for premise, _ in basis]
-    impls_df['conclusion'] = [verbalise(intents_ba[intent_i] & (~premise), attributes) for premise, intent_i in basis]
-    impls_df['conclusion_full'] = [verbalise(intents_ba[intent_i], attributes) for _, intent_i in basis]
-    impls_df['extent'] = [verbalise(int_ext_map[intents_ba[intent_i]], objects) for _, intent_i in basis]
-    impls_df['support'] = [idxs.support_by_description(..., ..., int_ext_map[intents_ba[intent_i]])
-                           for _, intent_i in basis]
+    basis = [(premise, intents_ba[intent_i] & ~premise, intent_i) for premise, intent_i in basis]
+    if unit_base:
+        single_attrs = to_bitarrays([{i} for i in range(len(attributes))])[0]
+        basis = [(premise, single_attrs[attr_i], intent_i)
+                 for premise, conclusion, intent_i in basis for attr_i in conclusion.search(True)]
+    premises, conclusions, intents_idxs = zip(*basis)
+
+    impls_df = pd.DataFrame({
+        'premise': premises,
+        'conclusion': conclusions,
+        'conclusion_full': [intents_ba[intent_i] for intent_i in intents_idxs],
+        'extent': [int_ext_map[intents_ba[intent_i]] for intent_i in intents_idxs],
+        'support': [int_ext_map[intents_ba[intent_i]].count() for intent_i in intents_idxs]
+    })
+    for ba_col in ['premise', 'conclusion', 'conclusion_full', 'extent']:
+        impls_df[ba_col] = impls_df[ba_col].map(
+            lambda bitarray: verbalise(bitarray, attributes if ba_col != 'extent' else objects))
+
+    if unit_base:
+        impls_df['conclusion'] = [list(conclusion)[0] for conclusion in impls_df['conclusion']]
     return impls_df
