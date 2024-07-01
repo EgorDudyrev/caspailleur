@@ -1,5 +1,6 @@
 from typing import Dict, Any, Union
 
+import deprecation
 import numpy as np
 
 from . import io
@@ -9,6 +10,11 @@ from . import order as ordermod
 from . import indices as indicesmod
 
 
+@deprecation.deprecated(
+    deprecated_in="0.1.4", removed_in="0.1.5",
+    details="Use functions `mine_implications`, `mine_concepts` and `mine_descriptions` from API module. "
+            "They provide easier to work-with output"
+)
 def explore_data(K: np.ndarray, min_sup: Union[int, float] = 0, return_itemsets: bool = True) -> Dict[str, Any]:
     """One function to output all dependencies in the data
 
