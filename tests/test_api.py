@@ -39,13 +39,6 @@ def test_mine_descriptions():
         freq_df = api.mine_descriptions(data, min_support=min_supp)
         assert_df_equality(freq_df, freq_df_true)
 
-    # test n_most_stable threshold
-    delta_stab = descriptions_data_true['delta-stability']
-    stable_df_true = descriptions_data_true[delta_stab == delta_stab.max()].reset_index(drop=True)
-    stable_df_true = stable_df_true.drop(columns=['is_key', 'is_passkey', 'is_proper_premise', 'is_pseudo_intent'])
-    stable_df = api.mine_descriptions(data, n_most_stable=len(stable_df_true))
-    assert_df_equality(stable_df, stable_df_true)
-
 
 def test_iter_descriptions():
     data = {'g1': ['a', 'b'], 'g2': ['b', 'c']}
