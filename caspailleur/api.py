@@ -204,7 +204,13 @@ def mine_implications(
     if basis_name == 'Pseudo-Intent':
         basis = ibases.list_pseudo_intents_via_keys(ppremises_ba, intents_ba)
 
-    basis = [(premise, intents_ba[intent_i] & ~premise, intent_i) for premise, intent_i in basis]
+    pseudo_closures = [
+        ibases.saturate(premise, basis[:impl_i]+basis[impl_i+1:], intents_ba)
+        for impl_i, (premise, intent_i) in enumerate(basis)
+    ]
+    basis = [(premise, intents_ba[intent_i] & ~pintent, intent_i)
+             for (premise, intent_i), pintent in zip(basis, pseudo_closures)]
+
     if unit_base:
         single_attrs = to_bitarrays([{i} for i in range(len(attributes))])[0]
         basis = [(premise, single_attrs[attr_i], intent_i)
