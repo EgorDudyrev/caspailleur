@@ -113,18 +113,20 @@ def mine_concepts(
         data: ContextType,
         to_compute: Optional[Union[list[MINE_CONCEPTS_COLUMN], Literal['all']]] = (
                 'extent', 'intent', 'support', 'delta-stability', 'keys', 'passkeys', 'proper_premises'),
-        min_support: Union[int, float] = 0,
+        min_support: Union[int, float] = 0, min_delta_stability: Union[int, float] = 0,
         use_tqdm: bool = False,
         return_all_computed: bool = False
 ) -> pd.DataFrame:
-    def group_by_concept(pairs: Iterable[tuple[fbarray, int]], n_cncpts: int, attrs: list[str]) -> list[list[set[str]]]:
-        per_concept = [[] for _ in range(n_cncpts)]
-        for ba, cncpt_i in pairs:
-            per_concept[cncpt_i].append(verbalise(ba, attrs))
-        return per_concept
-
+    ##################################################
+    # Computing what columns and parameters to compute
+    ##################################################
     all_cols = list(typing.get_args(MINE_CONCEPTS_COLUMN))
-    cols_to_compute = set(to_compute if to_compute and to_compute != 'all' else all_cols)
+    cols_to_return = list(to_compute) if to_compute is not None and to_compute != 'all' else list(all_cols)
+    cols_to_compute = set(cols_to_return)
+    assert set(cols_to_compute) <= set(all_cols), \
+        f"You asked `to_compute` columns {cols_to_compute}. " \
+        f"However, only the following columns can be chosen: {MINE_CONCEPTS_COLUMN}."
+
     for step, dependencies in [
         ('pseudo_intents', {'proper_premises', 'intent'}),
         ('proper_premises', {'intent', 'keys'}),
@@ -135,45 +137,70 @@ def mine_concepts(
         ('extent', {'intent'})
     ]:
         cols_to_compute.update(dependencies if step in cols_to_compute else [])
-
     cols_to_return = all_cols
-    if to_compute and to_compute != 'all':
-        cols_to_return = sorted(cols_to_compute, key=all_cols.index) if return_all_computed else list(to_compute)
+    if return_all_computed:
+        cols_to_return += sorted(set(cols_to_compute) - cols_to_compute, key=all_cols.index)
 
+    #################################
+    # Running the (long) computations
+    #################################
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
     n_objects = len(objects)
     min_support = to_absolute_number(min_support, n_objects)
 
-    concepts_df = pd.DataFrame()
     if 'intent' in cols_to_compute:
         intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
-        concepts_df['intent'] = [verbalise(intent_ba, attributes) for intent_ba in intents_ba]
         n_concepts = len(intents_ba)
     if 'extent' in cols_to_compute:
         extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
-        concepts_df['extent'] = [verbalise(extent_ba, objects) for extent_ba in extents_ba]
-    if 'support' in cols_to_compute:
-        concepts_df['support'] = [idxs.support_by_description(..., ..., extent_ba) for extent_ba in extents_ba]
-    if 'delta-stability' in cols_to_compute:
-        concepts_df['delta-stability'] = [idxs.delta_stability_by_description(descr, attr_extents, extent_ba)
-                                          for descr, extent_ba in zip(intents_ba, extents_ba)]
     if 'keys' in cols_to_compute:
         keys_ba = mec.list_keys(intents_ba)
-        concepts_df['keys'] = group_by_concept(keys_ba.items(), n_concepts, attributes)
     if 'passkeys' in cols_to_compute:
         passkeys_ba = mec.list_passkeys(intents_ba)
-        concepts_df['passkeys'] = group_by_concept(passkeys_ba.items(), n_concepts, attributes)
     if 'proper_premises' in cols_to_compute:
         ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
-        concepts_df['proper_premises'] = group_by_concept(ppremises_ba.items(), n_concepts, attributes)
     if 'pseudo_intents' in cols_to_compute:
         pintents_ba = dict(ibases.list_pseudo_intents_via_keys(
             ppremises_ba.items(), intents_ba, use_tqdm=use_tqdm, n_keys=len(ppremises_ba)))
-        concepts_df['pseudo_intents'] = group_by_concept(pintents_ba.items(), n_concepts, attributes)
+    if 'delta-stability' in cols_to_compute:
+        delta_stabilities = [idxs.delta_stability_by_description(descr, attr_extents, extent_ba)
+                             for descr, extent_ba in zip(intents_ba, extents_ba)]
 
-    return concepts_df[cols_to_return]
+    ##############################################
+    # Put all the computed values into a DataFrame
+    ##############################################
+    def get_vals_for_column(column_name):
+        def group_by_concept(pairs: Iterable[tuple[fbarray, int]], n_cncpts: int) -> list[list[set[str]]]:
+            per_concept = [[] for _ in range(n_cncpts)]
+            for ba, cncpt_i in pairs:
+                per_concept[cncpt_i].append(ba)
+            return per_concept
+
+        def verbalise_descriptions(bas):
+            return [verbalise(ba, attributes) for ba in bas]
+
+        if column_name == 'intent':
+            return verbalise_descriptions(intents_ba)
+        if column_name == 'extent':
+            return [verbalise(ba, objects) for ba in extents_ba]
+        if column_name == 'support':
+            return [extent.count() for extent in extents_ba]
+        if column_name == 'delta-stability':
+            return delta_stabilities
+        if column_name == 'keys':
+            return [verbalise_descriptions(keys) for keys in group_by_concept(keys_ba.items(), n_concepts)]
+        if column_name == 'passkeys':
+            return [verbalise_descriptions(pkeys) for pkeys in group_by_concept(passkeys_ba.items(), n_concepts)]
+        if column_name == 'proper_premises':
+            return [verbalise_descriptions(pps) for pps in group_by_concept(ppremises_ba.items(), n_concepts)]
+        if column_name == 'pseudo_intents':
+            return [verbalise_descriptions(pis) for pis in group_by_concept(pintents_ba.items(), n_concepts)]
+        raise NotImplementedError('Found some problem with the code')
+
+    concepts_df = pd.DataFrame({f: get_vals_for_column(f) for f in cols_to_return})
+    return concepts_df
 
 
 BASIS_NAME = Literal[
