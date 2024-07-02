@@ -71,6 +71,15 @@ def test_mine_concepts():
     concepts_df = api.mine_concepts(data, to_compute='all')
     assert_df_equality(concepts_df, concepts_df_true)
 
+    stable_concepts_df = api.mine_concepts(data, to_compute='all', min_delta_stability=1)
+    assert_df_equality(stable_concepts_df, concepts_df_true[:3])
+
+    stable_concepts_df = api.mine_concepts(data, to_compute='all', n_stable_concepts=3)
+    assert_df_equality(stable_concepts_df, concepts_df_true[:3])
+
+    stable_concepts_df = api.mine_concepts(data, to_compute='all', min_delta_stability=1, n_stable_concepts=3)
+    assert_df_equality(stable_concepts_df, concepts_df_true[:3])
+
 
 def test_mine_implications():
     data = {'g1': ['a', 'b'], 'g2': ['b', 'c']}

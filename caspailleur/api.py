@@ -113,7 +113,8 @@ def mine_concepts(
         data: ContextType,
         to_compute: Optional[Union[list[MINE_CONCEPTS_COLUMN], Literal['all']]] = (
                 'extent', 'intent', 'support', 'delta-stability', 'keys', 'passkeys', 'proper_premises'),
-        min_support: Union[int, float] = 0, min_delta_stability: Union[int, float] = 0,
+        min_support: Union[int, float] = 0,
+        min_delta_stability: Union[int, float] = 0, n_stable_concepts: Optional[int] = None,
         use_tqdm: bool = False,
         return_all_computed: bool = False
 ) -> pd.DataFrame:
@@ -137,7 +138,12 @@ def mine_concepts(
         ('extent', {'intent'})
     ]:
         cols_to_compute.update(dependencies if step in cols_to_compute else [])
-    cols_to_return = all_cols
+
+    # whether to compute all concepts whose support is higher min_support
+    compute_join_semilattice = min_delta_stability == 0 and n_stable_concepts is None
+    if compute_join_semilattice and ('keys' in to_compute or 'passkeys' in to_compute):
+        cols_to_compute.add('extent')
+
     if return_all_computed:
         cols_to_return += sorted(set(cols_to_compute) - cols_to_compute, key=all_cols.index)
 
@@ -147,18 +153,31 @@ def mine_concepts(
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
-    n_objects = len(objects)
-    min_support = to_absolute_number(min_support, n_objects)
-
     if 'intent' in cols_to_compute:
-        intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
+        if compute_join_semilattice:
+            intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
+        else:
+            n_objects = len(objects)
+            stable_extents = mec.list_stable_extents_via_gsofia(
+                attr_extents, n_objects, min_delta_stability, n_stable_concepts,
+                min_supp=to_absolute_number(min_support, n_objects), n_attributes=len(attr_extents)
+            )
+            intents_ba = [intention(extent, attr_extents) for extent in stable_extents]
+
+        intents_ba = topological_sorting(intents_ba)[0]
         n_concepts = len(intents_ba)
     if 'extent' in cols_to_compute:
         extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
     if 'keys' in cols_to_compute:
-        keys_ba = mec.list_keys(intents_ba)
+        if compute_join_semilattice:
+            keys_ba = mec.list_keys(intents_ba)
+        else:
+            keys_ba = mec.list_keys_for_extents(extents_ba, attr_extents)
     if 'passkeys' in cols_to_compute:
-        passkeys_ba = mec.list_passkeys(intents_ba)
+        if compute_join_semilattice:
+            passkeys_ba = mec.list_passkeys(intents_ba)
+        else:
+            passkeys_ba = mec.list_passkeys_for_extents(extents_ba, attr_extents)
     if 'proper_premises' in cols_to_compute:
         ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
     if 'pseudo_intents' in cols_to_compute:

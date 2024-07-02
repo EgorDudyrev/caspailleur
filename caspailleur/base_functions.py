@@ -60,7 +60,7 @@ def intention(
 ) -> Union[Iterator[int], bitarray]:
     """Iterate the indices of columns that describe the `objects`"""
     if isinstance(objects, bitarray):
-        return bitarray([is_subset_of(objects, col) for col in crosses_per_columns])
+        return type(objects)([is_subset_of(objects, col) for col in crosses_per_columns])
 
     if isinstance(crosses_per_columns[0], bitarray) and not isinstance(objects, bitarray):
         objects = next(io.isets2bas([objects], len(crosses_per_columns[0])))
