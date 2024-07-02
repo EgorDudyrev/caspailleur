@@ -107,4 +107,8 @@ def test_mine_implications():
     impls_df = api.mine_implications(data, 'Proper Premise', unit_base=True)
     assert_df_equality(impls_df, impls_df_true_unit)
 
+    impls_df = api.mine_implications(data, 'Proper Premise', unit_base=True,
+                                     to_compute=['premise', 'conclusion', 'extent'])
+    assert_df_equality(impls_df, impls_df_true_unit[['premise', 'conclusion', 'extent']])
+
     # TODO: Add refined tests for implication (and especially unit) base

@@ -1,7 +1,7 @@
 """Module with easy to use general functions for working with Caspailleur"""
 from operator import itemgetter
 import typing
-from typing import Iterator, Iterable, Literal, Union, Optional
+from typing import Iterator, Iterable, Literal, Union, Optional, get_args
 import pandas as pd
 from bitarray import frozenbitarray as fbarray
 
@@ -111,7 +111,8 @@ MINE_CONCEPTS_COLUMN = Literal[
 
 def mine_concepts(
         data: ContextType,
-        to_compute: Optional[Union[list[MINE_CONCEPTS_COLUMN], Literal['all']]] = ('extent', 'intent', 'support', 'delta-stability', 'keys', 'passkeys', 'proper_premises'),
+        to_compute: Optional[Union[list[MINE_CONCEPTS_COLUMN], Literal['all']]] = (
+                'extent', 'intent', 'support', 'delta-stability', 'keys', 'passkeys', 'proper_premises'),
         min_support: Union[int, float] = 0,
         use_tqdm: bool = False,
         return_all_computed: bool = False
@@ -180,54 +181,77 @@ BASIS_NAME = Literal[
     "Pseudo-Intent", "Canonical", "Duquenne-Guigues", "Minimum",
 ]
 
+MINE_IMPLICATIONS_COLUMN = Literal[
+    "premise", "conclusion", "conclusion_full", "extent", "support"
+]
+
 
 def mine_implications(
         data: ContextType, basis_name: BASIS_NAME = 'Proper Premise',
-        unit_base: bool = False
+        unit_base: bool = False,
+        to_compute: Optional[Union[list[MINE_IMPLICATIONS_COLUMN], Literal['all']]] = 'all',
 ) -> pd.DataFrame:
-    assert basis_name in BASIS_NAME.__args__,\
+    assert basis_name in get_args(BASIS_NAME), \
         f"You asked for '{basis_name}' basis. But only the following bases are supported: {BASIS_NAME}"
     if basis_name in {'Canonical Direct', "Karell"}:
         basis_name = 'Proper Premise'
     if basis_name in {'Canonical', 'Duquenne-Guigues', 'Minimum'}:
         basis_name = 'Pseudo-Intent'
 
+    to_compute = list(get_args(MINE_IMPLICATIONS_COLUMN)) if to_compute is None or to_compute == 'all' else to_compute
+    assert set(to_compute) <= set(get_args(MINE_IMPLICATIONS_COLUMN)), \
+        f"You asked `to_compute` columns {to_compute}. " \
+        f"However, only the following columns can be chosen: {MINE_IMPLICATIONS_COLUMN}."
+
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
     intents_ba = mec.list_intents_via_LCM(bitarrays)
-    extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
-    int_ext_map = dict(zip(intents_ba, extents_ba))
     keys_ba = mec.list_keys(intents_ba)
     ppremises_ba = list(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
     basis = ppremises_ba
     if basis_name == 'Pseudo-Intent':
         basis = ibases.list_pseudo_intents_via_keys(ppremises_ba, intents_ba)
 
-    pseudo_closures = [
-        ibases.saturate(premise, basis[:impl_i]+basis[impl_i+1:], intents_ba)
-        for impl_i, (premise, intent_i) in enumerate(basis)
-    ]
-    basis = [(premise, intents_ba[intent_i] & ~pintent, intent_i)
-             for (premise, intent_i), pintent in zip(basis, pseudo_closures)]
+    # compute pseudo-closures to reduce the conclusions by attributes implied by other implications
+    if 'conclusion' in to_compute:
+        pseudo_closures = [
+            ibases.saturate(premise, basis[:impl_i] + basis[impl_i + 1:], intents_ba)
+            for impl_i, (premise, intent_i) in enumerate(basis)
+        ]
+        basis = [(premise, intents_ba[intent_i] & ~pintent, intent_i)
+                 for (premise, intent_i), pintent in zip(basis, pseudo_closures)]
+    else:
+        basis = [(premise, None, intent_i) for premise, intent_i in basis]
 
-    if unit_base:
+    if unit_base and 'conclusion' in to_compute:
         single_attrs = to_bitarrays([{i} for i in range(len(attributes))])[0]
         basis = [(premise, single_attrs[attr_i], intent_i)
                  for premise, conclusion, intent_i in basis for attr_i in conclusion.search(True)]
+
     premises, conclusions, intents_idxs = zip(*basis)
 
-    impls_df = pd.DataFrame({
-        'premise': premises,
-        'conclusion': conclusions,
-        'conclusion_full': [intents_ba[intent_i] for intent_i in intents_idxs],
-        'extent': [int_ext_map[intents_ba[intent_i]] for intent_i in intents_idxs],
-        'support': [int_ext_map[intents_ba[intent_i]].count() for intent_i in intents_idxs]
-    })
-    for ba_col in ['premise', 'conclusion', 'conclusion_full', 'extent']:
-        impls_df[ba_col] = impls_df[ba_col].map(
-            lambda bitarray: verbalise(bitarray, attributes if ba_col != 'extent' else objects))
+    if "extent" in to_compute or "support" in to_compute:
+        extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
+        int_ext_map = dict(zip(intents_ba, extents_ba))
 
+    def get_vals_for_column(column_name):
+        def verbalise_descriptions(bas):
+            return [verbalise(ba, attributes) for ba in bas]
+
+        if column_name == 'premise':
+            return verbalise_descriptions(premises)
+        if column_name == 'conclusion':
+            return verbalise_descriptions(conclusions)
+        if column_name == 'conclusion_full':
+            return verbalise_descriptions(map(intents_ba.__getitem__, intents_idxs))
+        if column_name == 'extent':
+            return [verbalise(int_ext_map[intents_ba[intent_i]], objects) for intent_i in intents_idxs]
+        if column_name == 'support':
+            return [int_ext_map[intents_ba[intent_i]].count() for intent_i in intents_idxs]
+        raise NotImplementedError("Something's gone wrong in the code")
+
+    impls_df = pd.DataFrame({f: get_vals_for_column(f) for f in to_compute})
     if unit_base:
         impls_df['conclusion'] = [list(conclusion)[0] for conclusion in impls_df['conclusion']]
     return impls_df
