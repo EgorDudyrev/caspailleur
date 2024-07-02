@@ -175,11 +175,22 @@ def mine_concepts(
     return concepts_df[cols_to_return]
 
 
+BASIS_NAME = Literal[
+    "Proper Premise", "Canonical Direct", "Karell",
+    "Pseudo-Intent", "Canonical", "Duquenne-Guigues", "Minimum",
+]
+
+
 def mine_implications(
-        data: ContextType, basis_name: Literal['proper premise', 'pseudo-intent'] = 'proper premise',
+        data: ContextType, basis_name: BASIS_NAME = 'Proper Premise',
         unit_base: bool = False
 ) -> pd.DataFrame:
-    assert basis_name in {'pseudo-intent', 'proper premise'}, 'Only "proper premise" and "pseudo-intent" bases are supported'
+    assert basis_name in BASIS_NAME.__args__,\
+        f"You asked for '{basis_name}' basis. But only the following bases are supported: {BASIS_NAME}"
+    if basis_name in {'Canonical Direct', "Karell"}:
+        basis_name = 'Proper Premise'
+    if basis_name in {'Canonical', 'Duquenne-Guigues', 'Minimum'}:
+        basis_name = 'Pseudo-Intent'
 
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
@@ -190,7 +201,7 @@ def mine_implications(
     keys_ba = mec.list_keys(intents_ba)
     ppremises_ba = list(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
     basis = ppremises_ba
-    if basis_name == 'pseudo-intent':
+    if basis_name == 'Pseudo-Intent':
         basis = ibases.list_pseudo_intents_via_keys(ppremises_ba, intents_ba)
 
     basis = [(premise, intents_ba[intent_i] & ~premise, intent_i) for premise, intent_i in basis]

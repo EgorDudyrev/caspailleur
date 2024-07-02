@@ -83,11 +83,19 @@ def test_mine_implications():
         'support': 2
     })
 
-    impls_df = api.mine_implications(data, 'proper premise')
+    impls_df = api.mine_implications(data, 'Proper Premise')
     assert_df_equality(impls_df, impls_df_true)
 
-    impls_df = api.mine_implications(data, 'pseudo-intent')
+    impls_df = api.mine_implications(data, 'Pseudo-Intent')
     assert_df_equality(impls_df, impls_df_true)
+
+    for basis_name in ['Duquenne-Guigues', 'Minimum', 'Canonical']:
+        impls_df = api.mine_implications(data, basis_name)
+        assert_df_equality(impls_df, impls_df_true)
+
+    for basis_name in ['Canonical Direct', 'Karell']:
+        impls_df = api.mine_implications(data, basis_name)
+        assert_df_equality(impls_df, impls_df_true)
 
     impls_df_true_unit = pd.DataFrame({
         'premise': [set()],
@@ -96,7 +104,7 @@ def test_mine_implications():
         'extent': [{'g1', 'g2'}],
         'support': 2
     })
-    impls_df = api.mine_implications(data, 'proper premise', unit_base=True)
+    impls_df = api.mine_implications(data, 'Proper Premise', unit_base=True)
     assert_df_equality(impls_df, impls_df_true_unit)
 
     # TODO: Add refined tests for implication (and especially unit) base
