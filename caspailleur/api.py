@@ -56,28 +56,48 @@ def _setup_colnames_to_compute(
     return columns_to_compute, columns_to_return
 
 
-def iter_descriptions(data: ContextType) -> Iterator[dict]:
+def iter_descriptions(
+        data: ContextType,
+        to_compute: Optional[Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']]] = (
+                "description", "extent", "intent",
+                "support", "delta-stability",
+                "is_closed", "is_key", "is_passkey", "is_proper_premise",
+        )
+) -> Iterator[dict]:
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
     sub_pseudo_intents = []
 
+    def get_vals_for_column(column_name: MINE_DESCRIPTION_COLUMN):
+        if column_name == 'description':
+            return set(verbalise(description_idxs, attributes))
+        if column_name == 'extent':
+            return set(verbalise(extent_ba, objects))
+        if column_name == 'intent':
+            return set(verbalise(definitions.closure(description_idxs, attr_extents), attributes))
+        if column_name == 'support':
+            return idxs.support_by_description(description_idxs, attr_extents, extent_ba),
+        if column_name == 'delta-stability':
+            return idxs.delta_stability_by_description(description_idxs, attr_extents)
+        if column_name == 'is_closed':
+            return definitions.is_closed(description_idxs, attr_extents)
+        if column_name == 'is_key':
+            return definitions.is_key(description_idxs, attr_extents)
+        if column_name == 'is_passkey':
+            return definitions.is_passkey(description_idxs, attr_extents)
+        if column_name == 'is_proper_premise':
+            return definitions.is_proper_premise(description_idxs, attr_extents)
+        if column_name == 'is_pseudo_intent':
+            return definitions.is_pseudo_intent(description_idxs, attr_extents, sub_pseudo_intents)
+        raise NotImplementedError("Something's gone wrong in the code")
+
     for description_idxs in powerset(range(len(attributes))):
         extent_ba = fbarray(extension(description_idxs, attr_extents))
-        stats = {
-            'description': set(verbalise(description_idxs, attributes)),
-            'extent': set(verbalise(extent_ba, objects)),
-            'intent': set(verbalise(definitions.closure(description_idxs, attr_extents), attributes)),
-            'support': idxs.support_by_description(description_idxs, attr_extents, extent_ba),
-            'delta-stability': idxs.delta_stability_by_description(description_idxs, attr_extents),
-            'is_closed': definitions.is_closed(description_idxs, attr_extents),
-            'is_key': definitions.is_key(description_idxs, attr_extents),
-            'is_passkey': definitions.is_passkey(description_idxs, attr_extents),
-            'is_proper_premise': definitions.is_proper_premise(description_idxs, attr_extents),
-            'is_pseudo_intent': definitions.is_pseudo_intent(description_idxs, attr_extents, sub_pseudo_intents)
-        }
+        stats = {colname: get_vals_for_column(colname) for colname in to_compute}
+
         yield stats
-        if stats['is_pseudo_intent']:
+        if 'is_pseudo_intent' in to_compute and stats['is_pseudo_intent']:
             sub_pseudo_intents.append(description_idxs)
 
 

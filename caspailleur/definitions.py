@@ -3,20 +3,22 @@ This module contains functions to test whether
 a set of attributes belongs to a given characteristic attribute set class
 (e.g. pseudo-intents, minimal generators, etc.)
 """
-from typing import List, FrozenSet
+from typing import FrozenSet, Union
+from bitarray import frozenbitarray as fbarray
+
 
 from .base_functions import closure, is_psubset_of, powerset
 
 
-def is_closed(B: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]]) -> bool:
+def is_closed(B: Union[FrozenSet[int], fbarray], crosses_per_columns: Union[list[FrozenSet[int]], list[fbarray]]) -> bool:
     """Test whether `B` is closed w.r.t. `crosses_per_columns`"""
     return B == set(closure(B, crosses_per_columns))
 
 
 def is_pseudo_intent(
         P: FrozenSet[int],
-        crosses_per_columns: List[FrozenSet[int]],
-        sub_pseudo_intents: List[FrozenSet[int]] = None,
+        crosses_per_columns: Union[list[FrozenSet[int]], list[fbarray]],
+        sub_pseudo_intents: list[FrozenSet[int]] = None,
         is_closed_: bool = None,
 ) -> bool:
     """Test whether `P` is a pseudo-intent w.r.t. `crosses_per_columns`
@@ -49,7 +51,7 @@ def is_pseudo_intent(
 
 def is_proper_premise(
         Q: FrozenSet[int],
-        crosses_per_columns: List[FrozenSet[int]],
+        crosses_per_columns: list[FrozenSet[int]],
         is_closed_: bool = None
 ) -> bool:
     """Test whether `Q` is a proper premise w.r.t. `crosses_per_columns`
@@ -71,7 +73,7 @@ def is_proper_premise(
     return union_closure != intent
 
 
-def is_minimal_gen(D: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]]) -> bool:
+def is_minimal_gen(D: FrozenSet[int], crosses_per_columns: list[FrozenSet[int]]) -> bool:
     """Test whether `D` is a minimal generator w.r.t. `crosses_per_columns`
 
     An attribute set D is a minimal generator if there is no subset of D with the same closure as D
@@ -82,8 +84,8 @@ def is_minimal_gen(D: FrozenSet[int], crosses_per_columns: List[FrozenSet[int]])
 
 def is_minimum_gen(
         D: FrozenSet[int],
-        crosses_per_columns: List[FrozenSet[int]],
-        minimal_gens: List[FrozenSet[int]] = None,
+        crosses_per_columns: list[FrozenSet[int]],
+        minimal_gens: list[FrozenSet[int]] = None,
         is_minimal_gen_: bool = None
 ) -> bool:
     """Test whether `D` is a minimum generator w.r.t. `crosses_per_columns`
@@ -105,15 +107,15 @@ def is_minimum_gen(
     return len(D) == len(first_mingen)
 
 
-def is_key(D: frozenset, crosses_per_columns: List[frozenset], is_minimal_gen_=None) -> bool:
+def is_key(D: frozenset, crosses_per_columns: list[frozenset], is_minimal_gen_=None) -> bool:
     """Test whether `D` is a key w.r.t. `crosses_per_columns` (the same as minimal generator)"""
     return is_minimal_gen(D, crosses_per_columns) if is_minimal_gen_ is None else is_minimal_gen_
 
 
 def is_passkey(
         D: FrozenSet[int],
-        crosses_per_columns: List[FrozenSet[int]],
-        keys: List[FrozenSet[int]] = None,
+        crosses_per_columns: list[FrozenSet[int]],
+        keys: list[FrozenSet[int]] = None,
         is_minimum_gen_=None
 ) -> bool:
     """Test whether `D` is a passkey w.r.t. `crosses_per_columns` (the same as minimum generator)"""

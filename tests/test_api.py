@@ -46,6 +46,10 @@ def test_iter_descriptions():
     descriptions_data = list(api.iter_descriptions(data))
     assert_df_equality(pd.DataFrame(descriptions_data), api.mine_descriptions(data))
 
+    to_compute = ['description', 'extent', 'intent', 'is_proper_premise', 'is_pseudo_intent']
+    descriptions_data = list(api.iter_descriptions(data, to_compute=to_compute))
+    assert_df_equality(pd.DataFrame(descriptions_data), api.mine_descriptions(data, to_compute='all')[to_compute])
+
 
 def test_mine_concepts():
     data = {'g1': ['a', 'b'], 'g2': ['b', 'c']}
