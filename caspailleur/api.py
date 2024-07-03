@@ -6,11 +6,54 @@ import pandas as pd
 from bitarray import frozenbitarray as fbarray
 
 from .base_functions import powerset, extension, intention
-from .io import ContextType, to_bitarrays, to_itemsets, transpose_context, isets2bas, verbalise, to_absolute_number
+from .io import ContextType, to_bitarrays, transpose_context, isets2bas, verbalise, to_absolute_number
 from .order import topological_sorting
 from . import indices as idxs
 from . import definitions
 from . import mine_equivalence_classes as mec, implication_bases as ibases
+
+
+MINE_DESCRIPTION_COLUMN = Literal[
+    "description", "extent", "intent",
+    "support", "delta-stability",
+    "is_closed", "is_key", "is_passkey", "is_proper_premise", "is_pseudo_intent"
+]
+
+MINE_CONCEPTS_COLUMN = Literal[
+    "extent", "intent", "support", "delta-stability",
+    "keys", "passkeys", "proper_premises", "pseudo_intents"
+]
+
+MINE_IMPLICATIONS_COLUMN = Literal[
+    "premise", "conclusion", "conclusion_full", "extent", "support"
+]
+
+BASIS_NAME = Literal[
+    "Proper Premise", "Canonical Direct", "Karell",
+    "Pseudo-Intent", "Canonical", "Duquenne-Guigues", "Minimum",
+]
+
+
+def _setup_colnames_to_compute(
+        all_columns,
+        columns_to_compute: Union[list[str], Literal['all'], None],
+        dependencies: dict[str, set[str]], return_all_computed: bool
+) -> tuple[set[str], list[str]]:
+    columns_to_return = list(get_args(all_columns))
+    if columns_to_compute is not None and columns_to_compute != 'all':
+        columns_to_return = list(columns_to_compute)
+    columns_to_compute = set(columns_to_return)
+
+    assert columns_to_compute <= set(get_args(all_columns)), \
+        f"The following elements were asked for but cannot be computed {columns_to_compute - set(all_columns)}. " \
+        f"However, only the following columns can be chosen: {all_columns}."
+
+    for premise, conclusion in dependencies.items():
+        columns_to_compute.update(conclusion if premise in columns_to_compute else set())
+
+    if return_all_computed:
+        columns_to_return += sorted(set(columns_to_compute) - set(columns_to_return), key=all_columns.index)
+    return columns_to_compute, columns_to_return
 
 
 def iter_descriptions(data: ContextType) -> Iterator[dict]:
@@ -41,6 +84,12 @@ def iter_descriptions(data: ContextType) -> Iterator[dict]:
 def mine_descriptions(
         data: ContextType,
         min_support: Union[int, float] = 0,
+        to_compute: Optional[Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']]] = (
+                "description", "extent", "intent",
+                "support", "delta-stability",
+                "is_closed", "is_key", "is_passkey", "is_proper_premise",
+        ),
+        return_every_computed_column: bool = False
 ) -> pd.DataFrame:
     """Mine all frequent descriptions and their characteristics
 
@@ -48,57 +97,92 @@ def mine_descriptions(
     Note: If you want to look at only the most stable descriptions, then use "mine_concepts" function,
      as all stable descriptions are concept intents.
     """
-    bitarrays, objects, attributes = to_bitarrays(data)
+    ####################################################
+    # Computing what columns and parameters to compute #
+    ####################################################
+    if to_compute is not None and to_compute != 'all' and min_support > 0 and 'support' not in to_compute:
+        to_compute = list(to_compute) + ['support']
+    col_dependencies: dict[MINE_DESCRIPTION_COLUMN, set[MINE_DESCRIPTION_COLUMN]] = {
+        'is_pseudo_intent': {'is_proper_premise', 'intent'},
+        'is_proper_premise': {'intent', 'is_key'},
+        'is_key': {'intent'},
+        'is_passkey': {'intent'},
+        'is_closed': {'intent'},
+        'support': {'extent'},
+        'delta-stability': {'extent'},
+        'intent': {'extent'},
+    }
+    cols_to_compute, cols_to_return = _setup_colnames_to_compute(
+        MINE_DESCRIPTION_COLUMN, to_compute, col_dependencies, return_every_computed_column)
 
+    ################################
+    # Compute the required columns #
+    ################################
+    bitarrays, objects, attributes = to_bitarrays(data)
+    attr_extents = transpose_context(bitarrays)
     n_objects = len(objects)
     min_support = to_absolute_number(min_support, n_objects)
 
-    attr_extents = transpose_context(bitarrays)
+    descriptions_ba = isets2bas(powerset(range(len(attributes))), len(attributes))
+    if 'extent' in cols_to_compute:
+        extents_ba = [fbarray(extension(descr, attr_extents)) for descr in descriptions_ba]
+    if min_support > 0:
+        descriptions_ba, extents_ba = zip(*[(descr, ext) for descr, ext in zip(descriptions_ba, extents_ba)
+                                              if ext.count() > min_support])
+    if 'intent' in cols_to_compute:
+        intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
+        ext_int_map = {fbarray(extension(intent, attr_extents)): intent_i for intent_i, intent in enumerate(intents_ba)}
+    if 'is_key' in cols_to_compute:
+        keys_ba = mec.list_keys(intents_ba)
+    if 'is_passkey' in cols_to_compute:
+        passkeys_ba = mec.list_passkeys(intents_ba)
+    if 'is_proper_premise' in cols_to_compute:
+        ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
+    if 'is_pseudo_intent' in cols_to_compute:
+        pintents_ba = dict(ibases.list_pseudo_intents_via_keys(ppremises_ba.items(), intents_ba))
+    if 'supports' in cols_to_compute:
+        supports = [extent.count() for extent in extents_ba]
+    if 'delta-stability' in cols_to_compute:
+        delta_stabs = [idxs.delta_stability_by_description(descr, attr_extents, extent)
+                       for descr, extent in zip(descriptions_ba, extents_ba)]
+    if 'is_closed' in cols_to_compute:
+        is_closed = [ext_int_map[extent] == descr_ba for descr_ba, extent in zip(descriptions_ba, extents_ba)]
+    if 'is_key' in cols_to_compute:
+        is_key = [descr_ba in keys_ba for descr_ba in descriptions_ba]
+    if 'is_passkey' in cols_to_compute:
+        is_passkey = [descr_ba in passkeys_ba for descr_ba in descriptions_ba]
+    if 'is_proper_premise' in cols_to_compute:
+        is_ppremise = [descr_ba in ppremises_ba for descr_ba in descriptions_ba]
+    if 'is_pseudo_intent' in cols_to_compute:
+        is_pintent = [descr_ba in pintents_ba for descr_ba in descriptions_ba]
 
-    intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
-    extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
-    keys_ba = mec.list_keys(intents_ba)
-    passkeys_ba = mec.list_passkeys(intents_ba)
-    ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
-    pintents_ba = dict(ibases.list_pseudo_intents_via_keys(ppremises_ba.items(), intents_ba))
+    ###################################
+    # Put everything into a dataframe #
+    ###################################
+    def get_vals_for_column(column_name):
+        if column_name == 'description':
+            return [verbalise(descr, attributes) for descr in descriptions_ba]
+        if column_name == 'extent':
+            return [verbalise(extent, objects) for extent in extents_ba]
+        if column_name == 'intent':
+            return [verbalise(ext_int_map[extent], attributes) for extent in extents_ba]
+        if column_name == 'support':
+            return supports
+        if column_name == 'delta-stability':
+            return delta_stabs
+        if column_name == 'is_closed':
+            return is_closed
+        if column_name == 'is_key':
+            return is_key
+        if column_name == 'is_passkey':
+            return is_passkey
+        if column_name == 'is_proper_premise':
+            return is_ppremise
+        if column_name == 'is_pseudo_intent':
+            return is_pintent
+        raise NotImplementedError("Something's gone wrong in the code")
 
-    ext_int_map = dict(zip(extents_ba, intents_ba))
-
-    descriptions = list(map(set, powerset(range(len(attributes)))))
-    descr_df = pd.DataFrame(index=pd.Series(descriptions, name='description_idxs'))
-    descr_df['description'] = [set(verbalise(descr_idxs, attributes)) for descr_idxs in descr_df.index]
-    descr_df['extent_ba'] = [extension(descr, attr_extents) for descr in descr_df.index]
-    descr_df['support'] = [idxs.support_by_description(..., ..., extent) for extent in descr_df['extent_ba']]
-    descr_df = descr_df[descr_df['support'] >= min_support]
-
-    descr_df['extent'] = [set(verbalise(extent_ba, objects)) for extent_ba in descr_df['extent_ba']]
-    descr_df['intent'] = [set(verbalise(ext_int_map[extent_ba], attributes)) for extent_ba in descr_df['extent_ba']]
-    descr_df['delta-stability'] = [idxs.delta_stability_by_description(descr, attr_extents, extent)
-                                   for descr, extent in descr_df['extent_ba'].items()]
-    descr_df['is_closed'] = descr_df['intent'] == descr_df['description']
-    descr_df['descr_ba'] = list(isets2bas(descr_df.index, len(attributes)))
-
-
-    descr_df['is_key'] = [descr_ba in keys_ba for descr_ba in descr_df['descr_ba']]
-    descr_df['is_passkey'] = [descr_ba in passkeys_ba for descr_ba in descr_df['descr_ba']]
-
-    descr_df['is_proper_premise'] = [descr_ba in ppremises_ba for descr_ba in descr_df['descr_ba']]
-    descr_df['is_pseudo_intent'] = [descr_ba in pintents_ba for descr_ba in descr_df['descr_ba']]
-
-    cols_order = [
-        'description', 'extent', 'intent',
-        'support', 'delta-stability',
-        'is_closed', 'is_key', 'is_passkey', 'is_proper_premise', 'is_pseudo_intent'
-    ]
-
-    descr_df = descr_df.reset_index(drop=True).reindex(columns=cols_order).dropna(axis='columns')
-    return descr_df
-
-
-MINE_CONCEPTS_COLUMN = Literal[
-    "extent", "intent", "support", "delta-stability",
-    "keys", "passkeys", "proper_premises", "pseudo_intents"
-]
+    return pd.DataFrame({f: get_vals_for_column(f) for f in cols_to_return})
 
 
 def mine_concepts(
@@ -212,16 +296,6 @@ def mine_concepts(
 
     concepts_df = pd.DataFrame({f: get_vals_for_column(f) for f in cols_to_return})
     return concepts_df
-
-
-BASIS_NAME = Literal[
-    "Proper Premise", "Canonical Direct", "Karell",
-    "Pseudo-Intent", "Canonical", "Duquenne-Guigues", "Minimum",
-]
-
-MINE_IMPLICATIONS_COLUMN = Literal[
-    "premise", "conclusion", "conclusion_full", "extent", "support"
-]
 
 
 def mine_implications(
