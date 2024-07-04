@@ -1,6 +1,13 @@
-"""Module with easy to use general functions for working with Caspailleur"""
-from operator import itemgetter
-import typing
+"""Module with high-level functions to work with Caspailleur
+
+The proposed functions are:
+* iter_descriptions(data) to iterate all possible descriptions (and their characteristics) in the data
+* mine_descriptions(data) to get the Pandas DataFrame with all possible descriptions in the data
+    (note that "the number of all descriptions" = 2**"the number of binary attributes",
+    so the resulting DataFrame might be huge even for small data)
+* mine_concepts(data) to get all the concepts (and their characteristics) in the data
+* mine_implications(data, basis_name) to get a basis of implications for the data
+"""
 from typing import Iterator, Iterable, Literal, Union, Optional, get_args
 import pandas as pd
 from bitarray import frozenbitarray as fbarray
@@ -62,12 +69,34 @@ def _setup_colnames_to_compute(
 
 def iter_descriptions(
         data: ContextType,
-        to_compute: Optional[Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']]] = (
-                "description", "extent", "intent",
-                "support", "delta_stability",
-                "is_closed", "is_key", "is_passkey", "is_proper_premise",
-        )
+        to_compute: Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']] = 'all'
 ) -> Iterator[dict]:
+    """Iterate all possible descriptions in the data one by one
+
+    Parameters
+    ----------
+    data: ContextType
+        Data in a format, supported by Caspailleur.io module.
+        For example, Pandas DataFrame with binary values,
+        or list of lists of strings (where every list of strings represents an itemset).
+    to_compute: list[MINE_DESCRIPTION_COLUMN] or 'all'
+        A list of characteristics to compute (by default: "all")
+        The list of all possible characteristics is defined in caspailleur.MINE_DESCRIPTION_COLUMN value.
+
+    Returns
+    -------
+    descriptions: Iterator[dict]
+        Iterator of descriptions. Every description and its characteristics are represented with a dictionary
+        where the keys are defined by `to_compute` parameter.
+
+
+    Notes
+    -----
+    Every description is a subset of attributes,
+    and the maximal amount of possible descriptions is 2**(number of attributes).
+    Thus, the resulting iterator will contain the exponential amount of elements,
+    unless you define some additional early stopping outside of this function.
+    """
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
@@ -108,18 +137,46 @@ def iter_descriptions(
 def mine_descriptions(
         data: ContextType,
         min_support: Union[int, float] = 0,
-        to_compute: Optional[Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']]] = (
-                "description", "extent", "intent",
-                "support", "delta_stability",
-                "is_closed", "is_key", "is_passkey", "is_proper_premise",
-        ),
+        to_compute: Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']] = 'all',
         return_every_computed_column: bool = False
 ) -> pd.DataFrame:
     """Mine all frequent descriptions and their characteristics
 
+    The frequency of a description is defined by its "support" index,
+    which is the amount (or the percentage) of objects described by the description.
 
-    Note: If you want to look at only the most stable descriptions, then use "mine_concepts" function,
-     as all stable descriptions are concept intents.
+    Parameters
+    ----------
+    data: ContextType
+        Data in a format, supported by Caspailleur.io module.
+        For example, Pandas DataFrame with binary values,
+        or list of lists of strings (where every list of strings represents an itemset).
+    min_support: int or float
+        Minimal value of the support for a description, i.e. how many objects it describes.
+        Can be defined by an integer (so the number of objects) or by a float (so the percentage of objects).
+    to_compute: list[MINE_DESCRIPTION_COLUMN] or 'all'
+        A list of characteristics to compute (by default: "all")
+        The list of all possible characteristics is defined in caspailleur.MINE_DESCRIPTION_COLUMN value.
+    return_every_computed_column: bool
+        A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
+        For example, the computation of column 'is_proper_premise' requires the computation of column 'is_key'.
+        Thus, if you have asked for column 'is_proper_premise' you can get the column 'is_key' ``for free''.
+
+    Returns
+    -------
+    descriptions_df: pandas.DataFrame
+        Pandas DataFrame where every row represents a description, and every column represents its characteristics
+        defined by `to_compute` and `return_every_computed_column` parameters.
+
+    Notes
+    -----
+    If you want to look at only the most stable descriptions, then use "mine_concepts" function,
+    as all stable descriptions are concept intents.
+
+    Every description is a subset of attributes.
+    So the maximal amount of possible descriptions is 2**(number of attributes).
+    Make sure to specify the `min_support` parameter when dealing with the data with dozens of attributes,
+    otherwise you might end up with a resulting DataFrame of hundreds of thousands rows.
     """
     ####################################################
     # Computing what columns and parameters to compute #
@@ -190,13 +247,58 @@ def mine_descriptions(
 
 def mine_concepts(
         data: ContextType,
-        to_compute: Optional[Union[list[MINE_CONCEPTS_COLUMN], Literal['all']]] = (
+        to_compute: Union[list[MINE_CONCEPTS_COLUMN], Literal['all']] = (
                 'extent', 'intent', 'support', 'delta_stability', 'keys', 'passkeys', 'proper_premises'),
+        return_every_computed_column: bool = False,
         min_support: Union[int, float] = 0,
         min_delta_stability: Union[int, float] = 0, n_stable_concepts: Optional[int] = None,
         use_tqdm: bool = False,
-        return_every_computed_column: bool = False
 ) -> pd.DataFrame:
+    """Compute the frequent concepts in the data
+
+    Parameters
+    ----------
+    data: ContextType
+        Data in a format, supported by Caspailleur.io module.
+        For example, Pandas DataFrame with binary values,
+        or list of lists of strings (where every list of strings represents an itemset).
+    to_compute: list[MINE_CONCEPT_COLUMN] or 'all'
+        A list of characteristics to compute (by default, compute everything except for 'pseudo_intent')
+        The list of all possible characteristics is defined in caspailleur.MINE_CONCEPT_COLUMN value.
+    return_every_computed_column: bool
+        A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
+        For example, the computation of column 'is_proper_premise' requires the computation of column 'is_key'.
+        Thus, if you have asked for column 'is_proper_premise' you can get the column 'is_key' ``for free''.
+    min_support: int or float
+        Minimal value of the support for a concept, i.e. how many objects it describes.
+        Can be defined by an integer (so the number of objects) or by a float (so the percentage of objects).
+    min_delta_stability: int or float
+        Minimal value of the delta-stability of a concept,
+        i.e. the minimal amount of objects a concept will lose when made a bit more precise.
+        Can be defined by an integer (so the number of objects) or by a float (so the percentage of objects).
+    n_stable_concepts: int or None
+        Select only `n` concepts with the highest (presumably) delta-stability.
+        The parameter can be used together with or instead of `min_delta_stability`
+        when the exact value the of required min_delta_stability is not known.
+        The found `n` stable concepts are not necessarily the concepts with the _highest_ delta stability.
+        Yet their delta-stability is high enough.
+    use_tqdm: bool
+        A flag whether to use tqdm progress bar for long computations.
+        Is used for computing pseudo-intents.
+
+    Returns
+    -------
+    descriptions_df: pandas.DataFrame
+        Pandas DataFrame where every row represents a concept, and every column represents its characteristics
+        defined by `to_compute` and `return_every_computed_column` parameters.
+
+    Notes
+    -----
+    The number of concepts might be exponential to the number of objects and attributes in the data.
+    Make sure to specify the `min_support` parameter when dealing with the data with dozens of attributes,
+    otherwise you might end up with a resulting DataFrame of hundreds of thousands rows.
+
+    """
     ##################################################
     # Computing what columns and parameters to compute
     ##################################################
@@ -282,6 +384,76 @@ def mine_implications(
         unit_base: bool = False,
         to_compute: Optional[Union[list[MINE_IMPLICATIONS_COLUMN], Literal['all']]] = 'all',
 ) -> pd.DataFrame:
+    """Compute an implication basis (i.e. a set of non-redundant implications) for the given data
+
+    An implication is a pair A -> B meaning that
+     whenever all attributes from A are found in a description, this description also contains every attribute from B.
+    Here, set of attributes A is called a premise, set of attributes B is called a conclusion.
+
+    Parameters
+    ----------
+    data: ContextType
+        Data in a format, supported by Caspailleur.io module.
+        For example, Pandas DataFrame with binary values,
+        or list of lists of strings (where every list of strings represents an itemset).
+    basis_name: BASIS_NAME
+        The name of the basis two compute. The possible values are provided in caspailleur.BASIS_NAME variable
+         and discussed in the Notes section below.
+    unit_base: bool
+        A flag whether to return the "unit" version of the basis,
+         where every implication's conclusion consists of a single attribute.
+        See the Notes section below for more examples.
+    to_compute: list[MINE_IMPLICATIONS_COLUMN] or 'all'
+        A list of characteristics to compute (by default, compute 'all')
+        The list of all possible characteristics is defined in caspailleur.MINE_IMPLICATION_COLUMN value.
+    min_support: int or float
+        Minimal value of the support for an implication, i.e. how many objects it describes.
+        Can be defined by an integer (so the number of objects) or by a float (so the percentage of objects).
+
+    Returns
+    -------
+    descriptions_df: pandas.DataFrame
+        Pandas DataFrame where every row represents an implication, and every column represents its characteristics
+        defined by `to_compute` parameter.
+
+    Notes
+    -----
+    *Basis name*
+    There are two implication bases that can be mined via Caspailleur.
+    One is called "Canonical Direct" basis and sometimes referred to as "Proper Premise" basis or "Karell" basis.
+    The other is called "Canonical" basis and sometimes referred to as "Duquenne-Guigues",
+     "Minimum" or "Pseudo-Intent" basis.
+
+    Canonical Direct basis is "direct",
+    i.e. one can find the closure of a subset of attributes with one pass over the implications.
+    Also, every premise of the Canonical Direct basis is a minimal description of all attributes
+    in the conclusion of the premise. Thus, no subset of a premise implies the same conclusion.
+
+    Canonical basis contains the smallest amount of implication possible.
+    Thus, it can be considered as the most dense and the most concise way to represent the data.
+    However, such basis is not "direct"
+    and some premises of this basis are not minimal subsets of attributes corresponding to their conclusions.
+
+    Note that the Caspailleur's algorithm for computing the bases are not proven to be State-of-the-Art,
+    as they were never extensively tested versus the other algorithms.
+    But, they work fast enough for daily occasions.
+
+
+    *Unit base*
+    Unit and non-unit bases are two ways of representing the same set of implications.
+    In the unit base, every implication's conclusion consist of a single attribute,
+     but there can be many implications with the same premise.
+    In the non-unit base, every implication's premise is unique, but there can be many attributes in the conclusion.
+
+    For example, non unit-base:
+    {a} -> {b, c}
+    {d, e} -> {f}
+
+    and the equivalent unit base:
+    {a} -> b
+    {a} -> c
+    {d, e} -> f
+    """
     assert basis_name in get_args(BASIS_NAME), \
         f"You asked for '{basis_name}' basis. But only the following bases are supported: {BASIS_NAME}"
     if basis_name in {'Canonical Direct', "Karell"}:
