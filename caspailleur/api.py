@@ -383,6 +383,7 @@ def mine_implications(
         data: ContextType, basis_name: BASIS_NAME = 'Proper Premise',
         unit_base: bool = False,
         to_compute: Optional[Union[list[MINE_IMPLICATIONS_COLUMN], Literal['all']]] = 'all',
+        min_support: Union[int, float] = 0,
 ) -> pd.DataFrame:
     """Compute an implication basis (i.e. a set of non-redundant implications) for the given data
 
@@ -474,7 +475,8 @@ def mine_implications(
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
-    intents_ba = mec.list_intents_via_LCM(bitarrays)
+    min_support = to_absolute_number(min_support, len(objects))
+    intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
     keys_ba = mec.list_keys(intents_ba)
     ppremises_ba = list(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
     basis = ppremises_ba
