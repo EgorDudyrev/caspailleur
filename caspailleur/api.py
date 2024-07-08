@@ -99,6 +99,7 @@ def iter_descriptions(
     """
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
+    to_compute, cols_to_return = _setup_colnames_to_compute(MINE_DESCRIPTION_COLUMN, to_compute, {}, True)
 
     sub_pseudo_intents = []
 
@@ -127,10 +128,10 @@ def iter_descriptions(
 
     for description_idxs in powerset(range(len(attributes))):
         extent_ba = fbarray(extension(description_idxs, attr_extents))
-        stats = {colname: get_vals_for_column(colname) for colname in to_compute}
+        stats = {colname: get_vals_for_column(colname) for colname in cols_to_return}
 
         yield stats
-        if 'is_pseudo_intent' in to_compute and stats['is_pseudo_intent']:
+        if 'is_pseudo_intent' in cols_to_return and stats['is_pseudo_intent']:
             sub_pseudo_intents.append(description_idxs)
 
 
