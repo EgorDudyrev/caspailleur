@@ -14,7 +14,7 @@ from bitarray import frozenbitarray as fbarray
 
 from .base_functions import powerset, extension, intention
 from .io import ContextType, to_bitarrays, transpose_context, isets2bas, verbalise, to_absolute_number
-from .order import topological_sorting
+from .order import topological_sorting, sort_intents_inclusion, inverse_order
 from . import indices as idxs
 from . import definitions
 from . import mine_equivalence_classes as mec, implication_bases as ibases
@@ -28,7 +28,8 @@ MINE_DESCRIPTION_COLUMN = Literal[
 
 MINE_CONCEPTS_COLUMN = Literal[
     "extent", "intent", "support", "delta_stability",
-    "keys", "passkeys", "proper_premises", "pseudo_intents"
+    "keys", "passkeys", "proper_premises", "pseudo_intents",
+    "preceding", "succeeding", "lesser",  "greater",
 ]
 
 MINE_IMPLICATIONS_COLUMN = Literal[
@@ -248,8 +249,7 @@ def mine_descriptions(
 
 def mine_concepts(
         data: ContextType,
-        to_compute: Union[list[MINE_CONCEPTS_COLUMN], Literal['all']] = (
-                'extent', 'intent', 'support', 'delta_stability', 'keys', 'passkeys', 'proper_premises'),
+        to_compute: Union[list[MINE_CONCEPTS_COLUMN], Literal['all']] = 'all',
         return_every_computed_column: bool = False,
         min_support: Union[int, float] = 0,
         min_delta_stability: Union[int, float] = 0, n_stable_concepts: Optional[int] = None,
@@ -264,7 +264,7 @@ def mine_concepts(
         For example, Pandas DataFrame with binary values,
         or list of lists of strings (where every list of strings represents an itemset).
     to_compute: list[MINE_CONCEPT_COLUMN] or 'all'
-        A list of characteristics to compute (by default, compute everything except for 'pseudo_intent')
+        A list of characteristics to compute (by default, compute 'all' possible columns)
         The list of all possible characteristics is defined in caspailleur.MINE_CONCEPT_COLUMN value.
     return_every_computed_column: bool
         A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
@@ -304,17 +304,21 @@ def mine_concepts(
     # Computing what columns and parameters to compute
     ##################################################
     # whether to compute all concepts whose support is higher min_support
-    compute_join_semilattice = min_delta_stability == 0 and n_stable_concepts is None
+    compute_only_stable_concepts = min_delta_stability != 0 or n_stable_concepts is not None
     col_dependencies: dict[MINE_CONCEPTS_COLUMN, set[MINE_CONCEPTS_COLUMN]] = {
         'pseudo_intents': {'proper_premises', 'intent'},
         'proper_premises': {'intent', 'keys'},
         'keys': {'intent'},
         'passkeys': {'intent'},
-        ('keys', not compute_join_semilattice): {'extent'},  # extents are not required when computing join semilattice
-        ('passkeys', not compute_join_semilattice): {'extent'},
+        ('keys', compute_only_stable_concepts): {'extent'},  # extents are not required when computing join semilattice
+        ('passkeys', compute_only_stable_concepts): {'extent'},
         'support': {'extent'},
         'delta_stability': {'intent', 'extent'},
         'extent': {'intent'},
+        'greater': {'lesser'},
+        'lesser': {'preceding'},
+        'succeeding': {'preceding'},
+        'preceding': {'intent'},
     }
     to_compute, cols_to_return = _setup_colnames_to_compute(
         MINE_CONCEPTS_COLUMN, to_compute, col_dependencies, return_every_computed_column)
@@ -335,15 +339,15 @@ def mine_concepts(
         return per_concept
 
     if 'intent' in to_compute:
-        if compute_join_semilattice:
-            intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
-        else:
+        if compute_only_stable_concepts:
             n_objects = len(objects)
             stable_extents = mec.list_stable_extents_via_gsofia(
                 attr_extents, n_objects, min_delta_stability, n_stable_concepts,
                 min_supp=to_absolute_number(min_support, n_objects), n_attributes=len(attr_extents)
             )
             intents_ba = [intention(extent, attr_extents) for extent in stable_extents]
+        else:
+            intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
 
         intents_ba = topological_sorting(intents_ba)[0]
         n_concepts = len(intents_ba)
@@ -352,16 +356,17 @@ def mine_concepts(
         extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
         column_extent = [verbalise(extent, objects) for extent in extents_ba]
     if 'keys' in to_compute:
-        if compute_join_semilattice:
-            keys_ba = mec.list_keys(intents_ba)
-        else:
+        if compute_only_stable_concepts:
             keys_ba = mec.list_keys_for_extents(extents_ba, attr_extents)
+        else:
+            keys_ba = mec.list_keys(intents_ba)
+
         column_keys = [verbalise_descriptions(keys) for keys in group_by_concept(keys_ba.items(), n_concepts)]
     if 'passkeys' in to_compute:
-        if compute_join_semilattice:
-            passkeys_ba = mec.list_passkeys(intents_ba)
-        else:
+        if compute_only_stable_concepts:
             passkeys_ba = mec.list_passkeys_for_extents(extents_ba, attr_extents)
+        else:
+            passkeys_ba = mec.list_passkeys(intents_ba)
         column_passkeys = [verbalise_descriptions(pkeys) for pkeys in group_by_concept(passkeys_ba.items(), n_concepts)]
     if 'proper_premises' in to_compute:
         ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
@@ -375,6 +380,17 @@ def mine_concepts(
     if 'delta_stability' in to_compute:
         column_delta_stability = [idxs.delta_stability_by_description(descr, attr_extents, extent_ba)
                                   for descr, extent_ba in zip(intents_ba, extents_ba)]
+
+    # Columns for order on concepts
+    if 'preceding' in to_compute:
+        preceding, lesser = sort_intents_inclusion(intents_ba, return_transitive_order=True)
+    if 'succeeding' in to_compute:
+        succeeding = inverse_order(preceding)
+    if 'greater' in to_compute:
+        greater = inverse_order(lesser)
+    for colname in ['greater', 'lesser', 'succeeding', 'preceding']:
+        if colname in cols_to_return:
+            locals()[f"column_{colname}"] = [set(ba.search(True)) for ba in locals()[f"{colname}"]]
 
     locals_ = locals()
     return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return})

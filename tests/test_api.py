@@ -62,20 +62,28 @@ def test_mine_concepts():
         'keys': [[set()], [{'a'}], [{'c'}], [{'a','c'}]],
         'passkeys': [[set()], [{'a'}], [{'c'}], [{'a', 'c'}]],
         'proper_premises': [[set()], [], [], []],
-        'pseudo_intents': [[set()], [], [], []]
+        'pseudo_intents': [[set()], [], [], []],
+        'preceding': [{1, 2}, {3}, {3}, set()],
+        'succeeding': [set(), {0}, {0}, {1, 2}],
+        'lesser': [{1, 2, 3}, {3}, {3}, set()],
+        'greater': [set(), {0}, {0}, {0, 1, 2}],
     })
 
-    #concepts_df = api.mine_concepts(data, to_compute='all')
-    #assert_df_equality(concepts_df, concepts_df_true)
+    concepts_df = api.mine_concepts(data, to_compute='all')
+    assert_df_equality(concepts_df, concepts_df_true)
+
+    stable_concepts_df_true = concepts_df_true[:3]
+    for f in ['preceding', 'succeeding', 'lesser', 'greater']:
+        stable_concepts_df_true[f] = stable_concepts_df_true[f] - {3}
 
     stable_concepts_df = api.mine_concepts(data, to_compute='all', min_delta_stability=1)
-    assert_df_equality(stable_concepts_df, concepts_df_true[:3])
+    assert_df_equality(stable_concepts_df, stable_concepts_df_true)
 
-    #stable_concepts_df = api.mine_concepts(data, to_compute='all', n_stable_concepts=3)
-    #assert_df_equality(stable_concepts_df, concepts_df_true[:3])
+    stable_concepts_df = api.mine_concepts(data, to_compute='all', n_stable_concepts=3)
+    assert_df_equality(stable_concepts_df, stable_concepts_df_true)
 
-    #stable_concepts_df = api.mine_concepts(data, to_compute='all', min_delta_stability=1, n_stable_concepts=3)
-    #assert_df_equality(stable_concepts_df, concepts_df_true[:3])
+    stable_concepts_df = api.mine_concepts(data, to_compute='all', min_delta_stability=1, n_stable_concepts=3)
+    assert_df_equality(stable_concepts_df, stable_concepts_df_true)
 
 
 def test_mine_implications():
