@@ -32,7 +32,7 @@ def is_psubset_of(A: Union[set[int], fbarray], B: Union[set[int], fbarray]) -> b
 
 
 def maximal_extent(crosses_per_columns: Union[list[set], list[bitarray]]) -> Union[set, bitarray]:
-    """Return the biggest subset of object, possible on data defined by `crosses_per_columns`"""
+    """Return the whole set of objects from `crosses_per_columns` data representation"""
     first_column = crosses_per_columns[0]
     if isinstance(first_column, bitarray):
         return first_column | (~first_column)
