@@ -25,7 +25,6 @@ class UnknownContextTypeError(TypeError):
                     "list of bitarrays representing objects' descriptions." 
 
 
-
 ##########################
 # Basic type conversions #
 ##########################
@@ -65,6 +64,40 @@ def bas2isets(bitarrays: Iterable[fbarray]) -> Iterator[FrozenSet[int]]:
 
 
 def to_itemsets(data: ContextType) -> tuple[list[frozenset[int]], list[str], list[str]]:
+    """Convert the context defined by `data` into the itemset format
+
+    Parameters
+    ----------
+    data: ContextType
+        Binary formal context in one of the supported formats:
+         pd.DataFrame (with bool values);
+         dictionary with object names as keys and object descriptions as values;
+         list of sets of indices of True-valued columns (so, list of itemsets);
+         list of lists of bool values for every pair of object-attribute; or
+         list of bitarrays representing objects' descriptions
+
+    Return
+    ------
+    itemsets: list[frozenset[int]]
+        list of sets of indices of True-valued columns
+    object_names: list[str]
+        names of objects (i.e. rows) in the data.
+        If the names are not specified by the data, returns "object_1", "object_2", ...
+    attribute_names: list[str]
+        names of attributes (i.e. columns) in the data
+        If the names are not specified by the data, returns "attribute_1", "attribute_2", ...
+
+    Examples
+    --------
+    to_itemsets( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
+        --> ([frozenset({1}), frozenset({0, 1})], ['0', '1'], ['a', 'b'])
+
+    to_itemsets( {'row1': ['b'], 'row2': ['a', 'b']} )
+        --> ([frozenset({1}), frozenset({0, 1})], ['row1', 'row2'], ['a', 'b'])
+
+    to_itemsets( [[1], [0',1]] )
+        --> ([frozenset({1}), frozenset({0, 1})], ['object_0', 'object_1'], ['attribute_0', 'attribute_1'])
+    """
     if len(data) == 0:
         return [], [], []
     
@@ -103,16 +136,119 @@ def to_itemsets(data: ContextType) -> tuple[list[frozenset[int]], list[str], lis
 
 
 def to_dictionary(data: ContextType) -> dict[str, frozenset[str]]:
+    """Convert the context defined by `data` into the dictionary format
+
+    Parameters
+    ----------
+    data: ContextType
+        Binary formal context in one of the supported formats:
+         pd.DataFrame (with bool values);
+         dictionary with object names as keys and object descriptions as values;
+         list of sets of indices of True-valued columns (so, list of itemsets);
+         list of lists of bool values for every pair of object-attribute; or
+         list of bitarrays representing objects' descriptions
+
+    Return
+    ------
+    dictionary: dict[str, frozenset[str]]
+        dictionary of type 'object_name' -> set of attributes describing object
+    object_names: list[str]
+        names of objects (i.e. rows) in the data.
+        If the names are not specified by the data, returns "object_1", "object_2", ...
+    attribute_names: list[str]
+        names of attributes (i.e. columns) in the data
+        If the names are not specified by the data, returns "attribute_1", "attribute_2", ...
+
+    Examples
+    --------
+    to_dictionary( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
+        -->  {'0': frozenset({'b'}), '1': frozenset({'a', 'b'})}
+
+    to_dictionary( [bitarray('01'), bitarray('11')] )
+        --> {'object_0': frozenset({'attribute_1'}), 'object_1': frozenset({'attribute_0', 'attribute_1'})}
+
+    to_dictionary( [[1], [0,1]] )
+        --> {'object_0': frozenset({'attribute_1'}), 'object_1': frozenset({'attribute_0', 'attribute_1'})}
+    """
     itemsets, objects, attributes = to_itemsets(data)
     return {obj: frozenset([attributes[attr_i] for attr_i in itemset]) for obj, itemset in zip(objects, itemsets)}
 
 
 def to_bitarrays(data: ContextType) -> tuple[list[fbarray], list[str], list[str]]:
+    """Convert the context defined by `data` into the bitarrays format
+
+    Parameters
+    ----------
+    data: ContextType
+        Binary formal context in one of the supported formats:
+         pd.DataFrame (with bool values);
+         dictionary with object names as keys and object descriptions as values;
+         list of sets of indices of True-valued columns (so, list of itemsets);
+         list of lists of bool values for every pair of object-attribute; or
+         list of bitarrays representing objects' descriptions
+
+    Return
+    ------
+    bitarrays: list[frozenbitarray]
+        list of frozen bitarrays representing descriptions of objects. For i-th object and j-th attribute,
+        `bitarrays[i][j] == True` means that i-th object is described by j-th attribute.
+    object_names: list[str]
+        names of objects (i.e. rows) in the data.
+        If the names are not specified by the data, returns "object_1", "object_2", ...
+    attribute_names: list[str]
+        names of attributes (i.e. columns) in the data
+        If the names are not specified by the data, returns "attribute_1", "attribute_2", ...
+
+    Examples
+    --------
+    to_bitarrays( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
+        --> ([frozenbitarray('01'), frozenbitarray('11')], ['0', '1'], ['a', 'b'])
+
+    to_bitarrays( {'row1': ['b'], 'row2': ['a','b']} )
+        -->  ([frozenbitarray('01'), frozenbitarray('11')], ['row1', 'row2'], ['a', 'b'])
+
+    to_bitarrays( [[1], [0, 1]] )
+        --> ([frozenbitarray('01'), frozenbitarray('11')], ['object_0', 'object_1'], ['attribute_0', 'attribute_1'])
+    """
     itemsets, objects, attributes = to_itemsets(data)
     return list(isets2bas(itemsets, len(attributes))), objects, attributes
     
 
 def to_pandas(data: ContextType) -> pd.DataFrame:
+    """Convert the context defined by `data` into pandas DataFrame format
+
+    Parameters
+    ----------
+    data: ContextType
+        Binary formal context in one of the supported formats:
+         pd.DataFrame (with bool values);
+         dictionary with object names as keys and object descriptions as values;
+         list of sets of indices of True-valued columns (so, list of itemsets);
+         list of lists of bool values for every pair of object-attribute; or
+         list of bitarrays representing objects' descriptions
+
+    Return
+    ------
+    dataframe: pd.DataFrame
+        Binary pandas.DataFrame representing the `data`
+
+    Examples
+    --------
+    to_pandas( {'row1': ['b'], 'row2': ['a','b']} )
+        --> >           a     b
+            > row1  False  True
+            > row2   True  True
+
+    to_pandas( [[1], [0, 1]] )
+        --> >           attribute_0  attribute_1
+            > object_0        False         True
+            > object_1         True         True
+
+    to_pandas( [bitarray('01'), bitarray('11')] )
+        --> >           attribute_0  attribute_1
+            > object_0        False         True
+            > object_1         True         True
+    """
     itemsets, objects, attributes = to_itemsets(data)
     df = pd.DataFrame(False, index=objects, columns=attributes).fillna(False)
     for obj_i, itemset in enumerate(itemsets):
@@ -121,12 +257,29 @@ def to_pandas(data: ContextType) -> pd.DataFrame:
     
 
 def transpose_context(data: ContextType) -> ContextType:
+    """Switch places among objects and attributes and transpose their relation
+
+    Parameters
+    ----------
+    data: ContextType
+        Binary formal context in one of the supported formats:
+         pd.DataFrame (with bool values);
+         dictionary with object names as keys and object descriptions as values;
+         list of sets of indices of True-valued columns (so, list of itemsets);
+         list of lists of bool values for every pair of object-attribute; or
+         list of bitarrays representing objects' descriptions
+
+    Return
+    ------
+    transposed_data: ContextType
+        Transposed context. The format of transposed data is the same as the format of the original data
+    """
     if len(data) == 0:
         return data
-    
+
     if isinstance(data, pd.DataFrame):
         return data.T
-    
+
     if isinstance(data, dict):
         transposed = {}
         for obj, description in data.items():
@@ -135,7 +288,7 @@ def transpose_context(data: ContextType) -> ContextType:
                     transposed[attr] = []
                 transposed[attr].append(obj)
         return {k: frozenset(v) for k, v in transposed.items()}
-    
+
     if isinstance(data, list):
         n_objs = len(data)
         if data[0] and isinstance(data[0], bitarray):
@@ -154,7 +307,7 @@ def transpose_context(data: ContextType) -> ContextType:
                     if b:
                         transposed[attr_i][obj_i] = True
             return transposed
-        
+
         # if data is given by a list of itemsets
         attributes = sorted(reduce(set.union, data, set()))
         attrs_idx_map = {attr: attr_i for attr_i, attr in enumerate(attributes)}
@@ -170,6 +323,7 @@ def transpose_context(data: ContextType) -> ContextType:
 
 
 def verbalise(description: Union[bitarray, Iterable[int]], names: list[str]) -> Iterable[str]:
+    """Convert every index i (or every True i-th element of a bitarray) into a human-readable string `names[i]`"""
     if isinstance(description, bitarray):
         return {names[i] for i in description.itersearch(True)}
 
@@ -180,6 +334,7 @@ def verbalise(description: Union[bitarray, Iterable[int]], names: list[str]) -> 
 
 
 def to_absolute_number(percentage: Union[int, float], total_size: int) -> int:
+    """Convert a float percentage into the absolute number of elements w.r.t. `total_size`. Do nothing with integers"""
     if isinstance(percentage, int):
         return percentage
     return int(percentage * total_size)
