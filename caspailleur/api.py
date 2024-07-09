@@ -385,6 +385,7 @@ def mine_implications(
         unit_base: bool = False,
         to_compute: Optional[Union[list[MINE_IMPLICATIONS_COLUMN], Literal['all']]] = 'all',
         min_support: Union[int, float] = 0,
+        min_delta_stability: Union[int, float] = 0 , n_stable_concepts: Optional[int] = None
 ) -> pd.DataFrame:
     """Compute an implication basis (i.e. a set of non-redundant implications) for the given data
 
@@ -411,6 +412,18 @@ def mine_implications(
     min_support: int or float
         Minimal value of the support for an implication, i.e. how many objects it describes.
         Can be defined by an integer (so the number of objects) or by a float (so the percentage of objects).
+    min_delta_stability: int or float
+        Minimal delta stability of concepts, whose minimal/maximal descriptions serve as premises/conclusions
+         of implications. Raising up the value of min_delta_stability might be useful for finding implications in
+          big data, where finding all concepts is not feasible.
+        The value can be provided as an integer (measuring delta-stability with the number of objects) or as a float
+         (measuring delta-stability with the percentage of objects w.r.t. total number of objects in the data).
+        NOTE: The use of min_delta_stability for finding implication was not extensively studied in the literature.
+        The resulting set of implication should be valid, but might not reflect some important implications.
+    n_stable_concepts: int or None
+        Parameter analogous to min_delta_stability,  except that it sets up the maximal value of concepts
+         with high delta stability, and not the threshold for minimal delta stability.
+        Can be either an integer (representing maximal number of high-stability concepts) or None (for all concepts).
 
     Returns
     -------
@@ -476,10 +489,28 @@ def mine_implications(
     bitarrays, objects, attributes = to_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
-    min_support = to_absolute_number(min_support, len(objects))
-    intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
-    keys_ba = mec.list_keys(intents_ba)
-    ppremises_ba = list(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
+    n_objects = len(objects)
+    min_support, min_delta_stability = [to_absolute_number(v, n_objects) for v in [min_support, min_delta_stability]]
+    compute_only_stable_concepts = min_delta_stability != 0 or n_stable_concepts is not None
+
+    extents_ba, int_ext_map = None, None
+    if compute_only_stable_concepts:
+        intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
+        keys_ba = mec.list_keys(intents_ba)
+    else:  # min_delta_stability > 0, so searching for only some stable concepts
+        stable_extents = list(mec.list_stable_extents_via_gsofia(
+            attr_extents, n_objects, min_delta_stability,
+            n_stable_extents=n_stable_concepts, min_supp=min_support, n_attributes=len(attr_extents)))
+        intents_ba = [intention(extent, attr_extents) for extent in stable_extents]
+        int_ext_map = dict(zip(intents_ba, stable_extents))
+        intents_ba = topological_sorting(intents_ba)[0]
+        extents_ba = [int_ext_map[intent] for intent in intents_ba]
+        keys_ba = mec.list_keys_for_extents(extents_ba, attr_extents)
+
+    ppremises_ba = list(ibases.iter_proper_premises_via_keys(
+        intents_ba, keys_ba,
+        all_frequent_keys_provided=not compute_only_stable_concepts)
+    )
     basis = ppremises_ba
     if basis_name == 'Pseudo-Intent':
         basis = ibases.list_pseudo_intents_via_keys(ppremises_ba, intents_ba)
@@ -516,8 +547,10 @@ def mine_implications(
     if 'conclusion_full' in to_compute:
         column_conclusion_full = verbalise_descriptions(map(intents_ba.__getitem__, intents_idxs))
     if "extent" in to_compute:
-        extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
-        int_ext_map = dict(zip(intents_ba, extents_ba))
+        if compute_only_stable_concepts:  # otherwise, extents are already computed
+            extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
+            int_ext_map = dict(zip(intents_ba, extents_ba))
+    if "extent" in cols_to_return:
         column_extent = [verbalise(int_ext_map[intents_ba[intent_i]], objects) for intent_i in intents_idxs]
     if "support" in to_compute:
         column_support = [int_ext_map[intents_ba[intent_i]].count() for intent_i in intents_idxs]
