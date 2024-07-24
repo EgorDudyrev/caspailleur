@@ -90,3 +90,9 @@ def closure(
     if not isinstance(description, bitarray) and isinstance(result, bitarray):
         return (i for i in result.itersearch(True))
     return result
+
+
+##############################
+# Reverse compatibility part #
+##############################
+from .io import isets2bas
