@@ -146,11 +146,11 @@ concepts_df = csp.mine_concepts(
 print(concepts_df)
 ```
 
-| concept_id | intent                                 | keys             | support | delta_stability | lesser  |
-|-----------:|----------------------------------------|------------------|---------|-----------------|---------|
-|          0 | {plum, mango, grapefruit, apple, kiwi} | [{}]             | 5       | 2               | {1 ,2}  |
-|          1 | {plum, mango, apple}                   | [{smooth}]       | 3       | 1               | {}      |
-|          2 | {plum, kiwi, mango}                    | [{form_is_oval}] | 3       | 1               | {}      |
+| concept_id | intent                | keys             | support | delta_stability | lesser  |
+|-----------:|-----------------------|------------------|---------|-----------------|---------|
+|          0 | {fruit}               | [{}]             | 5       | 2               | {1 ,2}  |
+|          1 | {fruit, smooth}       | [{smooth}]       | 3       | 1               | {}      |
+|          2 | {fruit, form_is_oval} | [{form_is_oval}] | 3       | 1               | {}      |
 
 Mathematical definitions of intents, keys and others are presented in the paper:
 _Buzmakov, A., Dudyrev, E., Kuznetsov, S. O., Makhalova, T., & Napoli, A. Data complexity: An FCA-based approach https://hal.science/hal-03970678v1._
