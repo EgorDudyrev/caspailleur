@@ -244,7 +244,7 @@ def mine_descriptions(
         column_is_pseudo_intent = [descr_ba in pintents_ba for descr_ba in descriptions_ba]
 
     locals_ = locals()
-    return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return})
+    return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('description_id')
 
 
 def mine_concepts(
@@ -393,13 +393,14 @@ def mine_concepts(
             locals()[f"column_{colname}"] = [set(ba.search(True)) for ba in locals()[f"{colname}"]]
 
     locals_ = locals()
-    return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return})
+    return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('concept_id')
 
 
 def mine_implications(
         data: ContextType, basis_name: BASIS_NAME = 'Proper Premise',
         unit_base: bool = False,
         to_compute: Optional[Union[list[MINE_IMPLICATIONS_COLUMN], Literal['all']]] = 'all',
+        return_every_computed_column: bool = False,
         min_support: Union[int, float] = 0,
         min_delta_stability: Union[int, float] = 0 , n_stable_concepts: Optional[int] = None
 ) -> pd.DataFrame:
@@ -425,6 +426,10 @@ def mine_implications(
     to_compute: list[MINE_IMPLICATIONS_COLUMN] or 'all'
         A list of characteristics to compute (by default, compute 'all')
         The list of all possible characteristics is defined in caspailleur.MINE_IMPLICATION_COLUMN value.
+    return_every_computed_column: bool
+        A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
+        For example, the computation of column 'support' requires the computation of column 'extent'.
+        Thus, if you have asked for column 'support' you can get the column 'extent' ``for free''.
     min_support: int or float
         Minimal value of the support for an implication, i.e. how many objects it describes.
         Can be defined by an integer (so the number of objects) or by a float (so the percentage of objects).
@@ -497,7 +502,7 @@ def mine_implications(
     }
 
     to_compute, cols_to_return = _setup_colnames_to_compute(
-        MINE_IMPLICATIONS_COLUMN, to_compute, dependencies, return_all_computed=True)
+        MINE_IMPLICATIONS_COLUMN, to_compute, dependencies, return_all_computed=return_every_computed_column)
 
     ############################
     # Compute the (unit) basis #
@@ -523,10 +528,10 @@ def mine_implications(
         extents_ba = [int_ext_map[intent] for intent in intents_ba]
         keys_ba = mec.list_keys_for_extents(extents_ba, attr_extents)
 
-    ppremises_ba = list(ibases.iter_proper_premises_via_keys(
+    ppremises_ba = ibases.iter_proper_premises_via_keys(
         intents_ba, keys_ba,
         all_frequent_keys_provided=not compute_only_stable_concepts)
-    )
+    ppremises_ba = sorted(ppremises_ba, key=lambda prem_intent: (prem_intent[1], prem_intent[0].count()))
     basis = ppremises_ba
     if basis_name == 'Pseudo-Intent':
         basis = ibases.list_pseudo_intents_via_keys(ppremises_ba, intents_ba)
@@ -534,7 +539,7 @@ def mine_implications(
     # compute pseudo-closures to reduce the conclusions by attributes implied by other implications
     if 'conclusion' in to_compute:
         pseudo_closures = [
-            ibases.saturate(premise, basis[:impl_i] + basis[impl_i + 1:], intents_ba)
+            ibases.saturate(premise, [impl for impl in basis[:impl_i] if impl[1] < intent_i], intents_ba)
             for impl_i, (premise, intent_i) in enumerate(basis)
         ]
         basis = [(premise, intents_ba[intent_i] & ~pintent, intent_i)
@@ -568,8 +573,8 @@ def mine_implications(
             int_ext_map = dict(zip(intents_ba, extents_ba))
     if "extent" in cols_to_return:
         column_extent = [verbalise(int_ext_map[intents_ba[intent_i]], objects) for intent_i in intents_idxs]
-    if "support" in to_compute:
+    if "support" in cols_to_return:
         column_support = [int_ext_map[intents_ba[intent_i]].count() for intent_i in intents_idxs]
 
     locals_ = locals()
-    return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return})
+    return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('implication_id')
