@@ -1,4 +1,4 @@
-![Caspailleur logo](logo/caspailleur logo v1.png?raw=true "Title")
+![Caspailleur package logo](https://github.com/EgorDudyrev/caspailleur/blob/main/logo/caspailleur_logo_v1.png?raw=true  "Caspailleur package logo")
 
 [![PyPi](https://img.shields.io/pypi/v/caspailleur)](https://pypi.org/project/caspailleur)
 [![GitHub Workflow](https://img.shields.io/github/actions/workflow/status/EgorDudyrev/caspailleur/python-package.yml?logo=github)](https://github.com/EgorDudyrev/caspailleur/actions/workflows/python-package.yml)
