@@ -25,7 +25,7 @@ pip install caspailleur@git+https://github.com/EgorDudyrev/caspailleur
 
 ## Analysis example
 
-## Glossary
+### Glossary
 
 The field of Formal Concept Analysis has many mathematical terms and some conflicting notation traditions.
 Here is the glossary used throughout the `caspailleur` package: [Glossary.md](https://github.com/EgorDudyrev/caspailleur/blob/main/Glossary.md).
