@@ -103,7 +103,8 @@ def saturate(
 
 
 def verify_proper_premise_via_keys(
-        key: fbarray, intent_idx: int, intents: List[fbarray], keys_prevsize: Dict[fbarray, int]
+        key: fbarray, intent_idx: int, intents: List[fbarray], other_keys: Dict[fbarray, int],
+        all_frequent_keys_provided: bool = True
 ) -> bool:
     """Test if `key` is a proper premise given dict of keys of smaller size
 
@@ -115,9 +116,13 @@ def verify_proper_premise_via_keys(
         Index of the intent which is closure of `key`
     intents: List[frozenbitarray]
         List of bitarrays representing intents (i.e. closed subset of attributes)
-    keys_prevsize: Dict[frozenbitarray, int]
+    other_keys: Dict[frozenbitarray, int]
         Dictionary containing all keys of smaller sizes and intents, corresponding to them.
         Passing dictionary of keys of size = size(key) - 1 is enough for algorithm to work.
+    all_frequent_keys_provided: bool
+        a flag, whether `keys_to_intents` dictionary contains all the keys of all intents.
+        If some keys/intents are missing, set the flag to False:
+        it will slow down the computations, but will keep them correct.
 
     Returns
     -------
@@ -133,19 +138,27 @@ def verify_proper_premise_via_keys(
     if key.count() == 0:
         return True
 
-    cumulative_key = bitarray(key)
-    for m in key.itersearch(True):
-        prekey = bitarray(key)
-        prekey[m] = False
+    if all_frequent_keys_provided:
+        subkeys = []
+        for m in key.search(True):
+            subkey = bitarray(key)
+            subkey[m] = False
+            subkeys.append(fbarray(subkey))
+    else:
+        subkeys = (other for other in other_keys if subset(other, key) and other != key)
 
-        cumulative_key |= intents[keys_prevsize[fbarray(prekey)]]
-        if cumulative_key == intent:
+    pseudo_closed_key = bitarray(key)
+    for subkey in subkeys:
+        pseudo_closed_key |= intents[other_keys[subkey]]
+        if pseudo_closed_key == intent:
             return False
     return True
 
 
-def iter_proper_premises_via_keys(intents: List[fbarray], keys_to_intents: Dict[fbarray, int])\
-        -> Iterator[Tuple[fbarray, int]]:
+def iter_proper_premises_via_keys(
+        intents: List[fbarray], keys_to_intents: Dict[fbarray, int],
+        all_frequent_keys_provided: bool = True
+) -> Iterator[Tuple[fbarray, int]]:
     """Obtain the set of proper premises given intents, intents parents relation, and keys
 
     Parameters
@@ -154,6 +167,10 @@ def iter_proper_premises_via_keys(intents: List[fbarray], keys_to_intents: Dict[
         list of closed descriptions (in the form of bitarrays)
     keys_to_intents: Dict[frozenbitarray, int]
         the dictionary of keys in the context and the indices of the corresponding intents
+    all_frequent_keys_provided: bool
+        a flag, whether `keys_to_intents` dictionary contains all the keys of all intents.
+        If some keys/intents are missing, set the flag to False:
+        it will slow down the computations, but will keep them correct.
 
     Returns
     -------
@@ -163,7 +180,7 @@ def iter_proper_premises_via_keys(intents: List[fbarray], keys_to_intents: Dict[
     """
     return (
         (key, intent_idx) for key, intent_idx in keys_to_intents.items()
-        if verify_proper_premise_via_keys(key, intent_idx, intents, keys_to_intents)
+        if verify_proper_premise_via_keys(key, intent_idx, intents, keys_to_intents, all_frequent_keys_provided)
     )
 
 
