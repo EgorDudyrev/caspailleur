@@ -38,10 +38,11 @@ Let us study the following "Fruit" dataset:
 |        plum |        | ✓        | ✓       | blue    | oval   |
 |       mango |        | ✓        | ✓       | green   | oval   |
 
+> [!NOTE]
+> Caspailleur package can only work with binary data (and is optimised for this). 
+> You can consult [Paspailleur](https://github.com/EgorDudyrev/paspailleur) package 
+> that extends Caspailleur functionality for complex non-binary data.
 
-Caspailleur package can only work with binary data (and is optimised for this).
-You can consult [Paspailleur](https://github.com/EgorDudyrev/paspailleur) package 
-that extends Caspailleur functionality for complex non-binary data.
 
 Let us download binarised version of the same data:
 ```python
@@ -71,8 +72,6 @@ _<details><summary>Binarised fruit dataset</summary>_
 > |       mango | False | True   | True  | ... | False          | True           | False         |
 > [5 rows x 10 columns]
 </p></details>
-
-In FCA terminology, indices of rows are called **objects** and indices of (binary) columns are called **attributes**. 
 
 
 ### Mining concepts
@@ -107,32 +106,8 @@ _<details><summary>Concepts table (10 rows)</summary>_
 
 </p></details>
 
-Every concept (or _formal_ concept) corresponds to a subset of rows (called **extent**)
-and a subset of columns (called **intent**) describing the extent. 
-The set of extents shows _all possible ways_ to select a subset of rows.
-The set of intents shows _the most precise descriptions_ of the corresponding extents.
-
-Concepts DataFrame also contains additional information about concepts.
-- Interestingness measures
-  - **support**: how many objects are covered by the concept\
-  (i.e. how general is the concept);
-  - **delta_stability**: how many objects one will lose when making the concept a bit more precise\
-  (so stable concepts are precise, but not too precise);
-- Minimal descriptions
-  - **keys**: minimal descriptions selecting the concept;
-  - **passkeys**: the smallest (in size) descriptions selecting the concept;
-- Premises of implication bases
-  - **proper_premises**: descriptions of the concept used in Proper Premise implication basis\
-  (also, Canonical Direct implication basis);
-  - **pseudo_intents**: descriptions of the concepts used in Pseudo Intents implication basis\
-  (also, Canonical implication basis);
-- Order of concepts (by generality)
-  - **preceding**: indices of _next_ less general concepts;
-  - **succeeding**: indices of _next_ more general concepts;
-  - **lesser**: indices of _all_ less general concepts;
-  - **greater**: indices of _all_ more general concepts.
-
-For the sake of running time, one can set up thresholds on concepts measures and names of specific columns to mine:
+The number of concepts is exponential to the number of objects and attributes in the data.
+To find only the most interesting concepts, specify `min_support`, `min_delta_stability` and/or `n_stable_concepts` parameters:
 ```python
 import pandas as pd
 df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
@@ -146,11 +121,11 @@ concepts_df = csp.mine_concepts(
 print(concepts_df)
 ```
 
-| concept_id | intent                | keys             | support | delta_stability | lesser  |
-|-----------:|-----------------------|------------------|---------|-----------------|---------|
-|          0 | {fruit}               | [{}]             | 5       | 2               | {1 ,2}  |
-|          1 | {fruit, smooth}       | [{smooth}]       | 3       | 1               | {}      |
-|          2 | {fruit, form_is_oval} | [{form_is_oval}] | 3       | 1               | {}      |
+| concept_id | intent                | keys             | support | delta_stability | lesser |
+|-----------:|-----------------------|------------------|---------|-----------------|--------|
+|          0 | {fruit}               | [{}]             | 5       | 2               | {1, 2} |
+|          1 | {fruit, smooth}       | [{smooth}]       | 3       | 1               | {}     |
+|          2 | {fruit, form_is_oval} | [{form_is_oval}] | 3       | 1               | {}     |
 
 Mathematical definitions of intents, keys and others are presented in the paper:
 _Buzmakov, A., Dudyrev, E., Kuznetsov, S. O., Makhalova, T., & Napoli, A. Data complexity: An FCA-based approach https://hal.science/hal-03970678v1._
@@ -193,7 +168,7 @@ _<details><summary>Implications table (15 rows)</summary>_
 |             13 | color_is_yellow, color_is_blue    | form_is_cubic, color_is_white, firm, color_is_... |
 |             14 | color_is_yellow, color_is_green   | firm, color_is_white, color_is_blue, form_is_c... |
 </p></details>
-
+ 
 We can read the implications in the table and find out dependencies in the data. For example:
 - every object is a fruit\
 (from impl. 0: _Ø -> fruit_);
@@ -202,14 +177,8 @@ We can read the implications in the table and find out dependencies in the data.
 - firm fruits do not exist \
   (from impl. 7: _firm -> color_is_white, color_is_blue,..._ ).
 
-Implications DataFrame also contains additional information about implications.
-- **conclusion_full**: all attributes implied by the premise\
-  (redundant w.r.t. the other implications)
-- **extent**: the set of objects described by the premise
-- **support**: how many objects are covered by the premise 
-
-
-For the sake of running time, one can set up thresholds on implication measures and names of specific columns to mine:
+  
+For the sake of running time, one can again set up thresholds on implication measures and names of specific columns to mine:
 ```python
 import pandas as pd
 df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
@@ -231,10 +200,6 @@ print(implications_df)
 | 2              | {fruit, form_is_round}   | color_is_yellow | 2       |
 | 3              | {fruit, color_is_yellow} | form_is_round   | 2       |
 
-_Unit_base_ parameter makes the function return single attributes as conclusion (and not subset of attributes).
-_Canonical_ basis is the basis containing _the smallest number_ of implications.
-Although the premises of Canonical basis are longer than the premises of Canonical Direct basis.
-You can get more information about the two bases in the docstring of `mine_implications` function.
 
 ### Mining descriptions
 
@@ -266,6 +231,63 @@ print(descriptions_df[['description', 'support', 'is_key']].head(3))
 | 1              | {firm}      | 0       | True   |
 | 2              | {smooth}    | 3       | True   |
 
+
+## Glossary
+
+The field of Formal Concept Analysis has many mathematical terms and some conflicting notation traditions.
+Here we introduce the terms used in `caspailleur` package:
+
+_<details><summary>FCA Glossary</summary>_
+<p>
+
+### Basics of FCA
+* **Object**: An index of a row in the data
+* **Attribute**: An index of a (binary) column in the data
+* **Formal Context**: A binary dataset represented as a triplet of objects, attributes and their connections
+* **Description**: A subset of attributes
+* **Extent**: The maximal subset of objects described by some description
+* **Intent**: The maximal subset of attributes describing some objects. 
+Also, the maximal subset of attributes describing the same objects as some given description. 
+* **Concept**: A pair of corresponding extent and intent, so a pair of a maximal subset of objects and their maximal description.
+* **Concept Lattice**: A set of all concepts in the data ordered by generality
+
+
+* **Order on concepts**: Concepts are ordered by their generality.
+So concept _A_  is less than concept _B_ if _A_ is less general than _B_.
+That is, if _B_ covers all the objects from _A_, or if _A_ contains all the attributes from _B_.
+
+* **Lesser concepts**: All concepts that are less general than some given concept
+* **Greater concepts**: All concepts that are more general than some given concept
+* **Preceding concepts**: The most general lesser concepts
+* **Succeeding concepts**: The least general greater concepts
+
+### Minimal descriptions
+* **Key**: A minimal subset of attributes describing some objects (_there may be many keys for the same subset of objects_) 
+* **Passkey**: A shortest subset of attributes describing some objects (_there may be many passkeys for the same subset of objects_)
+
+### Implications
+* **Premise**: The left part of implication _A => B_, so the condition of the implication
+* **Conclusion**: The right part of implication _A => B_, so what is implied by the implication 
+* **Saturation**: The process of enriching a description with a given set of implications.
+For example, given description {color_is_green} and implications {} => {fruit}, {fruit, color_is_green} => {form_is_oval},
+description {color_is_green} can be saturated into description {color_is_green, fruit}, because everything implies {fruit},
+And then description {color_is_green, fruit} can be saturated into {color_is_green, fruit, form_is_oval} based on the second given implication.
+* **Proper Premise**: A description that implies some attributes, not implied by its subdescriptions.
+* **Pseudo-intent**: A description that implies some attributes, not implied by its subdescriptions and saturated w.r.t. the other pseudo-intents.
+
+* **Canonical Direct basis** (also **Proper Premise basis** or **Karell basis**): 
+A set of implications where every premise is a proper premise. Such set of implication is direct, that is one can saturate a description passing every implication only once. 
+* **Canonical basis** (also **Pseudo-intent basis** or **Duquenne-Guiges basis**):
+A set of implications where every premise is a pseudo-intent. Such set of implication is the smallest possible set of implications covering all the implications in the data.
+* **Unit basis**: A set of implications where every conclusion is a single attribute and not a subset of attributes. 
+
+
+### Interestingness measures
+* **Support**: The number of objects described by a description (or concept, or implication). 
+In `caspailleur` the term "support" is synonymous to "frequency" which is the percentage of objects described by a description.
+* **Delta-stability**: The minimal number of objects a description will lose if added at least one other attribute. 
+
+</p></details>
 
 ## Approach for faster computation
 
