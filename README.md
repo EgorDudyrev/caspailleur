@@ -1,4 +1,4 @@
-![Caspailleur package logo](https://github.com/EgorDudyrev/caspailleur/blob/main/logo/caspailleur_logo_v1.png?raw=true  "Caspailleur package logo")
+<img src="https://github.com/EgorDudyrev/caspailleur/blob/main/logo/caspailleur_logo_v1.png?raw=True" width="300" />
 
 [![PyPi](https://img.shields.io/pypi/v/caspailleur)](https://pypi.org/project/caspailleur)
 [![GitHub Workflow](https://img.shields.io/github/actions/workflow/status/EgorDudyrev/caspailleur/python-package.yml?logo=github)](https://github.com/EgorDudyrev/caspailleur/actions/workflows/python-package.yml)
@@ -23,7 +23,12 @@ and the latest version of the package can be installed from GitHub repository:
 pip install caspailleur@git+https://github.com/EgorDudyrev/caspailleur
 ```
 
-## Studying data example
+## Analysis example
+
+## Glossary
+
+The field of Formal Concept Analysis has many mathematical terms and some conflicting notation traditions.
+Here is the glossary used throughout the `caspailleur` package: [Glossary.md](https://github.com/EgorDudyrev/caspailleur/blob/main/Glossary.md).
 
 ### Data description
 
@@ -77,10 +82,6 @@ _<details><summary>Binarised fruit dataset</summary>_
 Now we can find all concepts in the data:
 
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
 import caspailleur as csp
 concepts_df = csp.mine_concepts(df)
 
@@ -108,11 +109,6 @@ _<details><summary>Concepts table (10 rows)</summary>_
 The number of concepts is exponential to the number of objects and attributes in the data.
 To find only the most interesting concepts, specify `min_support`, `min_delta_stability` and/or `n_stable_concepts` parameters:
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
-import caspailleur as csp
 concepts_df = csp.mine_concepts(
   df, min_support=3, min_delta_stability=1,
   to_compute=['intent', 'keys', 'support', 'delta_stability', 'lesser']
@@ -137,10 +133,6 @@ Luckily, relationships between attributes can be described via implication bases
 (although there may be many implications selecting no objects).
 
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
 import caspailleur as csp
 implications_df = csp.mine_implications(df)
 
@@ -177,13 +169,8 @@ We can read the implications in the table and find out dependencies in the data.
   (from impl. 7: _firm -> color_is_white, color_is_blue,..._ ).
 
   
-For the sake of running time, one can again set up thresholds on implication measures and names of specific columns to mine:
+If finding full implication basis takes too much time, one can mine only a part of columns and implications:
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
-import caspailleur as csp
 implications_df = csp.mine_implications(
   df, basis_name='Canonical', unit_base=True,
   to_compute=['premise', 'conclusion', 'support'],
@@ -206,10 +193,6 @@ Finally, Caspailleur can output all descriptions in the data and their character
 But note that the `number of descriptions` = 2^`number of attributes`.
 
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
 import caspailleur as csp
 descriptions_df = csp.mine_descriptions(df)
 
@@ -230,63 +213,6 @@ print(descriptions_df[['description', 'support', 'is_key']].head(3))
 | 1              | {firm}      | 0       | True   |
 | 2              | {smooth}    | 3       | True   |
 
-
-## Glossary
-
-The field of Formal Concept Analysis has many mathematical terms and some conflicting notation traditions.
-Here we introduce the terms used in `caspailleur` package:
-
-_<details><summary>FCA Glossary</summary>_
-<p>
-
-### Basics of FCA
-* **Object**: An index of a row in the data
-* **Attribute**: An index of a (binary) column in the data
-* **Formal Context**: A binary dataset represented as a triplet of objects, attributes and their connections
-* **Description**: A subset of attributes
-* **Extent**: The maximal subset of objects described by some description
-* **Intent**: The maximal subset of attributes describing some objects. 
-Also, the maximal subset of attributes describing the same objects as some given description. 
-* **Concept**: A pair of corresponding extent and intent, so a pair of a maximal subset of objects and their maximal description.
-* **Concept Lattice**: A set of all concepts in the data ordered by generality
-
-
-* **Order on concepts**: Concepts are ordered by their generality.
-So concept _A_  is less than concept _B_ if _A_ is less general than _B_.
-That is, if _B_ covers all the objects from _A_, or if _A_ contains all the attributes from _B_.
-
-* **Lesser concepts**: All concepts that are less general than some given concept
-* **Greater concepts**: All concepts that are more general than some given concept
-* **Preceding concepts**: The most general lesser concepts
-* **Succeeding concepts**: The least general greater concepts
-
-### Minimal descriptions
-* **Key**: A minimal subset of attributes describing some objects (_there may be many keys for the same subset of objects_) 
-* **Passkey**: A shortest subset of attributes describing some objects (_there may be many passkeys for the same subset of objects_)
-
-### Implications
-* **Premise**: The left part of implication _A => B_, so the condition of the implication
-* **Conclusion**: The right part of implication _A => B_, so what is implied by the implication 
-* **Saturation**: The process of enriching a description with a given set of implications.
-For example, given description {color_is_green} and implications {} => {fruit}, {fruit, color_is_green} => {form_is_oval},
-description {color_is_green} can be saturated into description {color_is_green, fruit}, because everything implies {fruit},
-And then description {color_is_green, fruit} can be saturated into {color_is_green, fruit, form_is_oval} based on the second given implication.
-* **Proper Premise**: A description that implies some attributes, not implied by its subdescriptions.
-* **Pseudo-intent**: A description that implies some attributes, not implied by its subdescriptions and saturated w.r.t. the other pseudo-intents.
-
-* **Canonical Direct basis** (also **Proper Premise basis** or **Karell basis**): 
-A set of implications where every premise is a proper premise. Such set of implication is direct, that is one can saturate a description passing every implication only once. 
-* **Canonical basis** (also **Pseudo-intent basis** or **Duquenne-Guiges basis**):
-A set of implications where every premise is a pseudo-intent. Such set of implication is the smallest possible set of implications covering all the implications in the data.
-* **Unit basis**: A set of implications where every conclusion is a single attribute and not a subset of attributes. 
-
-
-### Interestingness measures
-* **Support**: The number of objects described by a description (or concept, or implication). 
-In `caspailleur` the term "support" is synonymous to "frequency" which is the percentage of objects described by a description.
-* **Delta-stability**: The minimal number of objects a description will lose if added at least one other attribute. 
-
-</p></details>
 
 ## Approach for faster computation
 
