@@ -1,14 +1,13 @@
+![Caspailleur logo](logo/caspailleur logo v1.png?raw=true "Title")
+
 [![PyPi](https://img.shields.io/pypi/v/caspailleur)](https://pypi.org/project/caspailleur)
 [![GitHub Workflow](https://img.shields.io/github/actions/workflow/status/EgorDudyrev/caspailleur/python-package.yml?logo=github)](https://github.com/EgorDudyrev/caspailleur/actions/workflows/python-package.yml)
 [![Licence](https://img.shields.io/github/license/EgorDudyrev/FCApy)](https://github.com/EgorDudyrev/caspailleur/blob/main/LICENSE)
 [![LORIA](https://img.shields.io/badge/Made_in-LORIA-61acdf)](https://www.loria.fr/)
 [![SmartFCA](https://img.shields.io/badge/Funded_by-SmartFCA-537cbb)](https://www.smartfca.org)
 
-
-# caspailleur
-A python package for mining concepts and implications in binary data with FCA framework.
+Caspailleur is a python package for mining concepts and implications in binary data with FCA framework.
 Part of [SmartFCA](https://www.smartfca.org) ANR project.
-
 
 ## Get started
 
