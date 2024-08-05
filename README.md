@@ -1,4 +1,4 @@
-![Caspailleur package logo](https://github.com/EgorDudyrev/caspailleur/blob/main/logo/caspailleur_logo_v1.png?raw=true  "Caspailleur package logo")
+<img src="https://github.com/EgorDudyrev/caspailleur/blob/main/logo/caspailleur_logo_v1.png?raw=True" width="300" />
 
 [![PyPi](https://img.shields.io/pypi/v/caspailleur)](https://pypi.org/project/caspailleur)
 [![GitHub Workflow](https://img.shields.io/github/actions/workflow/status/EgorDudyrev/caspailleur/python-package.yml?logo=github)](https://github.com/EgorDudyrev/caspailleur/actions/workflows/python-package.yml)
@@ -23,7 +23,7 @@ and the latest version of the package can be installed from GitHub repository:
 pip install caspailleur@git+https://github.com/EgorDudyrev/caspailleur
 ```
 
-## Studying data example
+## Analysis example
 
 ### Data description
 
@@ -77,10 +77,6 @@ _<details><summary>Binarised fruit dataset</summary>_
 Now we can find all concepts in the data:
 
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
 import caspailleur as csp
 concepts_df = csp.mine_concepts(df)
 
@@ -108,11 +104,6 @@ _<details><summary>Concepts table (10 rows)</summary>_
 The number of concepts is exponential to the number of objects and attributes in the data.
 To find only the most interesting concepts, specify `min_support`, `min_delta_stability` and/or `n_stable_concepts` parameters:
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
-import caspailleur as csp
 concepts_df = csp.mine_concepts(
   df, min_support=3, min_delta_stability=1,
   to_compute=['intent', 'keys', 'support', 'delta_stability', 'lesser']
@@ -137,10 +128,6 @@ Luckily, relationships between attributes can be described via implication bases
 (although there may be many implications selecting no objects).
 
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
 import caspailleur as csp
 implications_df = csp.mine_implications(df)
 
@@ -177,13 +164,8 @@ We can read the implications in the table and find out dependencies in the data.
   (from impl. 7: _firm -> color_is_white, color_is_blue,..._ ).
 
   
-For the sake of running time, one can again set up thresholds on implication measures and names of specific columns to mine:
+If finding full implication basis takes too much time, one can mine only a part of columns and implications:
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
-import caspailleur as csp
 implications_df = csp.mine_implications(
   df, basis_name='Canonical', unit_base=True,
   to_compute=['premise', 'conclusion', 'support'],
@@ -206,10 +188,6 @@ Finally, Caspailleur can output all descriptions in the data and their character
 But note that the `number of descriptions` = 2^`number of attributes`.
 
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
-
 import caspailleur as csp
 descriptions_df = csp.mine_descriptions(df)
 
