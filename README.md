@@ -42,12 +42,6 @@ Let us study the following "Fruit" dataset:
 |        plum |        | ✓        | ✓       | blue    | oval   |
 |       mango |        | ✓        | ✓       | green   | oval   |
 
-> [!NOTE]
-> Caspailleur package can only work with binary data (and is optimised for this). 
-> You can consult [Paspailleur](https://github.com/EgorDudyrev/paspailleur) package 
-> that extends Caspailleur functionality for complex non-binary data.
-
-
 Let us download binarised version of the same data:
 ```python
 import pandas as pd
@@ -76,6 +70,12 @@ _<details><summary>Binarised fruit dataset</summary>_
 > |       mango | False | True   | True  | ... | False          | True           | False         |
 > [5 rows x 10 columns]
 </p></details>
+
+
+> [!TIP]
+> Caspailleur package can only work with binary data (and is optimised for this). 
+> You can consult [Paspailleur](https://github.com/EgorDudyrev/paspailleur) package 
+> that extends Caspailleur functionality for complex non-binary data.
 
 
 ### Mining concepts
@@ -122,9 +122,6 @@ print(concepts_df)
 |          1 | {fruit, smooth}       | [{smooth}]       | 3       | 1               | {}     |
 |          2 | {fruit, form_is_oval} | [{form_is_oval}] | 3       | 1               | {}     |
 
-Mathematical definitions of intents, keys and others are presented in the paper:
-_Buzmakov, A., Dudyrev, E., Kuznetsov, S. O., Makhalova, T., & Napoli, A. Data complexity: An FCA-based approach https://hal.science/hal-03970678v1._
-Definitions in a form of Python code are given in "definitions" module: [caspailleur/definitions.py](https://github.com/EgorDudyrev/caspailleur/blob/cbcb75aedbbe80db56b4dbb086b2419c9bc2194c/caspailleur/definitions.py)
 
 ### Mining implications
 
@@ -250,6 +247,12 @@ The diagram below presents dependencies between the characteristic attribute set
 ```
 
 _In case the diagram is not compiling, visit the GitHub version of README: https://github.com/EgorDudyrev/caspailleur_
+
+
+> [!NOTE]
+> Although `caspailleur` package implements many optimisations to fasten up the computations, we do not state that it is the fastest FCA package ever existed.
+> For example, our algorithm for computing pseudo-intent basis is far from the state-of-art.
+> Knowing that, we find `caspailleur` fast enough for comfortable everyday use.
 
 ## How to cite
 
