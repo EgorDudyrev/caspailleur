@@ -8,7 +8,7 @@ from functools import reduce
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import zeros as bazeros
 
-
+# TODO: Add object names and attribute names into itemsets and other context types
 ContextType = Union[pd.DataFrame, dict[str, frozenset[str]], list[set[int]], list[list[bool]], list[fbarray]]
 
 
@@ -375,3 +375,29 @@ def save_balist(file: BinaryIO, bitarrays: list[bitarray]):
 
     for ba in bitarrays:
         file.write(ba.tobytes())
+
+
+def load_cxt(file: BinaryIO) -> dict[str, set[str]]:
+    # TODO: Write the function (or copy from FCApy)
+    raise NotImplementedError
+
+
+def save_cxt(file: BinaryIO, context: ContextType):
+    # TODO: Write the function (or copy from FCApy)
+    raise NotImplementedError
+
+
+def from_fca_repo(file_name: str) -> dict[str, set[str]]:
+    # TODO: To implement
+    raise NotImplementedError
+
+
+def to_mermaid_diagram(node_labels: list[str], edges: list[tuple[int, int]]) -> str:
+    # TODO: Write the function
+    raise NotImplementedError
+
+
+
+
+
+
