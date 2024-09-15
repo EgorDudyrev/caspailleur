@@ -2,10 +2,8 @@ import numpy as np
 import pandas as pd
 from bitarray import frozenbitarray as fbarray
 import os
-import pytest
 
 from caspailleur import io
-
 
 
 def test_np_ba_conversions():
@@ -137,3 +135,27 @@ def test_transpose_context():
     itsets_transposed = io.transpose_context(itsets)
     assert itsets_transposed == itsets_transposed_true
     assert io.transpose_context(io.transpose_context(itsets)) == itsets
+
+
+def test_read_write_cxt():
+    data_string = '\n'.join([
+        'B', '', '3', '3', '',
+        'Consulting', 'Planning', 'Assembly and installation',
+        'Furniture', 'Computers', 'Copy machines',
+        'XXX', 'XX.', 'XXX', ''
+    ])
+
+    objects = ['Consulting', 'Planning', 'Assembly and installation']
+    attributes = ['Furniture', 'Computers', 'Copy machines']
+    itsets = [{0, 1, 2}, {0, 1}, {0, 1, 2}]
+    context = itsets, objects, attributes
+
+    assert io.read_cxt(data_string) == context
+    assert io.write_cxt(context) == data_string
+
+    with open('test_file.cxt', 'w') as file:
+        io.write_cxt(context, file)
+    with open('test_file.cxt', 'r') as file:
+        data_read = io.read_cxt(file)
+    assert data_read == context
+    os.remove('test_file.cxt')

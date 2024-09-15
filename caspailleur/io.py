@@ -74,7 +74,7 @@ def bas2isets(bitarrays: Iterable[fbarray]) -> Iterator[FrozenSet[int]]:
         yield frozenset(bar.itersearch(True))
 
 
-def to_itemsets(data: ContextType) -> tuple[list[frozenset[int]], list[str], list[str]]:
+def to_itemsets(data: ContextType) -> ItemsetContextType:
     """Convert the context defined by `data` into the itemset format
 
     Parameters
@@ -539,14 +539,37 @@ def save_balist(file: BinaryIO, bitarrays: list[bitarray]):
         file.write(ba.tobytes())
 
 
-def load_cxt(file: BinaryIO) -> dict[str, set[str]]:
-    # TODO: Write the function (or copy from FCApy)
-    raise NotImplementedError
+def read_cxt(file: Union[TextIO, str]) -> NamedItemsetContextType:
+    data = file.read() if not isinstance(file, str) else file
+
+    _, ns, data = data.split('\n\n')
+    n_objs, n_attrs = [int(x) for x in ns.split('\n')]
+
+    data = data.strip().split('\n')
+    objects, data = data[:n_objs], data[n_objs:]
+    attributes, data = data[:n_attrs], data[n_attrs:]
+
+    crosses = [frozenset([idx for idx, c in enumerate(line) if c == 'X']) for line in data]
+    return crosses, objects, attributes
 
 
-def save_cxt(file: BinaryIO, context: ContextType):
-    # TODO: Write the function (or copy from FCApy)
-    raise NotImplementedError
+def write_cxt(context: ContextType, file: TextIO = None) -> str:
+    crosses, objects, attributes = to_named_itemsets(context)
+
+    file_data = 'B\n\n'
+    file_data += f"{len(objects)}\n{len(attributes)}\n"
+    file_data += '\n'
+    file_data += '\n'.join(objects) + '\n'
+    file_data += '\n'.join(attributes) + '\n'
+
+    file_data += '\n'.join([''.join(
+        ['X' if idx in crosses_line else '.' for idx in range(len(attributes))])
+        for crosses_line in crosses
+    ]) + '\n'
+
+    if file:
+        file.write(file_data)
+    return file_data
 
 
 def from_fca_repo(file_name: str) -> dict[str, set[str]]:
@@ -557,9 +580,3 @@ def from_fca_repo(file_name: str) -> dict[str, set[str]]:
 def to_mermaid_diagram(node_labels: list[str], edges: list[tuple[int, int]]) -> str:
     # TODO: Write the function
     raise NotImplementedError
-
-
-
-
-
-
