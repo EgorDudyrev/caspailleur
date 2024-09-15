@@ -52,131 +52,60 @@ def test_save_load_barrays():
     assert bitarrays_load == bitarrays
 
 
-def test_to_itemsets():
-    itemsets_true = [frozenset({0, 1}), frozenset({2})]
-    objects_true = ['object_0', 'object_1']
-    attributes_true = ['attribute_0', 'attribute_1', 'attribute_2']
+def test_context_conversions():
+    datas = dict(
+        pandas=pd.DataFrame([[True, True, False], [False, False, True]],
+                            index=['g1', 'g2'], columns=['m1', 'm2', 'm3']),
+        itemset=[{0, 1}, {2}],
+        named_itemset=([{0, 1}, {2}], ['g1', 'g2'], ['m1', 'm2', 'm3']),
+        bitarray=[fbarray('110'), fbarray('001')],
+        named_bitarray=([fbarray('110'), fbarray('001')], ['g1', 'g2'], ['m1', 'm2', 'm3']),
+        bool=[[True, True, False], [False, False, True]],
+        named_bool=([[True, True, False], [False, False, True]], ['g1', 'g2'], ['m1', 'm2', 'm3']),
+        dict={'g1': {'m1', 'm2'}, 'g2': {'m3'}}
+    )
+    objects_map = {'g1': 'object_0', 'g2': 'object_1'}
+    attributes_map = {'m1': 'attribute_0', 'm2': 'attribute_1', 'm3': 'attribute_2'}
 
-    df = pd.DataFrame([[True, True, False], [False, False, True]],
-                      index=['object_0', 'object_1'], columns=['attribute_0', 'attribute_1', 'attribute_2'])
-    itemsets, objects, attributes = io.to_itemsets(df)
-    assert itemsets == itemsets_true
-    assert objects == objects_true
-    assert attributes == attributes_true
+    funcs = dict(
+        pandas=io.to_pandas,
+        itemset=io.to_itemsets,
+        named_itemset=io.to_named_itemsets,
+        bitarray=io.to_bitarrays,
+        named_bitarray=io.to_named_bitarrays,
+        bool=io.to_bools,
+        named_bool=io.to_named_bools,
+        dict=io.to_dictionary
+    )
+    named_types = {'pandas', 'named_itemset', 'named_bitarray', 'named_bool', 'dict'}
 
-    dct = {'object_0': {'attribute_0', 'attribute_1'}, 'object_1': {'attribute_2'}}
-    itemsets, objects, attributes = io.to_itemsets(dct)
-    assert itemsets == itemsets_true
-    assert objects == objects_true
-    assert attributes == attributes_true
+    assert datas.keys() == funcs.keys()
+    for input_type in datas.keys():
+        for output_type in [
+            'itemset',
+            'named_itemset',
+            'bitarray',
+            'named_bitarray',
+            'bool',
+            'named_bool',
+            'dict'
+        ]:  # datas.keys():
+            input_data, output_data = datas[input_type], datas[output_type]
 
-    bools = [[True, True, False], [False, False, True]]
-    itemsets, objects, attributes = io.to_itemsets(bools)
-    assert itemsets == itemsets_true
-    assert objects == objects_true
-    assert attributes == attributes_true
+            # if the transformation will forget the objects/attributes names
+            if (input_type not in named_types) and (output_type in named_types):
+                if output_type == 'pandas':
+                    output_data = output_data.rename(index=objects_map, columns=attributes_map)
+                elif output_type == 'dict':
+                    output_data = {objects_map[obj]: {attributes_map[attr] for attr in description}
+                                  for obj, description in output_data.items()}
+                else:
+                    output_data = output_data[0],\
+                        [objects_map[g] for g in output_data[1]], [attributes_map[m] for m in output_data[2]]
 
-    itsets = [{0, 1}, {2}]
-    itemsets, objects, attributes = io.to_itemsets(itsets)
-    assert itemsets == itemsets_true
-    assert objects == objects_true
-    assert attributes == attributes_true
-
-    with pytest.raises(io.UnknownContextTypeError):
-        io.to_itemsets('hello world')
-
-    assert io.to_itemsets([]) == ([], [], [])
-
-
-def test_to_dictionary():
-    dct_true = {'object_0': frozenset({'attribute_0', 'attribute_1'}), 'object_1': frozenset({'attribute_2'})}
-    
-    df = pd.DataFrame([[True, True, False], [False, False, True]],
-                      index=['object_0', 'object_1'], columns=['attribute_0', 'attribute_1', 'attribute_2'])
-    dct = io.to_dictionary(df)
-    assert dct == dct_true
-    
-    dct_ = {'object_0': {'attribute_0', 'attribute_1'}, 'object_1': {'attribute_2'}}
-    dct = io.to_dictionary(dct_)
-    assert dct == dct_true
-
-    bools = [[True, True, False], [False, False, True]]
-    dct = io.to_dictionary(bools)
-    assert dct == dct_true
-
-    itsets = [{0, 1}, {2}]
-    dct = io.to_dictionary(itsets)
-    assert dct == dct_true
-
-    with pytest.raises(io.UnknownContextTypeError):
-        io.to_dictionary('hello world')
-
-    assert io.to_dictionary([]) == dict()
-
-
-def test_to_bitarrays():
-    bas_true = [fbarray('110'), fbarray('001')]
-    objects_true = ['object_0', 'object_1']
-    attributes_true = ['attribute_0', 'attribute_1', 'attribute_2']
-
-    
-    df = pd.DataFrame([[True, True, False], [False, False, True]],
-                      index=['object_0', 'object_1'], columns=['attribute_0', 'attribute_1', 'attribute_2'])
-    bas, objects, attributes = io.to_bitarrays(df)
-    assert bas == bas_true
-    assert objects == objects_true
-    assert attributes == attributes_true
-    
-    dct = {'object_0': {'attribute_0', 'attribute_1'}, 'object_1': {'attribute_2'}}
-    bas, objects, attributes = io.to_bitarrays(dct)
-    assert bas == bas_true
-    assert objects == objects_true
-    assert attributes == attributes_true
-
-    bools = [[True, True, False], [False, False, True]]
-    bas, objects, attributes = io.to_bitarrays(bools)
-    assert bas == bas_true
-    assert objects == objects_true
-    assert attributes == attributes_true
-
-    itsets = [{0, 1}, {2}]
-    bas, objects, attributes = io.to_bitarrays(itsets)
-    assert bas == bas_true
-    assert objects == objects_true
-    assert attributes == attributes_true
-    
-    with pytest.raises(io.UnknownContextTypeError):
-        io.to_bitarrays('hello world')
-
-    assert io.to_bitarrays([]) == ([], [], [])
-
-
-def test_to_pandas():
-    df_true = pd.DataFrame([[True, True, False], [False, False, True]],
-                      index=['object_0', 'object_1'], columns=['attribute_0', 'attribute_1', 'attribute_2'])
-
-    df_ = pd.DataFrame([[True, True, False], [False, False, True]],
-                      index=['object_0', 'object_1'], columns=['attribute_0', 'attribute_1', 'attribute_2'])
-    df = io.to_pandas(df_)
-    assert (df == df_true).all(None)
-    
-    dct = {'object_0': {'attribute_0', 'attribute_1'}, 'object_1': {'attribute_2'}}
-    df = io.to_pandas(dct)
-    assert (df == df_true).all(None)
-
-    bools = [[True, True, False], [False, False, True]]
-    df = io.to_pandas(bools)
-    assert (df == df_true).all(None)
-
-    itsets = [{0, 1}, {2}]
-    df = io.to_pandas(itsets)
-    assert (df == df_true).all(None)
-
-    with pytest.raises(io.UnknownContextTypeError):
-        io.to_pandas('hello world')
-
-
-    assert (io.to_pandas([]) == pd.DataFrame()).all(None)
+            print(input_type, output_type)
+            test_data = funcs[output_type](input_data)
+            assert test_data == output_data, f"Having problems transforming {input_type} context into {output_type}"
 
 
 def test_transpose_context():

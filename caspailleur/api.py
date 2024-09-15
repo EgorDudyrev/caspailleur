@@ -13,7 +13,7 @@ import pandas as pd
 from bitarray import frozenbitarray as fbarray
 
 from .base_functions import powerset, extension, intention
-from .io import ContextType, to_bitarrays, transpose_context, isets2bas, verbalise, to_absolute_number
+from .io import ContextType, to_named_bitarrays, transpose_context, isets2bas, verbalise, to_absolute_number
 from .order import topological_sorting, sort_intents_inclusion, inverse_order
 from . import indices as idxs
 from . import definitions
@@ -98,7 +98,7 @@ def iter_descriptions(
     Thus, the resulting iterator will contain the exponential amount of elements,
     unless you define some additional early stopping outside of this function.
     """
-    bitarrays, objects, attributes = to_bitarrays(data)
+    bitarrays, objects, attributes = to_named_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
     to_compute, cols_to_return = _setup_colnames_to_compute(MINE_DESCRIPTION_COLUMN, to_compute, {}, True)
 
@@ -200,7 +200,7 @@ def mine_descriptions(
     ################################
     # Compute the required columns #
     ################################
-    bitarrays, objects, attributes = to_bitarrays(data)
+    bitarrays, objects, attributes = to_named_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
     n_objects = len(objects)
     min_support = to_absolute_number(min_support, n_objects)
@@ -326,7 +326,7 @@ def mine_concepts(
     #################################
     # Running the (long) computations
     #################################
-    bitarrays, objects, attributes = to_bitarrays(data)
+    bitarrays, objects, attributes = to_named_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
     def verbalise_descriptions(bas):
@@ -507,7 +507,7 @@ def mine_implications(
     ############################
     # Compute the (unit) basis #
     ############################
-    bitarrays, objects, attributes = to_bitarrays(data)
+    bitarrays, objects, attributes = to_named_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
 
     n_objects = len(objects)
@@ -548,7 +548,7 @@ def mine_implications(
         basis = [(premise, None, intent_i) for premise, intent_i in basis]
 
     if unit_base and 'conclusion' in to_compute:
-        single_attrs = to_bitarrays([{i} for i in range(len(attributes))])[0]
+        single_attrs = to_named_bitarrays([{i} for i in range(len(attributes))])[0]
         basis = [(premise, single_attrs[attr_i], intent_i)
                  for premise, conclusion, intent_i in basis for attr_i in conclusion.search(True)]
     premises, conclusions, intents_idxs = zip(*basis)
