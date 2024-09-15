@@ -1,3 +1,4 @@
+import typing
 from dataclasses import dataclass
 from typing import Iterable, Iterator, FrozenSet, BinaryIO, Generator, Union, TextIO, Optional, get_args, Sequence
 import numpy.typing as npt
@@ -144,32 +145,17 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
     if len(data) == 0:
         return [], [], []
 
-    is_pandas = isinstance(data, pd.DataFrame)
-    is_dict = isinstance(data, dict)\
-              and all(isinstance(k, str) for k in data.keys())\
-              and all(all(isinstance(v, str) for v in vals) for vals in data.values())
-    is_named_sequence = isinstance(data, Sequence) and len(data) == 3 and all(all(isinstance(v, str) for v in names) for names in data[1:])
-    crosses_data = data[0] if is_named_sequence else data
-    is_sequence = isinstance(crosses_data, Sequence)
-    is_bitarrays = is_sequence and isinstance(crosses_data[0], bitarray)
-    is_bools = is_sequence and isinstance(crosses_data, (list, tuple)) \
-               and all(all(isinstance(v, bool) for v in vals) for vals in crosses_data)
-    is_itemsets = is_sequence and not is_bitarrays and not is_bools and isinstance(list(crosses_data[0])[0], int)
-
-
-    is_supported_type = sum(map(int, [is_pandas, is_dict, is_itemsets, is_bitarrays, is_bools])) == 1
-    if not is_supported_type:
+    context_type = identify_supported_context_type(data)
+    if context_type is None:
         raise UnknownContextTypeError(type(data))
 
-    if is_itemsets and is_named_sequence:
+    if context_type == NamedItemsetContextType:
         return data
 
-    # PandasContextType
-    if is_pandas:
+    if context_type == PandasContextType:
         return list(bas2isets(np2bas(data.values))), list(map(str, data.index)), list(map(str, data.columns))
 
-    # DictContextType
-    if is_dict:
+    if context_type == DictContextType:
         objects = sorted(data.keys())
         attributes = sorted(reduce(set.union, data.values(), set()))
         attrs_idx_map = {attr: attr_i for attr_i, attr in enumerate(attributes)}
@@ -178,16 +164,19 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
         return list(map(frozenset, itemsets)), list(map(str, objects)), list(map(str, attributes))
 
     # Possible data types: Itemsets or (Named) Bitarrays or (Named) Bools
-    objects = data[1] if is_named_sequence else (f'object_{i}' for i in range(len(data)))
-    n_attrs = len(crosses_data[0]) if is_bitarrays or is_bools else len(reduce(set.__or__, map(set, crosses_data)))
-    attributes = data[2] if is_named_sequence else (f'attribute_{j}' for j in range(n_attrs))
+    is_named = context_type in {NamedItemsetContextType, NamedBitarrayContextType, NamedBoolContextType}
+    crosses_data = data[0] if is_named else data
+    objects = data[1] if is_named else (f'object_{i}' for i in range(len(crosses_data)))
+
+    n_attrs = len(reduce(set.__or__, map(set, crosses_data))) if context_type == ItemsetContextType else len(crosses_data[0])
+    attributes = data[2] if is_named else (f'attribute_{j}' for j in range(n_attrs))
     objects, attributes = list(map(str, objects)), list(map(str, attributes))
 
-    if is_bitarrays or is_bools:
-        return list(bas2isets(map(bitarray, crosses_data))), objects, attributes
+    if context_type == ItemsetContextType:
+        return list(map(frozenset, crosses_data)), objects, attributes
 
-    # Possible data types: Itemsets
-    return list(map(frozenset, crosses_data)), objects, attributes
+    # Possible data types: (Named) Bitarrays or (Named) Bools
+    return list(bas2isets(map(bitarray, crosses_data))), objects, attributes
 
 
 def to_dictionary(data: ContextType) -> DictContextType:
@@ -439,10 +428,14 @@ def transpose_context(data: ContextType) -> ContextType:
     if len(data) == 0:
         return data
 
-    if isinstance(data, pd.DataFrame):
+    data_type = identify_supported_context_type(data)
+    if data is None:
+        raise UnknownContextTypeError(type(data))
+
+    if data_type == PandasContextType:
         return data.T
 
-    if isinstance(data, dict):
+    if data_type == DictContextType:
         transposed = {}
         for obj, description in data.items():
             for attr in description:
@@ -451,37 +444,61 @@ def transpose_context(data: ContextType) -> ContextType:
                 transposed[attr].append(obj)
         return {k: frozenset(v) for k, v in transposed.items()}
 
-    if isinstance(data, list):
-        n_objs = len(data)
-        if data[0] and isinstance(data[0], bitarray):
-            n_attrs = len(data[0])
-            transposed = [bazeros(n_objs) for _ in range(n_attrs)]
-            for obj_i, ba in enumerate(data):
-                for attr_i in ba.itersearch(True):
-                    transposed[attr_i][obj_i] = True
-            return list(map(fbarray, transposed))
-
-        if data[0] and isinstance(data[0], (list, tuple)) and isinstance(data[0][0], bool):
-            n_attrs = len(data[0])
-            transposed = [[False]*n_objs for _ in range(n_attrs)]
-            for obj_i, bools in enumerate(data):
-                for attr_i, b in enumerate(bools):
-                    if b:
-                        transposed[attr_i][obj_i] = True
-            return transposed
-
-        # if data is given by a list of itemsets
-        attributes = sorted(reduce(set.union, data, set()))
-        attrs_idx_map = {attr: attr_i for attr_i, attr in enumerate(attributes)}
-
-        transposed = [[] for _ in range(len(attributes))]
-        for obj_i, itemset in enumerate(data):
-            for attr in itemset:
-                attr_i = attrs_idx_map[attr]
+    is_named = data_type in {NamedItemsetContextType, NamedBitarrayContextType, NamedBoolContextType}
+    crosses_data = data[0] if is_named else data
+    if data_type in {NamedItemsetContextType, ItemsetContextType}:
+        n_attrs = len(data[2]) if is_named else len(reduce(set.__or__, crosses_data, set()))
+        transposed = [[] for _ in range(n_attrs)]
+        for obj_i, itemset in enumerate(crosses_data):
+            for attr_i in itemset:
                 transposed[attr_i].append(obj_i)
-        return list(map(frozenset, transposed))
+        transposed = list(map(frozenset, transposed))
 
-    raise UnknownContextTypeError(type(data))
+    if data_type in {NamedBitarrayContextType, BitarrayContextType}:
+        n_objs, n_attrs = len(crosses_data), len(crosses_data[0])
+        transposed = [bazeros(n_objs) for _ in range(n_attrs)]
+        for obj_i, ba in enumerate(crosses_data):
+            for attr_i in ba.itersearch(True):
+                transposed[attr_i][obj_i] = True
+        transposed = list(map(fbarray, transposed))
+
+    if data_type in {NamedBoolContextType, BoolContextType}:
+        n_objs, n_attrs = len(crosses_data), len(crosses_data[0])
+        transposed = [[False] * n_objs for _ in range(n_attrs)]
+        for obj_i, bools in enumerate(crosses_data):
+            for attr_i, b in enumerate(bools):
+                if b:
+                    transposed[attr_i][obj_i] = True
+
+    if is_named:
+        return transposed, data[2], data[1]
+    return transposed
+
+
+def identify_supported_context_type(context: ContextType) -> Optional[typing.Type]:
+    is_pandas = isinstance(context, pd.DataFrame)
+    is_dict = isinstance(context, dict) \
+              and all(isinstance(k, str) for k in context.keys()) \
+              and all(all(isinstance(v, str) for v in vals) for vals in context.values())
+    is_named = isinstance(context, Sequence) and len(context) == 3 and all(
+        all(isinstance(v, str) for v in names) for names in context[1:])
+    crosses_data = context[0] if is_named else context
+    is_sequence = isinstance(crosses_data, Sequence)
+    is_bitarrays = is_sequence and isinstance(crosses_data[0], bitarray)
+    is_bools = is_sequence and isinstance(crosses_data, (list, tuple)) \
+               and all(all(isinstance(v, bool) for v in vals) for vals in crosses_data)
+    is_itemsets = is_sequence and not is_bitarrays and not is_bools and isinstance(list(crosses_data[0])[0], int)
+
+    dtypes_selector = [
+        (is_pandas, PandasContextType), (is_dict, DictContextType),
+        (not is_named and is_itemsets, ItemsetContextType), (is_named and is_itemsets, NamedItemsetContextType),
+        (not is_named and is_bitarrays, BitarrayContextType), (is_named and is_bitarrays, NamedBitarrayContextType),
+        (not is_named and is_bools, BoolContextType), (is_named and is_bools, NamedBoolContextType),
+    ]
+    if sum(condition for condition, dtype in dtypes_selector) != 1:
+        return None
+
+    return next(dtype for condition, dtype in dtypes_selector if condition)
 
 
 def verbalise(description: Union[bitarray, Iterable[int]], names: list[str]) -> Iterable[str]:

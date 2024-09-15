@@ -107,34 +107,38 @@ def test_context_conversions():
 
 
 def test_transpose_context():
-    df = pd.DataFrame(
-        [[True, True, False], [False, False, True]],
-        index=['object_0', 'object_1'], columns=['attribute_0', 'attribute_1', 'attribute_2'])
-    df_transposed_true = pd.DataFrame(
-        [[True, False], [True, False], [False, True]],
-        index=['attribute_0', 'attribute_1', 'attribute_2'], columns=['object_0', 'object_1']
+    datas = dict(
+        pandas=pd.DataFrame([[True, True, False], [False, False, True]],
+                            index=['g1', 'g2'], columns=['m1', 'm2', 'm3']),
+        itemset=[{0, 1}, {2}],
+        named_itemset=([{0, 1}, {2}], ['g1', 'g2'], ['m1', 'm2', 'm3']),
+        bitarray=[fbarray('110'), fbarray('001')],
+        named_bitarray=([fbarray('110'), fbarray('001')], ['g1', 'g2'], ['m1', 'm2', 'm3']),
+        bool=[[True, True, False], [False, False, True]],
+        named_bool=([[True, True, False], [False, False, True]], ['g1', 'g2'], ['m1', 'm2', 'm3']),
+        dict={'g1': {'m1', 'm2'}, 'g2': {'m3'}}
     )
-    df_transposed = io.transpose_context(df)
-    assert (df_transposed == df_transposed_true).all(None)
-    assert (io.transpose_context(io.transpose_context(df)) == df).all(None)
+    datas_transposed = dict(
+        pandas=pd.DataFrame([[True, False], [True, False], [False, True]],
+                            index=['m1', 'm2', 'm3'], columns=['g1', 'g2']),
+        itemset=[{0}, {0}, {1}],
+        named_itemset=([{0}, {0}, {1}], ['m1', 'm2', 'm3'], ['g1', 'g2']),
+        bitarray=[fbarray('10'), fbarray('10'), fbarray('01')],
+        named_bitarray=([fbarray('10'), fbarray('10'), fbarray('01')], ['m1', 'm2', 'm3'], ['g1', 'g2']),
+        bool=[[True, False], [True, False], [False, True]],
+        named_bool=([[True, False], [True, False], [False, True]], ['m1', 'm2', 'm3'], ['g1', 'g2']),
+        dict={'m1': {'g1'}, 'm2': {'g1'}, 'm3': {'g2'}}
+    )
 
-    dct = {'object_0': {'attribute_0', 'attribute_1'}, 'object_1': {'attribute_2'}}    
-    dct_transposed_true = {'attribute_0': {'object_0'}, 'attribute_1': {'object_0'}, 'attribute_2': {'object_1'}}
-    dct_transposed = io.transpose_context(dct)
-    assert dct_transposed == dct_transposed_true
-    assert io.transpose_context(io.transpose_context(dct)) == dct
+    for data_type, data in datas.items():
+        transposed = io.transpose_context(data)
+        if data_type == 'pandas':
+            assert (transposed == datas_transposed[data_type]).all(None), "Problem transposing pd.DataFrame"
+            assert (io.transpose_context(transposed) == data).all(None), "Problem transposing pd.DataFrame twice"
+            continue
 
-    bools = [[True, True, False], [False, False, True]]
-    bools_transposed_true = [[True, False], [True, False], [False, True]]
-    bools_transposed = io.transpose_context(bools)
-    assert bools_transposed == bools_transposed_true
-    assert io.transpose_context(io.transpose_context(bools)) == bools
-
-    itsets = [{0, 1}, {2}]
-    itsets_transposed_true = [{0}, {0}, {1}]
-    itsets_transposed = io.transpose_context(itsets)
-    assert itsets_transposed == itsets_transposed_true
-    assert io.transpose_context(io.transpose_context(itsets)) == itsets
+        assert transposed == datas_transposed[data_type], f"Problem transposing {data_type} context"
+        assert io.transpose_context(transposed) == data, f"Problem transposing {data_type} context twice"
 
 
 def test_read_write_cxt():
