@@ -1,5 +1,7 @@
 import typing
 from dataclasses import dataclass
+from itertools import combinations, islice
+from string import ascii_uppercase
 from typing import Iterable, Iterator, FrozenSet, BinaryIO, Generator, Union, TextIO, Optional, get_args, Sequence
 import numpy.typing as npt
 import numpy as np
@@ -600,5 +602,12 @@ def from_fca_repo(context_name: str) -> PandasContextType:
 
 
 def to_mermaid_diagram(node_labels: list[str], edges: list[tuple[int, int]]) -> str:
-    # TODO: Write the function
-    raise NotImplementedError
+    nodes_symbols = (''.join(symbols) for symbols_len in range(1, len(node_labels)+1)
+                     for symbols in combinations(ascii_uppercase, symbols_len))
+    nodes_symbols = list(islice(nodes_symbols, len(node_labels)))
+
+    nodes_lines = [f'{symbol}["{label}"];' for symbol, label in zip(nodes_symbols, node_labels)]
+    edges_lines = [f"{nodes_symbols[parent]} --> {nodes_symbols[child]};" for parent, child in edges]
+
+    mermaid_lines = ['flowchart TD'] + nodes_lines + [''] + edges_lines
+    return '\n'.join(mermaid_lines)

@@ -186,3 +186,16 @@ def test_from_fca_repo():
     )
 
     assert (io.from_fca_repo(context_name) == context_df).all(None)
+
+
+def test_to_mermaid_diagram():
+    nodes = ['Top', 'Left Top', 'Left Bottom', 'Right', 'Bottom']
+    edges = [(0, 1), (1, 2), (0, 3), (2, 4), (3, 4)]
+    diagram_text = '\n'.join([
+        'flowchart TD',
+        'A["Top"];', 'B["Left Top"];', 'C["Left Bottom"];', 'D["Right"];', 'E["Bottom"];', '',
+        'A --> B;', 'B --> C;', 'A --> D;', 'C --> E;', 'D --> E;'
+    ])
+
+    txt = io.to_mermaid_diagram(nodes, edges)
+    assert txt == diagram_text
