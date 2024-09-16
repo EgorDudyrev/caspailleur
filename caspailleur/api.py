@@ -262,7 +262,7 @@ def mine_concepts(
     data: ContextType
         Data in a format, supported by Caspailleur.io module.
         For example, Pandas DataFrame with binary values,
-        or list of lists of strings (where every list of strings represents an itemset).
+        or list of lists of integers (where every list of integers represents an itemset).
     to_compute: list[MINE_CONCEPT_COLUMN] or 'all'
         A list of characteristics to compute (by default, compute 'all' possible columns)
         The list of all possible characteristics is defined in caspailleur.MINE_CONCEPT_COLUMN value.
@@ -328,6 +328,7 @@ def mine_concepts(
     #################################
     bitarrays, objects, attributes = to_named_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
+    bitarrays, attr_extents = list(map(fbarray, bitarrays)), list(map(fbarray, attr_extents))
 
     def verbalise_descriptions(bas):
         return [verbalise(ba, attributes) for ba in bas]
@@ -509,6 +510,7 @@ def mine_implications(
     ############################
     bitarrays, objects, attributes = to_named_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
+    bitarrays, attr_extents = list(map(fbarray, bitarrays)), list(map(fbarray, attr_extents))
 
     n_objects = len(objects)
     min_support, min_delta_stability = [to_absolute_number(v, n_objects) for v in [min_support, min_delta_stability]]

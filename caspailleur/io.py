@@ -11,13 +11,13 @@ from functools import reduce
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import zeros as bazeros
 
-ItemsetContextType = list[frozenset[int]]  # `j in ctx[i]` shows whether i-th object shares j-th attribute
+ItemsetContextType = list[set[int]]  # `j in ctx[i]` shows whether i-th object shares j-th attribute
 NamedItemsetContextType = tuple[ItemsetContextType, list[str], list[str]]  # Itemsets + object names + attribute names
-BitarrayContextType = list[fbarray]  # `ctx[i][j]` shows whether i-th object shares j-th attribute
+BitarrayContextType = list[bitarray]  # `ctx[i][j]` shows whether i-th object shares j-th attribute
 NamedBitarrayContextType = tuple[BitarrayContextType, list[str], list[str]]  # bitarrays + object names + attr. names
 BoolContextType = list[list[bool]]  # `ctx[i][j]` shows whether i-th object shares j-th attribute
 NamedBoolContextType = tuple[BoolContextType, list[str], list[str]]  # bools context + object names + attribute names
-DictContextType = dict[str, frozenset[str]]  # `m in ctx[g]` shows whether object g shares attribute m
+DictContextType = dict[str, set[str]]  # `m in ctx[g]` shows whether object g shares attribute m
 PandasContextType = pd.DataFrame  # pandas dataframe where row indices are objects and columns indices are attrs.
 
 ContextType = Union[
@@ -95,7 +95,7 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
 
     Return
     ------
-    itemsets: list[frozenset[int]]
+    itemsets: list[set[int]]
         list of sets of indices of True-valued columns
     object_names: list[str]
         names of objects (i.e. rows) in the data.
@@ -107,16 +107,16 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
     Examples
     --------
     to_named_itemsets( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
-        --> ([frozenset({1}), frozenset({0, 1})], ['0', '1'], ['a', 'b'])
+        --> ([{1}, {0, 1}], ['0', '1'], ['a', 'b'])
 
     to_named_itemsets( {'row1': ['b'], 'row2': ['a', 'b']} )
-        --> ([frozenset({1}), frozenset({0, 1})], ['row1', 'row2'], ['a', 'b'])
+        --> ([{1}, {0, 1}], ['row1', 'row2'], ['a', 'b'])
 
     to_named_itemsets( [[1], [0,1]] )
-        --> ([frozenset({1}), frozenset({0, 1})], ['object_0', 'object_1'], ['attribute_0', 'attribute_1'])
+        --> ([{1}, {0, 1}], ['object_0', 'object_1'], ['attribute_0', 'attribute_1'])
 
     to_named_itemsets( ([[1], [0,1]], ['g1', 'g2'], ['m1', 'm2']) )
-        --> ([frozenset({1}), frozenset({0, 1})], ['g1', 'g2'], ['m1', 'm2'])
+        --> ([{1}, {0, 1}], ['g1', 'g2'], ['m1', 'm2'])
     """
     if len(data) == 0:
         return [], [], []
@@ -129,7 +129,7 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
         return data
 
     if context_type == PandasContextType:
-        return list(bas2isets(np2bas(data.values))), list(map(str, data.index)), list(map(str, data.columns))
+        return list(map(set, bas2isets(np2bas(data.values)))), list(map(str, data.index)), list(map(str, data.columns))
 
     if context_type == DictContextType:
         objects = sorted(data.keys())
@@ -137,7 +137,7 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
         attrs_idx_map = {attr: attr_i for attr_i, attr in enumerate(attributes)}
 
         itemsets = [[attrs_idx_map[attr] for attr in data[obj]] for obj in objects]
-        return list(map(frozenset, itemsets)), list(map(str, objects)), list(map(str, attributes))
+        return list(map(set, itemsets)), list(map(str, objects)), list(map(str, attributes))
 
     # Possible data types: Itemsets or (Named) Bitarrays or (Named) Bools
     is_named = context_type in {NamedItemsetContextType, NamedBitarrayContextType, NamedBoolContextType}
@@ -149,10 +149,10 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
     objects, attributes = list(map(str, objects)), list(map(str, attributes))
 
     if context_type == ItemsetContextType:
-        return list(map(frozenset, crosses_data)), objects, attributes
+        return list(map(set, crosses_data)), objects, attributes
 
     # Possible data types: (Named) Bitarrays or (Named) Bools
-    return list(bas2isets(map(bitarray, crosses_data))), objects, attributes
+    return list(map(set, bas2isets(map(bitarray, crosses_data)))), objects, attributes
 
 
 def to_itemsets(data: ContextType) -> ItemsetContextType:
@@ -166,19 +166,19 @@ def to_itemsets(data: ContextType) -> ItemsetContextType:
 
     Return
     ------
-    itemsets: list[frozenset[int]]
+    itemsets: list[set[int]]
         list of sets of indices of True-valued columns
 
     Examples
     --------
     to_itemsets( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
-        --> [frozenset({1}), frozenset({0, 1})]
+        --> [{1}, {0, 1}]
 
     to_itemsets( {'row1': ['b'], 'row2': ['a', 'b']} )
-        --> [frozenset({1}), frozenset({0, 1})]
+        --> [{1}, {0, 1}]
 
-    to_itemsets( [[1], [0',1]] )
-        --> [frozenset({1}), frozenset({0, 1})]
+    to_itemsets( [[1], [0, 1]] )
+        --> [{1}, {0, 1}]
     """
     return to_named_itemsets(data)[0]
 
@@ -194,28 +194,22 @@ def to_dictionary(data: ContextType) -> DictContextType:
 
     Return
     ------
-    dictionary: dict[str, frozenset[str]]
-        dictionary of type 'object_name' -> set of attributes describing object
-    object_names: list[str]
-        names of objects (i.e. rows) in the data.
-        If the names are not specified by the data, returns "object_1", "object_2", ...
-    attribute_names: list[str]
-        names of attributes (i.e. columns) in the data
-        If the names are not specified by the data, returns "attribute_1", "attribute_2", ...
+    dictionary: dict[str, set[str]]
+        dictionary of type 'object_name' -> set of names of attributes describing object
 
     Examples
     --------
     to_dictionary( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
-        -->  {'0': frozenset({'b'}), '1': frozenset({'a', 'b'})}
+        -->  {'0': {'b'}, '1': {'a', 'b'}}
 
     to_dictionary( [bitarray('01'), bitarray('11')] )
-        --> {'object_0': frozenset({'attribute_1'}), 'object_1': frozenset({'attribute_0', 'attribute_1'})}
+        --> {'object_0': {'attribute_1'}, 'object_1': {'attribute_0', 'attribute_1'}}
 
     to_dictionary( [[1], [0,1]] )
-        --> {'object_0': frozenset({'attribute_1'}), 'object_1': frozenset({'attribute_0', 'attribute_1'})}
+        --> {'object_0': {'attribute_1'}, 'object_1': {'attribute_0', 'attribute_1'}}
     """
     itemsets, objects, attributes = to_named_itemsets(data)
-    return {obj: frozenset([attributes[attr_i] for attr_i in itemset]) for obj, itemset in zip(objects, itemsets)}
+    return {obj: {attributes[attr_i] for attr_i in itemset} for obj, itemset in zip(objects, itemsets)}
 
 
 def to_named_bitarrays(data: ContextType) -> NamedBitarrayContextType:
@@ -229,7 +223,7 @@ def to_named_bitarrays(data: ContextType) -> NamedBitarrayContextType:
 
     Return
     ------
-    bitarrays: list[frozenbitarray]
+    bitarrays: list[bitarray]
         list of frozen bitarrays representing descriptions of objects. For i-th object and j-th attribute,
         `bitarrays[i][j] == True` means that i-th object is described by j-th attribute.
     object_names: list[str]
@@ -242,16 +236,16 @@ def to_named_bitarrays(data: ContextType) -> NamedBitarrayContextType:
     Examples
     --------
     to_named_bitarrays( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
-        --> ([frozenbitarray('01'), frozenbitarray('11')], ['0', '1'], ['a', 'b'])
+        --> ([bitarray('01'), bitarray('11')], ['0', '1'], ['a', 'b'])
 
     to_named_bitarrays( {'row1': ['b'], 'row2': ['a','b']} )
-        -->  ([frozenbitarray('01'), frozenbitarray('11')], ['row1', 'row2'], ['a', 'b'])
+        -->  ([bitarray('01'), bitarray('11')], ['row1', 'row2'], ['a', 'b'])
 
     to_named_bitarrays( [[1], [0, 1]] )
-        --> ([frozenbitarray('01'), frozenbitarray('11')], ['object_0', 'object_1'], ['attribute_0', 'attribute_1'])
+        --> ([bitarray('01'), bitarray('11')], ['object_0', 'object_1'], ['attribute_0', 'attribute_1'])
     """
     itemsets, objects, attributes = to_named_itemsets(data)
-    return list(isets2bas(itemsets, len(attributes))), objects, attributes
+    return list(map(bitarray, isets2bas(itemsets, len(attributes)))), objects, attributes
 
 
 def to_bitarrays(data: ContextType) -> BitarrayContextType:
@@ -265,20 +259,20 @@ def to_bitarrays(data: ContextType) -> BitarrayContextType:
 
     Return
     ------
-    bitarrays: list[frozenbitarray]
+    bitarrays: list[bitarray]
         list of frozen bitarrays representing descriptions of objects. For i-th object and j-th attribute,
         `bitarrays[i][j] == True` means that i-th object is described by j-th attribute.
 
     Examples
     --------
     to_bitarrays( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
-        --> [frozenbitarray('01'), frozenbitarray('11')]
+        --> [bitarray('01'), bitarray('11')]
 
     to_bitarrays( {'row1': ['b'], 'row2': ['a','b']} )
-        --> [frozenbitarray('01'), frozenbitarray('11')]
+        --> [bitarray('01'), bitarray('11')]
 
     to_bitarrays( [[1], [0, 1]] )
-        --> [frozenbitarray('01'), frozenbitarray('11')]
+        --> [bitarray('01'), bitarray('11')]
     """
     return to_named_bitarrays(data)[0]
 
@@ -418,7 +412,7 @@ def transpose_context(data: ContextType) -> ContextType:
                 if attr not in transposed:
                     transposed[attr] = []
                 transposed[attr].append(obj)
-        return {k: frozenset(v) for k, v in transposed.items()}
+        return {k: set(v) for k, v in transposed.items()}
 
     is_named = data_type in {NamedItemsetContextType, NamedBitarrayContextType, NamedBoolContextType}
     crosses_data = data[0] if is_named else data
@@ -428,7 +422,7 @@ def transpose_context(data: ContextType) -> ContextType:
         for obj_i, itemset in enumerate(crosses_data):
             for attr_i in itemset:
                 transposed[attr_i].append(obj_i)
-        transposed = list(map(frozenset, transposed))
+        transposed = list(map(set, transposed))
 
     if data_type in {NamedBitarrayContextType, BitarrayContextType}:
         n_objs, n_attrs = len(crosses_data), len(crosses_data[0])
@@ -436,7 +430,7 @@ def transpose_context(data: ContextType) -> ContextType:
         for obj_i, ba in enumerate(crosses_data):
             for attr_i in ba.itersearch(True):
                 transposed[attr_i][obj_i] = True
-        transposed = list(map(fbarray, transposed))
+        transposed = list(map(bitarray, transposed))
 
     if data_type in {NamedBoolContextType, BoolContextType}:
         n_objs, n_attrs = len(crosses_data), len(crosses_data[0])

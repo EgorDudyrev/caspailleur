@@ -96,14 +96,15 @@ concepts_df = csp.mine_concepts(
   df, min_support=3, min_delta_stability=1,
   to_compute=['intent', 'keys', 'support', 'delta_stability', 'lesser']
 )
+
 print(concepts_df)
 ```
 
 |   concept_id | intent     | keys         |   support |   delta_stability | lesser   |
 |-------------:|:-----------|:-------------|----------:|------------------:|:---------|
 |            0 | set()      | [set()]      |         5 |                 1 | {1, 2}   |
-|            1 | {'real'}   | [{'real'}]   |         3 |                 1 | set()    |
-|            2 | {'mammal'} | [{'mammal'}] |         4 |                 2 | set()    |
+|            1 | { real }   | [{ real }]   |         3 |                 1 | set()    |
+|            2 | { mammal } | [{ mammal }] |         4 |                 2 | set()    |
 
 
 ### Mining implications
@@ -113,26 +114,25 @@ Luckily, relationships between attributes can be described via implication bases
 (although there may be many implications selecting no objects).
 
 ```python
-import caspailleur as csp
 implications_df = csp.mine_implications(df)
 
-print(implications_df[['premise', 'conclusion', 'support']].map(', '.join))
+print(implications_df[['premise', 'conclusion', 'support']])
 ```
 _<details><summary>Implications table (10 rows)</summary>_
 <p>
 
 |   implication_id | premise                 | conclusion                      |   support |
 |-----------------:|:------------------------|:--------------------------------|----------:|
-|                0 | {'cartoon'}             | {'mammal'}                      |         2 |
-|                1 | {'tortoise'}            | {'real'}                        |         1 |
-|                2 | {'dog'}                 | {'mammal'}                      |         2 |
-|                3 | {'cat'}                 | {'mammal'}                      |         2 |
-|                4 | {'dog', 'cat'}          | {'real', 'tortoise', 'cartoon'} |         0 |
-|                5 | {'tortoise', 'mammal'}  | {'dog', 'cartoon', 'cat'}       |         0 |
-|                6 | {'tortoise', 'cat'}     | {'dog', 'cartoon'}              |         0 |
-|                7 | {'dog', 'tortoise'}     | {'cartoon', 'cat'}              |         0 |
-|                8 | {'tortoise', 'cartoon'} | {'dog', 'cat'}                  |         0 |
-|                9 | {'real', 'cartoon'}     | {'dog', 'tortoise', 'cat'}      |         0 |
+|                0 | {cartoon}             | {mammal}                      |         2 |
+|                1 | {tortoise}            | {real}                        |         1 |
+|                2 | {dog}                 | {mammal}                      |         2 |
+|                3 | {cat}                 | {mammal}                      |         2 |
+|                4 | {dog, cat}          | {tortoise, real, cartoon} |         0 |
+|                5 | {tortoise, mammal}  | {dog, cat, cartoon}       |         0 |
+|                6 | {tortoise, cat}     | {dog, cartoon}              |         0 |
+|                7 | {dog, tortoise}     | {cat, cartoon}              |         0 |
+|                8 | {tortoise, cartoon} | {dog, cat}                  |         0 |
+|                9 | {real, cartoon}     | {dog, tortoise, cat}      |         0 |
 
 </p></details>
  
@@ -155,12 +155,13 @@ implications_df = csp.mine_implications(
 
 print(implications_df)
 ```
-|   implication_id | premise      | conclusion   | extent                          |
-|-----------------:|:-------------|:-------------|:--------------------------------|
-|                0 | {'cat'}      | mammal       | {'Garfield', 'Socks'}           |
-|                1 | {'dog'}      | mammal       | {"Greyfriar's Bobby", 'Snoopy'} |
-|                2 | {'tortoise'} | real         | {'Harriet'}                     |
-|                3 | {'cartoon'}  | mammal       | {'Garfield', 'Snoopy'}          |
+|   implication_id | premise    | conclusion   | extent                      |
+|-----------------:|:-----------|:-------------|:----------------------------|
+|                0 | {cat}      | mammal       | {Socks, Garfield}           |
+|                1 | {dog}      | mammal       | {Greyfriar's Bobby, Snoopy} |
+|                2 | {tortoise} | real         | {Harriet}                   |
+|                3 | {cartoon}  | mammal       | {Snoopy, Garfield}          |
+
 
 
 The supported bases are _Canonical_ basis (a.k.a. _Pseudo-Intent_ or _Duquenne-Guigues_ basis)
@@ -173,7 +174,6 @@ Finally, Caspailleur can output all descriptions in the data and their character
 But note that the `number of descriptions` = 2^`number of attributes`.
 
 ```python
-import caspailleur as csp
 descriptions_df = csp.mine_descriptions(df)
 
 print('__n. attributes:__', df.shape[1])
@@ -187,11 +187,11 @@ print(descriptions_df[['description', 'support', 'is_key']].head(3))
 > __columns:__ description, extent, intent, support, delta_stability, is_closed, is_key, is_passkey, is_proper_premise, is_pseudo_intent
 
 
-|   description_id | description   |   support | is_key   |
-|-----------------:|:--------------|----------:|:---------|
-|                0 | set()         |         5 | True     |
-|                1 | {'cartoon'}   |         2 | True     |
-|                2 | {'real'}      |         3 | True     |
+|   description_id | description |   support | is_key   |
+|-----------------:|:------------|----------:|:---------|
+|                0 | set()       |         5 | True     |
+|                1 | {cartoon}   |         2 | True     |
+|                2 | {real}      |         3 | True     |
 
 
 ## Supported data formats
@@ -227,11 +227,11 @@ Example:
 ```python
 print(*csp.io.to_itemsets(df), sep='\n')
 ```
-> frozenset({0, 4, 5}) <br>
-> frozenset({0, 3, 5}) <br>
-> frozenset({1, 4, 5}) <br>
-> frozenset({1, 3, 5}) <br>
-> frozenset({1, 2})
+> {0, 4, 5} <br>
+> {0, 3, 5} <br>
+> {1, 4, 5} <br>
+> {1, 3, 5} <br>
+> {1, 2}
 
 
 ### NamedItemsetContextType
@@ -242,10 +242,8 @@ Example:
 ```python
 print(*csp.io.to_named_itemsets(df), sep='\n')
 ```
-> [frozenset({0, 4, 5}), frozenset({0, 3, 5}), frozenset({1, 4, 5}), frozenset({1, 3, 5}), frozenset({1, 2})]
->
-> ['Garfield', 'Snoopy', 'Socks', "Greyfriar's Bobby", 'Harriet']
-> 
+> [{0, 4, 5}, {0, 3, 5}, {1, 4, 5}, {1, 3, 5}, {1, 2}] <br>
+> ['Garfield', 'Snoopy', 'Socks', "Greyfriar's Bobby", 'Harriet'] <br>
 > ['cartoon', 'real', 'tortoise', 'dog', 'cat', 'mammal']
 
 
@@ -257,11 +255,11 @@ Example:
 ```python
 print(*csp.io.to_bitarrays(df), sep='\n')
 ```
-> frozenbitarray('100011') <br>
-> frozenbitarray('100101') <br>
-> frozenbitarray('010011') <br>
-> frozenbitarray('010101') <br>
-> frozenbitarray('011000')
+> bitarray('100011') <br>
+> bitarray('100101') <br>
+> bitarray('010011') <br>
+> bitarray('010101') <br>
+> bitarray('011000')
 
 ### NamedBitarrayContextType
 A triplet: (_BitarrayContextType_, object names, attribute names).
@@ -271,7 +269,7 @@ Example:
 ```python
 print(*csp.io.to_named_bitarrays(df), sep='\n')
 ```
-> [frozenbitarray('100011'), frozenbitarray('100101'), frozenbitarray('010011'), frozenbitarray('010101'), frozenbitarray('011000')] <br>
+> [bitarray('100011'), bitarray('100101'), bitarray('010011'), bitarray('010101'), bitarray('011000')] <br>
 > ['Garfield', 'Snoopy', 'Socks', "Greyfriar's Bobby", 'Harriet'] <br>
 > ['cartoon', 'real', 'tortoise', 'dog', 'cat', 'mammal']
 
@@ -311,11 +309,11 @@ Example:
 ```python
 print(csp.io.to_dictionary(df))
 ```
-> {'Garfield': frozenset({'cartoon', 'mammal', 'cat'}),<br> 
-> 'Snoopy': frozenset({'dog', 'cartoon', 'mammal'}), <br>
-> 'Socks': frozenset({'real', 'mammal', 'cat'}), <br>
-> "Greyfriar's Bobby": frozenset({'real', 'mammal', 'dog'}),<br> 
-> 'Harriet': frozenset({'real', 'tortoise'})<br>
+> {'Garfield': {'cartoon', 'mammal', 'cat'},<br> 
+> 'Snoopy': {'dog', 'cartoon', 'mammal'}, <br>
+> 'Socks': {'real', 'mammal', 'cat'}, <br>
+> "Greyfriar's Bobby": {'real', 'mammal', 'dog'},<br> 
+> 'Harriet': {'real', 'tortoise'}<br>
 > }
  
 </p></details>
