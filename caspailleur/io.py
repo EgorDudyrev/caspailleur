@@ -556,7 +556,7 @@ def save_balist(file: BinaryIO, bitarrays: list[bitarray]):
         file.write(ba.tobytes())
 
 
-def read_cxt(file: Union[TextIO, str]) -> NamedItemsetContextType:
+def read_cxt(file: Union[TextIO, str]) -> PandasContextType:
     data = file.read() if not isinstance(file, str) else file
 
     _, ns, data = data.split('\n\n')
@@ -566,8 +566,8 @@ def read_cxt(file: Union[TextIO, str]) -> NamedItemsetContextType:
     objects, data = data[:n_objs], data[n_objs:]
     attributes, data = data[:n_attrs], data[n_attrs:]
 
-    crosses = [frozenset([idx for idx, c in enumerate(line) if c == 'X']) for line in data]
-    return crosses, objects, attributes
+    crosses = [[c == 'X' for c in line] for line in data]
+    return to_pandas((crosses, objects, attributes))
 
 
 def write_cxt(context: ContextType, file: TextIO = None) -> str:
@@ -589,9 +589,14 @@ def write_cxt(context: ContextType, file: TextIO = None) -> str:
     return file_data
 
 
-def from_fca_repo(file_name: str) -> dict[str, set[str]]:
-    # TODO: To implement
-    raise NotImplementedError
+def from_fca_repo(context_name: str) -> PandasContextType:
+    import urllib.request
+
+    context_name = context_name + '.cxt' if not context_name.endswith('.cxt') else context_name
+
+    url = f"https://github.com/fcatools/contexts/raw/main/contexts/{context_name}"
+    context_data = urllib.request.urlopen(url).read().decode("utf-8")
+    return read_cxt(context_data)
 
 
 def to_mermaid_diagram(node_labels: list[str], edges: list[tuple[int, int]]) -> str:

@@ -149,17 +149,40 @@ def test_read_write_cxt():
         'XXX', 'XX.', 'XXX', ''
     ])
 
-    objects = ['Consulting', 'Planning', 'Assembly and installation']
-    attributes = ['Furniture', 'Computers', 'Copy machines']
-    itsets = [{0, 1, 2}, {0, 1}, {0, 1, 2}]
-    context = itsets, objects, attributes
-
-    assert io.read_cxt(data_string) == context
-    assert io.write_cxt(context) == data_string
+    data_df = pd.DataFrame(
+        [[True, True, True], [True, True, False], [True, True, True]],
+        index=['Consulting', 'Planning', 'Assembly and installation'],
+        columns=['Furniture', 'Computers', 'Copy machines']
+    )
+    assert (io.read_cxt(data_string) == data_df).all(None)
+    assert io.write_cxt(data_df) == data_string
 
     with open('test_file.cxt', 'w') as file:
-        io.write_cxt(context, file)
+        io.write_cxt(data_df, file)
     with open('test_file.cxt', 'r') as file:
         data_read = io.read_cxt(file)
-    assert data_read == context
+    assert (data_read == data_df).all(None)
     os.remove('test_file.cxt')
+
+
+def test_from_fca_repo():
+    context_name = 'planets_en'
+    assert (io.from_fca_repo(context_name) == io.from_fca_repo(context_name+'.cxt')).all(None)
+
+    context_df = pd.DataFrame([
+        [True, False, False, True, False, False, True],  # X..X..X
+        [True, False, False, True, False, False, True],  # X..X..X
+        [True, False, False, True, False, True, False],  # X..X.X.
+        [True, False, False, True, False, True, False],  # X..X.X.
+        [False, False, True, False, True, True, False],  # ..X.XX.
+
+        [False, False, True, False, True, True, False],  # ..X.XX.
+        [False, True, False, False, True, True, False],  # .X..XX.
+        [False, True, False, False, True, True, False],  # .X..XX.
+        [True, False, False, False, True, True, False],  # X...XX.
+    ],
+        index=['Merkur', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'],
+        columns=['Small', 'Medium', 'Large', 'Near', 'Distant', 'Moon', 'No moon']
+    )
+
+    assert (io.from_fca_repo(context_name) == context_df).all(None)
