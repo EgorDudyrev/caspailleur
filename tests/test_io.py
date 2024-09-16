@@ -190,12 +190,12 @@ def test_from_fca_repo():
 
 def test_to_mermaid_diagram():
     nodes = ['Top', 'Left Top', 'Left Bottom', 'Right', 'Bottom']
-    edges = [(0, 1), (1, 2), (0, 3), (2, 4), (3, 4)]
+    neighbours = [[1, 3], [2], [4], [4], []]
     diagram_text = '\n'.join([
         'flowchart TD',
         'A["Top"];', 'B["Left Top"];', 'C["Left Bottom"];', 'D["Right"];', 'E["Bottom"];', '',
-        'A --> B;', 'B --> C;', 'A --> D;', 'C --> E;', 'D --> E;'
+        'A --> B;', 'A --> D;', 'B --> C;', 'C --> E;', 'D --> E;'
     ])
 
-    txt = io.to_mermaid_diagram(nodes, edges)
+    txt = io.to_mermaid_diagram(nodes, neighbours)
     assert txt == diagram_text

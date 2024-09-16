@@ -601,13 +601,14 @@ def from_fca_repo(context_name: str) -> PandasContextType:
     return read_cxt(context_data)
 
 
-def to_mermaid_diagram(node_labels: list[str], edges: list[tuple[int, int]]) -> str:
+def to_mermaid_diagram(node_labels: list[str], neighbours: list[list[int]]) -> str:
     nodes_symbols = (''.join(symbols) for symbols_len in range(1, len(node_labels)+1)
                      for symbols in combinations(ascii_uppercase, symbols_len))
     nodes_symbols = list(islice(nodes_symbols, len(node_labels)))
 
     nodes_lines = [f'{symbol}["{label}"];' for symbol, label in zip(nodes_symbols, node_labels)]
-    edges_lines = [f"{nodes_symbols[parent]} --> {nodes_symbols[child]};" for parent, child in edges]
+    edges_lines = [f"{node} --> {nodes_symbols[neighbour]};"
+                   for node, neighbours_indices in zip(nodes_symbols, neighbours) for neighbour in neighbours_indices]
 
     mermaid_lines = ['flowchart TD'] + nodes_lines + [''] + edges_lines
     return '\n'.join(mermaid_lines)
