@@ -137,12 +137,12 @@ _<details><summary>Implications table (10 rows)</summary>_
 </p></details>
  
 We can read the implications in the table and find out dependencies in the data. For example:
-- every object from cartoon is a mammal\
+- every famous cartoon animal is a mammal\
 (from impl. 0: _cartoon -> mammal_);
-- every tortoise object is real\
+- one can find famous tortoises only in real life\
 (from impl. 1: _tortoise -> real_);
-- there are no objects that are dog and cat at the same time \
-  (from impl. 4: _dog, cat -> real, tortoise, cartoon,..._ with support 0).
+- nobody is a dog and a cat at the same time \
+  (from impl. 4: _dog, cat -> ..._ with support 0).
 
   
 If finding full implication basis takes too much time, one can mine only a part of columns and implications:
