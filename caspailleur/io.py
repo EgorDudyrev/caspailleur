@@ -77,38 +77,6 @@ def bas2isets(bitarrays: Iterable[fbarray]) -> Iterator[FrozenSet[int]]:
         yield frozenset(bar.itersearch(True))
 
 
-def to_itemsets(data: ContextType) -> ItemsetContextType:
-    """Convert the context defined by `data` into the itemset format
-
-    Parameters
-    ----------
-    data: ContextType
-        Binary formal context in one of the supported formats:
-         pd.DataFrame (with bool values);
-         dictionary with object names as keys and object descriptions as values;
-         list of sets of indices of True-valued columns (so, list of itemsets);
-         list of lists of bool values for every pair of object-attribute; or
-         list of bitarrays representing objects' descriptions
-
-    Return
-    ------
-    itemsets: list[frozenset[int]]
-        list of sets of indices of True-valued columns
-
-    Examples
-    --------
-    to_itemsets( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
-        --> [frozenset({1}), frozenset({0, 1})]
-
-    to_itemsets( {'row1': ['b'], 'row2': ['a', 'b']} )
-        --> [frozenset({1}), frozenset({0, 1})]
-
-    to_itemsets( [[1], [0',1]] )
-        --> [frozenset({1}), frozenset({0, 1})]
-    """
-    return to_named_itemsets(data)[0]
-
-
 def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
     """Convert the context defined by `data` into the named itemset format
 
@@ -117,10 +85,13 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
     data: ContextType
         Binary formal context in one of the supported formats:
          pd.DataFrame (with bool values);
-         dictionary with object names as keys and object descriptions as values;
-         list of sets of indices of True-valued columns (so, list of itemsets);
-         list of lists of bool values for every pair of object-attribute; or
-         list of bitarrays representing objects' descriptions
+         dictionary with object names as keys and named object descriptions as values;
+         itemsets where every object description is represented with a set of indices of described attributes;
+         bitarrays where every object description is represented with a bitarray where every value corresponds to an attribute;
+         list of bools where every object description is represented with a list of bools where every value corresponds to an attribute;
+
+         For itemset, bitarrays, and list of bools types of contexts,
+         one can also provide the names of objects and attributes (as shown in the examples).
 
     Return
     ------
@@ -141,8 +112,11 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
     to_named_itemsets( {'row1': ['b'], 'row2': ['a', 'b']} )
         --> ([frozenset({1}), frozenset({0, 1})], ['row1', 'row2'], ['a', 'b'])
 
-    to_named_itemsets( [[1], [0',1]] )
+    to_named_itemsets( [[1], [0,1]] )
         --> ([frozenset({1}), frozenset({0, 1})], ['object_0', 'object_1'], ['attribute_0', 'attribute_1'])
+
+    to_named_itemsets( ([[1], [0,1]], ['g1', 'g2'], ['m1', 'm2']) )
+        --> ([frozenset({1}), frozenset({0, 1})], ['g1', 'g2'], ['m1', 'm2'])
     """
     if len(data) == 0:
         return [], [], []
@@ -181,18 +155,42 @@ def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
     return list(bas2isets(map(bitarray, crosses_data))), objects, attributes
 
 
+def to_itemsets(data: ContextType) -> ItemsetContextType:
+    """Convert the context defined by `data` into the itemset format
+
+    Parameters
+    ----------
+    data: ContextType
+        Binary formal context in one of the supported formats.
+        The list of the supported formats is provided in the Docstring of `io.to_named_itemsets(...)` function.
+
+    Return
+    ------
+    itemsets: list[frozenset[int]]
+        list of sets of indices of True-valued columns
+
+    Examples
+    --------
+    to_itemsets( pd.DataFrame({'a': [False, True], 'b': [True, True]}) )
+        --> [frozenset({1}), frozenset({0, 1})]
+
+    to_itemsets( {'row1': ['b'], 'row2': ['a', 'b']} )
+        --> [frozenset({1}), frozenset({0, 1})]
+
+    to_itemsets( [[1], [0',1]] )
+        --> [frozenset({1}), frozenset({0, 1})]
+    """
+    return to_named_itemsets(data)[0]
+
+
 def to_dictionary(data: ContextType) -> DictContextType:
     """Convert the context defined by `data` into the dictionary format
 
     Parameters
     ----------
     data: ContextType
-        Binary formal context in one of the supported formats:
-         pd.DataFrame (with bool values);
-         dictionary with object names as keys and object descriptions as values;
-         list of sets of indices of True-valued columns (so, list of itemsets);
-         list of lists of bool values for every pair of object-attribute; or
-         list of bitarrays representing objects' descriptions
+        Binary formal context in one of the supported formats.
+        The list of the supported formats is provided in the Docstring of `io.to_named_itemsets(...)` function.
 
     Return
     ------
@@ -226,12 +224,8 @@ def to_named_bitarrays(data: ContextType) -> NamedBitarrayContextType:
     Parameters
     ----------
     data: ContextType
-        Binary formal context in one of the supported formats:
-         pd.DataFrame (with bool values);
-         dictionary with object names as keys and object descriptions as values;
-         list of sets of indices of True-valued columns (so, list of itemsets);
-         list of lists of bool values for every pair of object-attribute; or
-         list of bitarrays representing objects' descriptions
+        Binary formal context in one of the supported formats.
+        The list of the supported formats is provided in the Docstring of `io.to_named_itemsets(...)` function.
 
     Return
     ------
@@ -266,12 +260,8 @@ def to_bitarrays(data: ContextType) -> BitarrayContextType:
     Parameters
     ----------
     data: ContextType
-        Binary formal context in one of the supported formats:
-         pd.DataFrame (with bool values);
-         dictionary with object names as keys and object descriptions as values;
-         list of sets of indices of True-valued columns (so, list of itemsets);
-         list of lists of bool values for every pair of object-attribute; or
-         list of bitarrays representing objects' descriptions
+        Binary formal context in one of the supported formats.
+        The list of the supported formats is provided in the Docstring of `io.to_named_itemsets(...)` function.
 
     Return
     ------
@@ -299,12 +289,8 @@ def to_named_bools(data: ContextType) -> NamedBoolContextType:
     Parameters
     ----------
     data: ContextType
-        Binary formal context in one of the supported formats:
-         pd.DataFrame (with bool values);
-         dictionary with object names as keys and object descriptions as values;
-         list of sets of indices of True-valued columns (so, list of itemsets);
-         list of lists of bool values for every pair of object-attribute; or
-         list of bitarrays representing objects' descriptions
+        Binary formal context in one of the supported formats.
+        The list of the supported formats is provided in the Docstring of `io.to_named_itemsets(...)` function.
 
     Return
     ------
@@ -340,12 +326,8 @@ def to_bools(data: ContextType) -> BoolContextType:
     Parameters
     ----------
     data: ContextType
-        Binary formal context in one of the supported formats:
-         pd.DataFrame (with bool values);
-         dictionary with object names as keys and object descriptions as values;
-         list of sets of indices of True-valued columns (so, list of itemsets);
-         list of lists of bool values for every pair of object-attribute; or
-         list of bitarrays representing objects' descriptions
+        Binary formal context in one of the supported formats.
+        The list of the supported formats is provided in the Docstring of `io.to_named_itemsets(...)` function.
 
     Return
     ------
@@ -373,12 +355,8 @@ def to_pandas(data: ContextType) -> pd.DataFrame:
     Parameters
     ----------
     data: ContextType
-        Binary formal context in one of the supported formats:
-         pd.DataFrame (with bool values);
-         dictionary with object names as keys and object descriptions as values;
-         list of sets of indices of True-valued columns (so, list of itemsets);
-         list of lists of bool values for every pair of object-attribute; or
-         list of bitarrays representing objects' descriptions
+        Binary formal context in one of the supported formats.
+        The list of the supported formats is provided in the Docstring of `io.to_named_itemsets(...)` function.
 
     Return
     ------
@@ -415,12 +393,8 @@ def transpose_context(data: ContextType) -> ContextType:
     Parameters
     ----------
     data: ContextType
-        Binary formal context in one of the supported formats:
-         pd.DataFrame (with bool values);
-         dictionary with object names as keys and object descriptions as values;
-         list of sets of indices of True-valued columns (so, list of itemsets);
-         list of lists of bool values for every pair of object-attribute; or
-         list of bitarrays representing objects' descriptions
+        Binary formal context in one of the supported formats.
+        The list of the supported formats is provided in the Docstring of `io.to_named_itemsets(...)` function.
 
     Return
     ------
@@ -478,6 +452,7 @@ def transpose_context(data: ContextType) -> ContextType:
 
 
 def identify_supported_context_type(context: ContextType) -> Optional[typing.Type]:
+    """Return the supported TypeName of the provided `context`. Return None if the context format is not supported"""
     is_pandas = isinstance(context, pd.DataFrame)
     is_dict = isinstance(context, dict) \
               and all(isinstance(k, str) for k in context.keys()) \
@@ -559,6 +534,7 @@ def save_balist(file: BinaryIO, bitarrays: list[bitarray]):
 
 
 def read_cxt(file: Union[TextIO, str]) -> PandasContextType:
+    """Read the file (or string) that describes a formal context in Burmeister format"""
     data = file.read() if not isinstance(file, str) else file
 
     _, ns, data = data.split('\n\n')
@@ -573,6 +549,7 @@ def read_cxt(file: Union[TextIO, str]) -> PandasContextType:
 
 
 def write_cxt(context: ContextType, file: TextIO = None) -> str:
+    """Return the formal `context` represented with Burmeister format. Save the string to a `file` if it is provided"""
     crosses, objects, attributes = to_named_itemsets(context)
 
     file_data = 'B\n\n'
@@ -592,6 +569,10 @@ def write_cxt(context: ContextType, file: TextIO = None) -> str:
 
 
 def from_fca_repo(context_name: str) -> PandasContextType:
+    """Download a formal context from the (git) repository of contexts.
+
+    Go to 'https://fcarepository.org' for more information on the repo.
+    """
     import urllib.request
 
     context_name = context_name + '.cxt' if not context_name.endswith('.cxt') else context_name
@@ -602,6 +583,7 @@ def from_fca_repo(context_name: str) -> PandasContextType:
 
 
 def to_mermaid_diagram(node_labels: list[str], neighbours: list[list[int]]) -> str:
+    """Create a mermaid flowchart code. The code can be visualised via https://mermaid.live/ or via GitHub markdown"""
     nodes_symbols = (''.join(symbols) for symbols_len in range(1, len(node_labels)+1)
                      for symbols in combinations(ascii_uppercase, symbols_len))
     nodes_symbols = list(islice(nodes_symbols, len(node_labels)))
