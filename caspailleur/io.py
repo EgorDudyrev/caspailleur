@@ -583,7 +583,7 @@ def to_mermaid_diagram(node_labels: list[str], neighbours: list[list[int]]) -> s
     nodes_symbols = list(islice(nodes_symbols, len(node_labels)))
 
     nodes_lines = [f'{symbol}["{label}"];' for symbol, label in zip(nodes_symbols, node_labels)]
-    edges_lines = [f"{node} --> {nodes_symbols[neighbour]};"
+    edges_lines = [f"{node} --- {nodes_symbols[neighbour]};"
                    for node, neighbours_indices in zip(nodes_symbols, neighbours) for neighbour in neighbours_indices]
 
     mermaid_lines = ['flowchart TD'] + nodes_lines + [''] + edges_lines

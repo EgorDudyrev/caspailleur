@@ -194,7 +194,7 @@ def test_to_mermaid_diagram():
     diagram_text = '\n'.join([
         'flowchart TD',
         'A["Top"];', 'B["Left Top"];', 'C["Left Bottom"];', 'D["Right"];', 'E["Bottom"];', '',
-        'A --> B;', 'A --> D;', 'B --> C;', 'C --> E;', 'D --> E;'
+        'A --- B;', 'A --- D;', 'B --- C;', 'C --- E;', 'D --- E;'
     ])
 
     txt = io.to_mermaid_diagram(nodes, neighbours)

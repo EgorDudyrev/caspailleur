@@ -194,6 +194,42 @@ print(descriptions_df[['description', 'support', 'is_key']].head(3))
 |                2 | {real}      |         3 | True     |
 
 
+### Visualising concept lattice
+
+Caspailleur package does not support concept lattice visualisation (this task deserves its own package).
+For a basic concept lattice visualisation, one can produce a `mermaid` diagram code.
+Mermaid diagrams can be visualised via https://mermaid.live/ service or can be embedded in GitHub flavored markdown.
+
+```python
+concepts_df = csp.mine_concepts(df, min_support=2)
+node_labels = concepts_df['intent'].map(', '.join) + '<br><br>'+concepts_df['extent'].map(', '.join)
+diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['preceding'])
+print(diagram_code)
+```
+
+```mermaid
+flowchart TD
+A["<br><br>Socks, Harriet, Greyfriar's Bobby, Snoopy, Garfield"];
+B["real<br><br>Greyfriar's Bobby, Socks, Harriet"];
+C["mammal<br><br>Greyfriar's Bobby, Socks, Snoopy, Garfield"];
+D["mammal, cartoon<br><br>Snoopy, Garfield"];
+E["real, mammal<br><br>Greyfriar's Bobby, Socks"];
+F["dog, mammal<br><br>Greyfriar's Bobby, Snoopy"];
+G["mammal, cat<br><br>Socks, Garfield"];
+A --- B;
+A --- C;
+B --- E;
+C --- D;
+C --- E;
+C --- F;
+C --- G;
+```
+_If, above, you see the source of the diagram, visit the [GitHub version](https://github.com/EgorDudyrev/caspailleur)
+of this ReadMe for the diagram itself.
+If, above, you see the diagram, go to the source code of the ReadMe for the diagram code._
+
+ 
+
 ## Supported data formats
 
 A formal context can be defined using many data types.
