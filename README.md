@@ -234,7 +234,6 @@ If, above, you see the diagram, go to the source code of the ReadMe for the diag
 
 A formal context can be defined using many data types.
 
-
 Below is the list of context types and examples acceptable by high-level `caspailleur` functions:
 _<details><summary>Supported data types</summary>_
 <p>
@@ -354,6 +353,18 @@ print(csp.io.to_dictionary(df))
  
 </p></details>
 
+### Save and load Formal Context 
+
+A formal context can also be saved to and loaded from a .cxt formatted file or a string:
+```python
+with open('context.cxt', 'w') as file:
+    csp.io.write_cxt(df, file)
+
+with open('context.cxt', 'r') as file:
+    df_loaded = csp.io.read_cxt(file)
+
+assert (df == df_loaded).all(None)
+```
 
 ## Approach for faster computation
 
