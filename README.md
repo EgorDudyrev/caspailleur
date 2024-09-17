@@ -203,7 +203,7 @@ Mermaid diagrams can be visualised via https://mermaid.live/ service or can be e
 ```python
 concepts_df = csp.mine_concepts(df, min_support=2)
 node_labels = concepts_df['intent'].map(', '.join) + '<br><br>'+concepts_df['extent'].map(', '.join)
-diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['next_concepts'])
+diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['previous_concepts'])
 print(diagram_code)
 ```
 
@@ -216,13 +216,13 @@ D["mammal, cartoon<br><br>Garfield, Snoopy"];
 E["mammal, real<br><br>Greyfriar's Bobby, Socks"];
 F["mammal, dog<br><br>Greyfriar's Bobby, Snoopy"];
 G["cat, mammal<br><br>Garfield, Socks"];
-B --- A;
-C --- A;
-D --- C;
-E --- B;
-E --- C;
-F --- C;
-G --- C;
+A --- B;
+A --- C;
+B --- E;
+C --- D;
+C --- E;
+C --- F;
+C --- G;
 ```
 _If, above, you see the source of the diagram, visit the [GitHub version](https://github.com/EgorDudyrev/caspailleur)
 of this ReadMe for the diagram itself.
