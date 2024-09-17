@@ -14,10 +14,10 @@ Also, the maximal subset of attributes describing the same objects as some given
 So concept _A_  is less than concept _B_ if _A_ is less general than _B_.
 That is, if _B_ covers all the objects from _A_, or if _A_ contains all the attributes from _B_.
 
-* **Lesser concepts**: All concepts that are less general than some given concept
-* **Greater concepts**: All concepts that are more general than some given concept
-* **Preceding concepts**: The most general lesser concepts
-* **Succeeding concepts**: The least general greater concepts
+* **Sub concepts**: All concepts that are less general than some given concept
+* **Super concepts**: All concepts that are more general than some given concept
+* **Previous concepts**: The most general sub concepts
+* **Next concepts**: The least general super concepts
 
 # Minimal descriptions
 * **Key**: A minimal subset of attributes describing some objects (_there may be many keys for the same subset of objects_) 
