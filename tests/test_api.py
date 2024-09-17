@@ -63,17 +63,17 @@ def test_mine_concepts():
         'passkeys': [[set()], [{'a'}], [{'c'}], [{'a', 'c'}]],
         'proper_premises': [[set()], [], [], []],
         'pseudo_intents': [[set()], [], [], []],
-        'preceding': [{1, 2}, {3}, {3}, set()],
-        'succeeding': [set(), {0}, {0}, {1, 2}],
-        'lesser': [{1, 2, 3}, {3}, {3}, set()],
-        'greater': [set(), {0}, {0}, {0, 1, 2}],
+        'previous_concepts': [{1, 2}, {3}, {3}, set()],
+        'next_concepts': [set(), {0}, {0}, {1, 2}],
+        'sub_concepts': [{1, 2, 3}, {3}, {3}, set()],
+        'super_concepts': [set(), {0}, {0}, {0, 1, 2}],
     })
 
     concepts_df = api.mine_concepts(data, to_compute='all')
     assert_df_equality(concepts_df, concepts_df_true)
 
     stable_concepts_df_true = concepts_df_true[:3]
-    for f in ['preceding', 'succeeding', 'lesser', 'greater']:
+    for f in ['previous_concepts', 'next_concepts', 'sub_concepts', 'super_concepts']:
         stable_concepts_df_true[f] = stable_concepts_df_true[f] - {3}
 
     stable_concepts_df = api.mine_concepts(data, to_compute='all', min_delta_stability=1)

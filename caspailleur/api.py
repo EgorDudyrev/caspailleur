@@ -29,7 +29,7 @@ MINE_DESCRIPTION_COLUMN = Literal[
 MINE_CONCEPTS_COLUMN = Literal[
     "extent", "intent", "support", "delta_stability",
     "keys", "passkeys", "proper_premises", "pseudo_intents",
-    "preceding", "succeeding", "lesser",  "greater",
+    "previous_concepts", "next_concepts", "sub_concepts",  "super_concepts",
 ]
 
 MINE_IMPLICATIONS_COLUMN = Literal[
@@ -315,10 +315,10 @@ def mine_concepts(
         'support': {'extent'},
         'delta_stability': {'intent', 'extent'},
         'extent': {'intent'},
-        'greater': {'lesser'},
-        'lesser': {'preceding'},
-        'succeeding': {'preceding'},
-        'preceding': {'intent'},
+        'super_concepts': {'sub_concepts'},
+        'sub_concepts': {'previous_concepts'},
+        'next_concepts': {'previous_concepts'},
+        'previous_concepts': {'intent'},
     }
     to_compute, cols_to_return = _setup_colnames_to_compute(
         MINE_CONCEPTS_COLUMN, to_compute, col_dependencies, return_every_computed_column)
@@ -383,13 +383,13 @@ def mine_concepts(
                                   for descr, extent_ba in zip(intents_ba, extents_ba)]
 
     # Columns for order on concepts
-    if 'preceding' in to_compute:
-        preceding, lesser = sort_intents_inclusion(intents_ba, return_transitive_order=True)
-    if 'succeeding' in to_compute:
-        succeeding = inverse_order(preceding)
-    if 'greater' in to_compute:
-        greater = inverse_order(lesser)
-    for colname in ['greater', 'lesser', 'succeeding', 'preceding']:
+    if 'previous_concepts' in to_compute:
+        previous_concepts, sub_concepts = sort_intents_inclusion(intents_ba, return_transitive_order=True)
+    if 'next_concepts' in to_compute:
+        next_concepts = inverse_order(previous_concepts)
+    if 'super_concepts' in to_compute:
+        super_concepts = inverse_order(sub_concepts)
+    for colname in ['super_concepts', 'sub_concepts', 'next_concepts', 'previous_concepts']:
         if colname in cols_to_return:
             locals()[f"column_{colname}"] = [set(ba.search(True)) for ba in locals()[f"{colname}"]]
 

@@ -94,17 +94,17 @@ To find only the most interesting concepts, specify `min_support`, `min_delta_st
 ```python
 concepts_df = csp.mine_concepts(
   df, min_support=3, min_delta_stability=1,
-  to_compute=['intent', 'keys', 'support', 'delta_stability', 'lesser']
+  to_compute=['intent', 'keys', 'support', 'delta_stability', 'sub_concepts']
 )
 
 print(concepts_df)
 ```
 
-|   concept_id | intent     | keys         |   support |   delta_stability | lesser   |
-|-------------:|:-----------|:-------------|----------:|------------------:|:---------|
-|            0 | set()      | [set()]      |         5 |                 1 | {1, 2}   |
-|            1 | { real }   | [{ real }]   |         3 |                 1 | set()    |
-|            2 | { mammal } | [{ mammal }] |         4 |                 2 | set()    |
+|   concept_id | intent     | keys         |   support |   delta_stability | sub_concepts |
+|-------------:|:-----------|:-------------|----------:|------------------:|:-------------|
+|            0 | set()      | [set()]      |         5 |                 1 | {1, 2}       |
+|            1 | { real }   | [{ real }]   |         3 |                 1 | set()        |
+|            2 | { mammal } | [{ mammal }] |         4 |                 2 | set()        |
 
 
 ### Mining implications
@@ -203,26 +203,26 @@ Mermaid diagrams can be visualised via https://mermaid.live/ service or can be e
 ```python
 concepts_df = csp.mine_concepts(df, min_support=2)
 node_labels = concepts_df['intent'].map(', '.join) + '<br><br>'+concepts_df['extent'].map(', '.join)
-diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['preceding'])
+diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['next_concepts'])
 print(diagram_code)
 ```
 
 ```mermaid
 flowchart TD
-A["<br><br>Socks, Harriet, Greyfriar's Bobby, Snoopy, Garfield"];
+A["<br><br>Snoopy, Greyfriar's Bobby, Garfield, Socks, Harriet"];
 B["real<br><br>Greyfriar's Bobby, Socks, Harriet"];
-C["mammal<br><br>Greyfriar's Bobby, Socks, Snoopy, Garfield"];
-D["mammal, cartoon<br><br>Snoopy, Garfield"];
-E["real, mammal<br><br>Greyfriar's Bobby, Socks"];
-F["dog, mammal<br><br>Greyfriar's Bobby, Snoopy"];
-G["mammal, cat<br><br>Socks, Garfield"];
-A --- B;
-A --- C;
-B --- E;
-C --- D;
-C --- E;
-C --- F;
-C --- G;
+C["mammal<br><br>Greyfriar's Bobby, Garfield, Socks, Snoopy"];
+D["mammal, cartoon<br><br>Garfield, Snoopy"];
+E["mammal, real<br><br>Greyfriar's Bobby, Socks"];
+F["mammal, dog<br><br>Greyfriar's Bobby, Snoopy"];
+G["cat, mammal<br><br>Garfield, Socks"];
+B --- A;
+C --- A;
+D --- C;
+E --- B;
+E --- C;
+F --- C;
+G --- C;
 ```
 _If, above, you see the source of the diagram, visit the [GitHub version](https://github.com/EgorDudyrev/caspailleur)
 of this ReadMe for the diagram itself.
