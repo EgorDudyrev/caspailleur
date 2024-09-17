@@ -2,6 +2,7 @@ from functools import reduce
 from itertools import chain, combinations
 from typing import Iterable, Iterator, Union, Any
 
+import deprecation
 from bitarray import frozenbitarray as fbarray, bitarray
 
 from . import io
@@ -95,4 +96,13 @@ def closure(
 ##############################
 # Reverse compatibility part #
 ##############################
-from .io import isets2bas
+@deprecation.deprecated(deprecated_in="0.2.0", removed_in="0.2.1",
+                        details="The function is moved to `caspailleur.io` module")
+def isets2bas(itemsets: Iterable[Iterable[int]], length: int) -> Iterator[fbarray]:
+    """Convert the list of lists of indices of 'True' elements to bitarrays of given length
+
+    Examples
+    --------
+    isets2bas([ [0, 1], [1,3,4] ], 5) --> [bitarray('01000'), bitarray('01011')]
+    """
+    return io.isets2bas(itemsets, )
