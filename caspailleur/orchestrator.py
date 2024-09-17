@@ -11,7 +11,7 @@ from . import indices as indicesmod
 
 
 @deprecation.deprecated(
-    deprecated_in="0.1.4", removed_in="0.1.5",
+    deprecated_in="0.2.0", removed_in="0.2.1",
     details="Use functions `mine_implications`, `mine_concepts` and `mine_descriptions` from API module. "
             "They provide easier to work-with output"
 )

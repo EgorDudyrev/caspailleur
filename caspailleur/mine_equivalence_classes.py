@@ -434,7 +434,7 @@ def list_passkeys_for_extents(
     return list_keys_for_extents(extents, attr_extents, only_passkeys=True)
 
 
-@deprecation.deprecated(deprecated_in="0.1.4", removed_in="0.1.5",
+@deprecation.deprecated(deprecated_in="0.2.0", removed_in="0.2.1",
                         details="Use `list_stable_extents_via_gsofia` function instead. It is faster and more reliable")
 def list_stable_extents_via_sofia(
         attribute_extents: Iterable[fbarray],

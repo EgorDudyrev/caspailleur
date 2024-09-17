@@ -1,4 +1,6 @@
 from typing import List
+
+import deprecation
 from bitarray import bitarray, frozenbitarray as fbarray
 from bitarray.util import zeros as bazeros
 from tqdm.auto import tqdm
@@ -142,3 +144,16 @@ def drop_transitive_subsumption(subsumption_list: List[fbarray]) -> List[fbarray
     then set subsumption_list[i][k] = False.
     """
     return open_transitive_subsumption(close_transitive_subsumption(subsumption_list))
+
+
+##############################
+# Reverse compatability part #
+##############################
+@deprecation.deprecated(deprecated_in="0.2.0", removed_in="0.2.1",
+                        details="The function got renamed to `check_topologically_sorted`")
+def test_topologically_sorted(elements: list[fbarray], ascending: bool = True) -> bool:
+    """Test if the list of `elements` is topologically sorted (from the smallest to the biggest element)
+
+    One can obtain topologically sorted list of elements with ``topological_sorting(elements)`` function
+    """
+    return check_topologically_sorted(elements, ascending)
