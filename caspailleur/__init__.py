@@ -4,7 +4,6 @@ from .order import sort_intents_inclusion, inverse_order
 from .indices import linearity_index, distributivity_index
 from .orchestrator import explore_data
 
-from .io import to_itemsets, to_pandas, to_bitarrays, to_dictionary
 from .api import iter_descriptions, mine_descriptions, mine_concepts, mine_implications
 
 __version__ = '0.1.4'

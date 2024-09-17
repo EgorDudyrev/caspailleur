@@ -1,4 +1,4 @@
-<img src="https://github.com/EgorDudyrev/caspailleur/blob/main/logo/caspailleur_logo_v1.png?raw=True" width="300" />
+<img src="https://github.com/EgorDudyrev/caspailleur/blob/main/logo/caspailleur_logo_v1.png?raw=True" />
 
 [![PyPi](https://img.shields.io/pypi/v/caspailleur)](https://pypi.org/project/caspailleur)
 [![GitHub Workflow](https://img.shields.io/github/actions/workflow/status/EgorDudyrev/caspailleur/python-package.yml?logo=github)](https://github.com/EgorDudyrev/caspailleur/actions/workflows/python-package.yml)
@@ -32,45 +32,26 @@ Here is the glossary used throughout the `caspailleur` package: [Glossary.md](ht
 
 ### Data description
 
-Let us study the following "Fruit" dataset:
+Let us study the "Famous Animals" dataset from [FCA repository](https://fcarepository.org):
 
-|       title | firm   | smooth   | fruit   | color   | form   |
-|------------:|--------|----------|---------|---------|--------|
-|       apple |        | ✓        | ✓       | yellow  | round  |
-|  grapefruit |        |          | ✓       | yellow  | round  |
-|        kiwi |        |          | ✓       | green   | oval   |
-|        plum |        | ✓        | ✓       | blue    | oval   |
-|       mango |        | ✓        | ✓       | green   | oval   |
-
-Let us download binarised version of the same data:
 ```python
-import pandas as pd
-df = pd.read_csv('https://raw.githubusercontent.com/EgorDudyrev/FCApy/main/data/mango_bin.csv', index_col=0)
-df = df[df['fruit']]
+import caspailleur as csp
+df = csp.io.from_fca_repo('famous_animals_en')
 
-print("__Objects:__", ', '.join(df.index))
-print("__Attributes:__", ', '.join(df.columns))
-print(df)
+print(df.replace({True: 'X', False: ''}))
 ```
-> __Objects:__ apple, grapefruit, kiwi, plum, mango
+|                   | cartoon   | real   | tortoise   | dog   | cat   | mammal   |
+|:------------------|:----------|:-------|:-----------|:------|:------|:---------|
+| Garfield          | X         |        |            |       | X     | X        |
+| Snoopy            | X         |        |            | X     |       | X        |
+| Socks             |           | X      |            |       | X     | X        |
+| Greyfriar's Bobby |           | X      |            | X     |       | X        |
+| Harriet           |           | X      | X          |       |       |          |
 
-> __Attributes:__ firm, smooth, fruit, color_is_yellow, color_is_green, color_is_blue, color_is_white, 
-> form_is_round, form_is_oval, form_is_cubic
-
-
-_<details><summary>Binarised fruit dataset</summary>_
-<p>
-
-> |       title | firm  | smooth | fruit | ... | form_is_round  | form_is_oval   | form_is_cubic |
-> |------------:|-------|--------|-------|-----|----------------|----------------|---------------|
-> |       apple | False | True   | True  | ... | True           | False          | False         |
-> |  grapefruit | False | False  | True  | ... | True           | False          | False         |
-> |        kiwi | False | False  | True  | ... | False          | True           | False         |
-> |        plum | False | True   | True  | ... | False          | True           | False         |
-> |       mango | False | True   | True  | ... | False          | True           | False         |
-> [5 rows x 10 columns]
-</p></details>
-
+The received `df` object is a pandas dataframe.
+Other supported context data types can be found in [Supported data formats](#supported-data-formats) section.
+Caspailleur works fast enough with datasets of hundreds of objects and dozens of attributes.
+Here, we choose a tiny dataset for illustrative purposes.
 
 > [!TIP]
 > Caspailleur package can only work with binary data (and is optimised for this). 
@@ -82,27 +63,29 @@ _<details><summary>Binarised fruit dataset</summary>_
 Now we can find all concepts in the data:
 
 ```python
-import caspailleur as csp
 concepts_df = csp.mine_concepts(df)
 
 print(concepts_df[['extent', 'intent']].map(', '.join))
 ```
 
-_<details><summary>Concepts table (10 rows)</summary>_
+_<details><summary>Concepts table (13 rows)</summary>_
 <p>
 
-> | concept_id | extent                               | intent                                                                                                                          |
-> |-----------:|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-> | 0          | plum, mango, grapefruit, apple, kiwi | fruit                                                                                                                           |
-> | 1          | plum, mango, apple                   | smooth, fruit                                                                                                                   |
-> | 2          | plum, kiwi, mango                    | form_is_oval, fruit                                                                                                             |
-> | 3          | plum, mango                          | form_is_oval, smooth, fruit                                                                                                     |
-> | 4          | grapefruit, apple                    | color_is_yellow, form_is_round, fruit                                                                                           |
-> | 5          | kiwi, mango                          | form_is_oval, color_is_green, fruit                                                                                             |
-> | 6          | apple                                | smooth, color_is_yellow, form_is_round, fruit                                                                                   |
-> | 7          | mango                                | form_is_oval, color_is_green, smooth, fruit                                                                                     |
-> | 8          | plum                                 | form_is_oval, color_is_blue, smooth, fruit                                                                                      |
-> | 9          |                                      | firm, color_is_yellow, form_is_round, form_is_oval, color_is_green, color_is_blue, smooth, form_is_cubic, color_is_white, fruit |
+|   concept_id | extent                                              | intent                                    |
+|-------------:|:----------------------------------------------------|:------------------------------------------|
+|            0 | Snoopy, Socks, Harriet, Greyfriar's Bobby, Garfield |                                           |
+|            1 | Greyfriar's Bobby, Socks, Harriet                   | real                                      |
+|            2 | Garfield, Greyfriar's Bobby, Snoopy, Socks          | mammal                                    |
+|            3 | Garfield, Snoopy                                    | cartoon, mammal                           |
+|            4 | Harriet                                             | real, tortoise                            |
+|            5 | Greyfriar's Bobby, Socks                            | real, mammal                              |
+|            6 | Greyfriar's Bobby, Snoopy                           | dog, mammal                               |
+|            7 | Garfield, Socks                                     | mammal, cat                               |
+|            8 | Snoopy                                              | dog, cartoon, mammal                      |
+|            9 | Garfield                                            | cartoon, mammal, cat                      |
+|           10 | Greyfriar's Bobby                                   | real, mammal, dog                         |
+|           11 | Socks                                               | real, mammal, cat                         |
+|           12 |                                                     | dog, cat, real, mammal, tortoise, cartoon |
 
 </p></details>
 
@@ -113,14 +96,15 @@ concepts_df = csp.mine_concepts(
   df, min_support=3, min_delta_stability=1,
   to_compute=['intent', 'keys', 'support', 'delta_stability', 'lesser']
 )
+
 print(concepts_df)
 ```
 
-| concept_id | intent                | keys             | support | delta_stability | lesser |
-|-----------:|-----------------------|------------------|---------|-----------------|--------|
-|          0 | {fruit}               | [{}]             | 5       | 2               | {1, 2} |
-|          1 | {fruit, smooth}       | [{smooth}]       | 3       | 1               | {}     |
-|          2 | {fruit, form_is_oval} | [{form_is_oval}] | 3       | 1               | {}     |
+|   concept_id | intent     | keys         |   support |   delta_stability | lesser   |
+|-------------:|:-----------|:-------------|----------:|------------------:|:---------|
+|            0 | set()      | [set()]      |         5 |                 1 | {1, 2}   |
+|            1 | { real }   | [{ real }]   |         3 |                 1 | set()    |
+|            2 | { mammal } | [{ mammal }] |         4 |                 2 | set()    |
 
 
 ### Mining implications
@@ -130,59 +114,59 @@ Luckily, relationships between attributes can be described via implication bases
 (although there may be many implications selecting no objects).
 
 ```python
-import caspailleur as csp
 implications_df = csp.mine_implications(df)
 
-print(implications_df[['premise', 'conclusion']].map(', '.join))
+print(implications_df[['premise', 'conclusion', 'support']])
 ```
-_<details><summary>Implications table (15 rows)</summary>_
+_<details><summary>Implications table (10 rows)</summary>_
 <p>
 
-| implication_id | premise                           | conclusion                                        |
-|---------------:|-----------------------------------|---------------------------------------------------|
-|              0 |                                   | fruit                                             |
-|              1 | form_is_round                     | color_is_yellow                                   |
-|              2 | color_is_yellow                   | form_is_round                                     |
-|              3 | color_is_green                    | form_is_oval                                      |
-|              4 | color_is_blue                     | form_is_oval, smooth                              |
-|              5 | form_is_cubic                     | firm, color_is_white, color_is_blue, color_is_... |
-|              6 | color_is_white                    | firm, color_is_blue, color_is_yellow, form_is_... |
-|              7 | firm                              | color_is_white, color_is_blue, color_is_yellow... |
-|              8 | form_is_oval, form_is_round       | firm, color_is_white, color_is_blue, color_is_... |
-|              9 | color_is_blue, form_is_round      | form_is_cubic, color_is_white, firm, color_is_... |
-|             10 | form_is_round, color_is_green     | firm, color_is_white, color_is_blue, form_is_c... |
-|             11 | color_is_blue, color_is_green     | firm, color_is_white, color_is_yellow, form_is... |
-|             12 | form_is_oval, color_is_yellow     | firm, color_is_white, color_is_blue, color_is_... |
-|             13 | color_is_yellow, color_is_blue    | form_is_cubic, color_is_white, firm, color_is_... |
-|             14 | color_is_yellow, color_is_green   | firm, color_is_white, color_is_blue, form_is_c... |
+|   implication_id | premise                 | conclusion                      |   support |
+|-----------------:|:------------------------|:--------------------------------|----------:|
+|                0 | {cartoon}             | {mammal}                      |         2 |
+|                1 | {tortoise}            | {real}                        |         1 |
+|                2 | {dog}                 | {mammal}                      |         2 |
+|                3 | {cat}                 | {mammal}                      |         2 |
+|                4 | {dog, cat}          | {tortoise, real, cartoon} |         0 |
+|                5 | {tortoise, mammal}  | {dog, cat, cartoon}       |         0 |
+|                6 | {tortoise, cat}     | {dog, cartoon}              |         0 |
+|                7 | {dog, tortoise}     | {cat, cartoon}              |         0 |
+|                8 | {tortoise, cartoon} | {dog, cat}                  |         0 |
+|                9 | {real, cartoon}     | {dog, tortoise, cat}      |         0 |
+
 </p></details>
  
 We can read the implications in the table and find out dependencies in the data. For example:
-- every object is a fruit\
-(from impl. 0: _Ø -> fruit_);
-- every round fruit is yellow and vice versa \
-(from impl. 1: _form_is_round -> color_is_yellow_, and impl. 2: _color_is_yellow -> form is round_);
-- firm fruits do not exist \
-  (from impl. 7: _firm -> color_is_white, color_is_blue,..._ ).
+- every famous cartoon animal is a mammal\
+(from impl. 0: _cartoon -> mammal_);
+- one can find famous tortoises only in real life\
+(from impl. 1: _tortoise -> real_);
+- nobody is a dog and a cat at the same time \
+  (from impl. 4: _dog, cat -> ..._ with support 0).
 
   
 If finding full implication basis takes too much time, one can mine only a part of columns and implications:
 ```python
 implications_df = csp.mine_implications(
   df, basis_name='Canonical', unit_base=True,
-  to_compute=['premise', 'conclusion', 'support'],
-  min_support=2, min_delta_stability=1
+  to_compute=['premise', 'conclusion', 'extent'],
+  min_support=1, min_delta_stability=1
 )
 
 print(implications_df)
 ```
-| implication_id | premise                  | conclusion      | support | 
-|----------------|--------------------------|-----------------|---------|
-| 0              | {}                       | fruit           | 5       |
-| 1              | {fruit, color_is_green}  | form_is_oval    | 2       |
-| 2              | {fruit, form_is_round}   | color_is_yellow | 2       |
-| 3              | {fruit, color_is_yellow} | form_is_round   | 2       |
+|   implication_id | premise    | conclusion   | extent                      |
+|-----------------:|:-----------|:-------------|:----------------------------|
+|                0 | {cat}      | mammal       | {Socks, Garfield}           |
+|                1 | {dog}      | mammal       | {Greyfriar's Bobby, Snoopy} |
+|                2 | {tortoise} | real         | {Harriet}                   |
+|                3 | {cartoon}  | mammal       | {Snoopy, Garfield}          |
 
+
+
+The supported bases are _Canonical_ basis (a.k.a. _Pseudo-Intent_ or _Duquenne-Guigues_ basis)
+and _Canonical Direct_ basis (a.k.a. _Proper Premise_ or _Karell_ basis).
+Every basis can also be transformed in a unit-base where every conclusion consists of only one attribute.
 
 ### Mining descriptions
 
@@ -190,7 +174,6 @@ Finally, Caspailleur can output all descriptions in the data and their character
 But note that the `number of descriptions` = 2^`number of attributes`.
 
 ```python
-import caspailleur as csp
 descriptions_df = csp.mine_descriptions(df)
 
 print('__n. attributes:__', df.shape[1])
@@ -199,17 +182,189 @@ print('__columns:__', ', '.join(descriptions_df.columns))
 print(descriptions_df[['description', 'support', 'is_key']].head(3))
 ```
 > __n. attributes:__ 10 \
-> __n. descriptions:__ 1024
+> __n. descriptions:__ 64
  
 > __columns:__ description, extent, intent, support, delta_stability, is_closed, is_key, is_passkey, is_proper_premise, is_pseudo_intent
 
 
-| description_id | description | support | is_key |
-|----------------|-------------|---------|--------|
-| 0              | {}          | 5       | True   |
-| 1              | {firm}      | 0       | True   |
-| 2              | {smooth}    | 3       | True   |
+|   description_id | description |   support | is_key   |
+|-----------------:|:------------|----------:|:---------|
+|                0 | set()       |         5 | True     |
+|                1 | {cartoon}   |         2 | True     |
+|                2 | {real}      |         3 | True     |
 
+
+### Visualising concept lattice
+
+Caspailleur package does not support concept lattice visualisation (this task deserves its own package).
+For a basic concept lattice visualisation, one can produce a `mermaid` diagram code.
+Mermaid diagrams can be visualised via https://mermaid.live/ service or can be embedded in GitHub flavored markdown.
+
+```python
+concepts_df = csp.mine_concepts(df, min_support=2)
+node_labels = concepts_df['intent'].map(', '.join) + '<br><br>'+concepts_df['extent'].map(', '.join)
+diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['preceding'])
+print(diagram_code)
+```
+
+```mermaid
+flowchart TD
+A["<br><br>Socks, Harriet, Greyfriar's Bobby, Snoopy, Garfield"];
+B["real<br><br>Greyfriar's Bobby, Socks, Harriet"];
+C["mammal<br><br>Greyfriar's Bobby, Socks, Snoopy, Garfield"];
+D["mammal, cartoon<br><br>Snoopy, Garfield"];
+E["real, mammal<br><br>Greyfriar's Bobby, Socks"];
+F["dog, mammal<br><br>Greyfriar's Bobby, Snoopy"];
+G["mammal, cat<br><br>Socks, Garfield"];
+A --- B;
+A --- C;
+B --- E;
+C --- D;
+C --- E;
+C --- F;
+C --- G;
+```
+_If, above, you see the source of the diagram, visit the [GitHub version](https://github.com/EgorDudyrev/caspailleur)
+of this ReadMe for the diagram itself.
+If, above, you see the diagram, go to the source code of the ReadMe for the diagram code._
+
+ 
+
+## Supported data formats
+
+A formal context can be defined using many data types.
+
+Below is the list of context types and examples acceptable by high-level `caspailleur` functions:
+_<details><summary>Supported data types</summary>_
+<p>
+
+### PandasContextType
+A binary Pandas dataframe.
+Can be obtained via `csp.io.to_pandas` function.
+
+Example:
+```python
+print(csp.io.to_pandas(df))
+```
+|                   |   cartoon |   real |   tortoise |   dog |   cat |   mammal |
+|:------------------|----------:|-------:|-----------:|------:|------:|---------:|
+| Garfield          |         True |      False |          False |     False |     True |        True |
+| Snoopy            |         True |      False |          False |     True |     False |        True |
+| Socks             |         False |      True |          False |     False |     True |        True |
+| Greyfriar's Bobby |         False |      True |          False |     True |     False |        True |
+| Harriet           |         False |      True |          True |     False |     False |        False |
+
+### ItemsetContextType
+A list of sets of indices of True columns in the data.
+Can be obtained via `csp.io.to_itemsets` function.
+
+Example:
+```python
+print(*csp.io.to_itemsets(df), sep='\n')
+```
+> {0, 4, 5} <br>
+> {0, 3, 5} <br>
+> {1, 4, 5} <br>
+> {1, 3, 5} <br>
+> {1, 2}
+
+
+### NamedItemsetContextType
+A triplet: (_ItemsetContextType_, object names, attribute names).
+Can be obtained via `csp.io.to_named_itemsets` function.
+
+Example:
+```python
+print(*csp.io.to_named_itemsets(df), sep='\n')
+```
+> [{0, 4, 5}, {0, 3, 5}, {1, 4, 5}, {1, 3, 5}, {1, 2}] <br>
+> ['Garfield', 'Snoopy', 'Socks', "Greyfriar's Bobby", 'Harriet'] <br>
+> ['cartoon', 'real', 'tortoise', 'dog', 'cat', 'mammal']
+
+
+### BitarrayContextType
+A list of bitarrays where every bitarray represents "active" attributes in object's description
+Can be obtained via `csp.io.to_bitarrays` function;
+
+Example:
+```python
+print(*csp.io.to_bitarrays(df), sep='\n')
+```
+> bitarray('100011') <br>
+> bitarray('100101') <br>
+> bitarray('010011') <br>
+> bitarray('010101') <br>
+> bitarray('011000')
+
+### NamedBitarrayContextType
+A triplet: (_BitarrayContextType_, object names, attribute names).
+Can be obtained via `csp.io.to_named_bitarrays` function;
+
+Example:
+```python
+print(*csp.io.to_named_bitarrays(df), sep='\n')
+```
+> [bitarray('100011'), bitarray('100101'), bitarray('010011'), bitarray('010101'), bitarray('011000')] <br>
+> ['Garfield', 'Snoopy', 'Socks', "Greyfriar's Bobby", 'Harriet'] <br>
+> ['cartoon', 'real', 'tortoise', 'dog', 'cat', 'mammal']
+
+### BoolContextType
+A list of object's descriptions where every description is a list of bool values.
+Can be obtained via `csp.io.to_bools` function;
+
+Example:
+```python
+print(*csp.io.to_bools(df), sep='\n')
+```
+> [True, False, False, False, True, True] <br>
+> [True, False, False, True, False, True] <br>
+> [False, True, False, False, True, True] <br>
+> [False, True, False, True, False, True] <br>
+> [False, True, True, False, False, False]
+
+
+
+### NamedBoolContextType
+A triplet: (_BoolContextType_, object names, attribute names).
+Can be obtained via `csp.io.to_named_bools` function;
+
+Example:
+```python
+print(*csp.io.to_named_bools(df), sep='\n')
+```
+> [[True, False, False, False, True, True], [True, False, False, True, False, True], [False, True, False, False, True, True], [False, True, False, True, False, True], [False, True, True, False, False, False]]<br>
+> ['Garfield', 'Snoopy', 'Socks', "Greyfriar's Bobby", 'Harriet']<br>
+> ['cartoon', 'real', 'tortoise', 'dog', 'cat', 'mammal']
+
+### DictContextType
+A dictionary where every key is an object's name and every value if object's description represented with sets of names of attributes.
+Can be obtained via `csp.io.to_dictionary` function.
+
+Example:
+```python
+print(csp.io.to_dictionary(df))
+```
+> {'Garfield': {'cartoon', 'mammal', 'cat'},<br> 
+> 'Snoopy': {'dog', 'cartoon', 'mammal'}, <br>
+> 'Socks': {'real', 'mammal', 'cat'}, <br>
+> "Greyfriar's Bobby": {'real', 'mammal', 'dog'},<br> 
+> 'Harriet': {'real', 'tortoise'}<br>
+> }
+ 
+</p></details>
+
+### Save and load Formal Context 
+
+A formal context can also be saved to and loaded from a .cxt formatted file or a string:
+```python
+with open('context.cxt', 'w') as file:
+    csp.io.write_cxt(df, file)
+
+with open('context.cxt', 'r') as file:
+    df_loaded = csp.io.read_cxt(file)
+
+assert (df == df_loaded).all(None)
+```
 
 ## Approach for faster computation
 
