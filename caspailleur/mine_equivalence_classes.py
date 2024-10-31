@@ -1,6 +1,6 @@
 import heapq
 from functools import reduce
-from typing import Iterator, Iterable, Union
+from typing import Iterator, Iterable, Union, Container, Sequence
 
 import deprecation
 
@@ -616,13 +616,29 @@ def iter_minimal_rare_itemsets_via_mrgexp(
     The algorithm is covered in Szathmary, L., Napoli, A., & Valtchev, P. (2007, October). Towards rare itemset mining.
     In 19th IEEE international conference on tools with artificial intelligence (ICTAI 2007) (Vol. 1, pp. 305-312). IEEE.
     """
-    def generate_candidates(generators: Iterable[tuple[int, ...]]) -> Iterator[tuple[tuple[int, ...], int]]:
-        for old_generator in generators:
-            extent = extension(old_generator, attribute_extents)
+    def generate_candidates(generators: Sequence[tuple[int, ...]]) -> Iterator[tuple[tuple[int, ...], int]]:
+        if list(generators) == [tuple()]:
+            for next_attr, extent in enumerate(attribute_extents):
+                yield (next_attr,), extent.count()
+            return
 
-            next_attr_start = old_generator[-1] + 1 if old_generator else 0
-            for next_attr in range(next_attr_start, n_attrs):
-                yield old_generator + (next_attr, ),  count_and(extent, attribute_extents[next_attr])
+        possible_suffixes: dict[tuple[int, ...], list[int]] = {}
+        for old_generator in generators:
+            if old_generator[:-1] not in possible_suffixes:
+                possible_suffixes[old_generator[:-1]] = []
+            possible_suffixes[old_generator[:-1]].append(old_generator[-1])
+
+        for old_generator in generators:
+            subgenerators = [old_generator[:i]+old_generator[i+1:] for i in range(len(old_generator))]
+            if any(subgenerator not in possible_suffixes for subgenerator in subgenerators):
+                continue
+
+            extent = extension(old_generator, attribute_extents)
+            next_attributes = reduce(set.intersection, (set(possible_suffixes[subgen]) for subgen in subgenerators))
+            for next_attr in next_attributes:
+                if next_attr < old_generator[-1]:
+                    continue
+                yield old_generator + (next_attr, ), count_and(extent, attribute_extents[next_attr])
 
     n_attrs = len(attribute_extents)
     max_length = n_attrs if max_length is None else max_length
