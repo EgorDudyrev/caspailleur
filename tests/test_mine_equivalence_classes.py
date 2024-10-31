@@ -312,3 +312,12 @@ def test_list_stable_extents_via_gsofia():
 
     stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, n_stable_extents=3)
     assert {all_extents[0], all_extents[4]} == stable_extents
+
+
+def test_iter_minimal_rare_itemsets_via_mrgexp():
+    # using example from the Towards Minimal Rare Itemset paper
+    attr_extents = [fbarray('11101'), fbarray('10111'), fbarray('01111'), fbarray('10000'), fbarray('10111')]
+    mris_true = [fbarray('11100'), fbarray('10101'), fbarray('00010')]
+
+    mris = list(mec.iter_minimal_rare_itemsets_via_mrgexp(attr_extents, 2))
+    assert set(mris) == set(mris_true)

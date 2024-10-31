@@ -605,3 +605,45 @@ def list_stable_extents_via_gsofia(
             stable_extents = dict(most_stable_extents)
 
     return set(stable_extents)
+
+
+def iter_minimal_rare_itemsets_via_mrgexp(
+        attribute_extents: list[fbarray], max_support: int,
+        max_length: int = None
+) -> Iterator[fbarray]:
+    """List minimal rare itemsets using MRG-Exp (aka Carpathia-G-Rare) algorithm
+
+    The algorithm is covered in Szathmary, L., Napoli, A., & Valtchev, P. (2007, October). Towards rare itemset mining.
+    In 19th IEEE international conference on tools with artificial intelligence (ICTAI 2007) (Vol. 1, pp. 305-312). IEEE.
+    """
+    n_attrs = len(attribute_extents)
+    max_length = n_attrs if max_length is None else max_length
+    total_extent = attribute_extents[0] | ~attribute_extents[0]
+
+    prev_level_generators, cur_level_gens = None, {tuple(): total_extent.count()}
+    for level in range(1, max_length + 1):
+        prev_level_generators, cur_level_gens = cur_level_gens, {}
+        if not prev_level_generators:
+            break
+
+        for old_generator in prev_level_generators:
+            # old_extent = extension(old_generator, attribute_extents)
+            old_extent = reduce(fbarray.__and__, map(attribute_extents.__getitem__, old_generator), total_extent)
+            next_attr_start = old_generator[-1] + 1 if old_generator else 0
+            for next_attr in range(next_attr_start, n_attrs):
+                new_generator = old_generator + (next_attr,)
+                new_support = (old_extent & attribute_extents[next_attr]).count()
+                sub_generators = (new_generator[:i] + new_generator[i + 1:] for i in range(level))
+
+                not_a_generator = any(
+                    sub_gen not in prev_level_generators or new_support == prev_level_generators[sub_gen]
+                    for sub_gen in sub_generators
+                )
+                if not_a_generator:
+                    continue
+
+                if new_support <= max_support:
+                    yield next(isets2bas([new_generator], n_attrs))
+                    continue
+
+                cur_level_gens[new_generator] = new_support
