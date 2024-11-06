@@ -28,11 +28,6 @@ pip install caspailleur@git+https://github.com/EgorDudyrev/caspailleur
 > The updated release up  ``caspailleur`` will be published around November 15.
 > As for now, proceed to install the hotfix'ed version of the package from this GitHub repository.
 > You can also explicitly install the second last version of  ``bitarray`` package without reinstalling the whole  ``caspailleur``:
-> [!IMPORTANT]  
-> The new major release of ``bitarray`` package renamed some of the package's functions, thus introducing errors in ``caspailleur``.
-> The updated release up  ``caspailleur`` will be published around November 15.
-> As for now, proceed to install the hotfix'ed version of the package from this GitHub repository.
-> You can also explicitly install the second last version of  ``bitarray`` package without reinstalling the whole  ``caspailleur``:
 >  ```console
 > pip install --upgrade bitarray==2.9.3
 > ```
