@@ -321,3 +321,21 @@ def test_iter_minimal_rare_itemsets_via_mrgexp():
 
     mris = list(mec.iter_minimal_rare_itemsets_via_mrgexp(attr_extents, 2))
     assert set(mris) == set(mris_true)
+
+
+def test_generate_next_level_descriptions():
+    descrs = [tuple()]
+    next_descriptions_true = ((0,), (1,), (2,))
+    next_descriptions, _ = zip(*mec.generate_next_level_descriptions(descrs, None, 3))
+    assert next_descriptions == next_descriptions_true
+
+    descrs = [(1, 2), (2, 3), (1, 3), (1, 4)]
+    next_descriptions_true = ((1, 2, 3),)
+    next_descriptions, _ = zip(*mec.generate_next_level_descriptions(descrs, None, 3))
+    assert next_descriptions == next_descriptions_true
+
+    attr_extents = [fbarray('00000'), fbarray('11101'), fbarray('11011'), fbarray('10011'), fbarray('11111')]
+    supports_true = (2,)
+    next_descriptions, supports = zip(*mec.generate_next_level_descriptions(descrs, attr_extents, None))
+    assert next_descriptions == next_descriptions_true
+    assert supports == supports_true

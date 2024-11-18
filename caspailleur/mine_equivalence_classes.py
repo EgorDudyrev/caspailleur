@@ -1,6 +1,6 @@
 import heapq
 from functools import reduce
-from typing import Iterator, Iterable, Union, Container, Sequence
+from typing import Iterator, Iterable, Union, Sequence, Optional
 
 import deprecation
 
@@ -607,6 +607,78 @@ def list_stable_extents_via_gsofia(
     return set(stable_extents)
 
 
+def generate_next_level_descriptions(
+        same_level_descriptions: Sequence[tuple[int, ...]],
+        attribute_extents: Sequence[fbarray] = None,
+        n_attributes: int = None
+) -> Iterator[tuple[tuple[int, ...], Optional[int]]]:
+    """Generate the next level descriptions from the given ones
+
+    Descriptions (i.e. set of attributes/items) belong to the same level when they have the same length.
+    Description of n+1 attributes will only be generated
+    only if all its subdescriptions of n attributes can be found in `current_level_descriptions`.
+
+    Parameters
+    ----------
+    same_level_descriptions:
+        Sequence of descriptions (as tuples of indices of their attributes) of the same length
+    attribute_extents:
+        Sequence extents of attributes.
+        Every extent is a set of objects described by an attribute and represented with a bitarray.
+        The parameter is optional, and it provides a slight optimisation
+        for support computations of generated descriptions
+    n_attributes:
+        Number of attributes. The parameter is only required when no `attribute_extents` are provided
+        and the `same_level_descriptions` contain one empty-set description.
+
+    Returns
+    -------
+    Iterator of pairs (next_level_description, next_level_description_support) where
+    next_level_description: tuple[int, ...]
+        Next-level description (as a tuple of indices of its attributes) composed of the given
+        `current_level_descriptions`.
+    next_level_description_support: int | None
+        The support of the corresponding next_level_description. (if `attribute_extents` is provided, else None)
+        Support of a description is the number of objects it describes.
+
+    """
+    provide_support = attribute_extents is not None
+    zero_level = len(same_level_descriptions[0]) == 0
+
+    n_attributes = len(attribute_extents) if attribute_extents is not None else n_attributes
+    if n_attributes is None:
+        if not zero_level:
+            n_attributes = max(max(descr) for descr in same_level_descriptions) + 1
+        else:
+            raise ValueError('Provide `n_attributes` parameter to `generate_next_level_descriptions` functions. '
+                             'As it is not deducible from the values of the other parameters.')
+
+    if zero_level:
+        for next_attr in range(n_attributes):
+            yield (next_attr,), attribute_extents[next_attr].count() if provide_support else None
+        return
+
+    possible_suffixes: dict[tuple[int, ...], list[int]] = {}
+    for description in same_level_descriptions:
+        if description[:-1] not in possible_suffixes:
+            possible_suffixes[description[:-1]] = []
+        possible_suffixes[description[:-1]].append(description[-1])
+    possible_suffixes = {description: set(suffixes) for description, suffixes in possible_suffixes.items()}
+
+    for description in same_level_descriptions:
+        subdescriptions = [description[:i]+description[i+1:] for i in range(len(description))]
+        if any(subdescription not in possible_suffixes for subdescription in subdescriptions):
+            continue
+
+        extent = extension(description, attribute_extents) if provide_support else None
+        next_attributes = reduce(set.intersection, (possible_suffixes[subgen] for subgen in subdescriptions))
+        for next_attr in next_attributes:
+            if next_attr < description[-1]:
+                continue
+            next_support = count_and(extent, attribute_extents[next_attr]) if provide_support else None
+            yield description + (next_attr, ), next_support
+
+
 def iter_minimal_rare_itemsets_via_mrgexp(
         attribute_extents: list[fbarray], max_support: int,
         max_length: int = None
@@ -616,30 +688,6 @@ def iter_minimal_rare_itemsets_via_mrgexp(
     The algorithm is covered in Szathmary, L., Napoli, A., & Valtchev, P. (2007, October). Towards rare itemset mining.
     In 19th IEEE international conference on tools with artificial intelligence (ICTAI 2007) (Vol. 1, pp. 305-312). IEEE.
     """
-    def generate_candidates(generators: Sequence[tuple[int, ...]]) -> Iterator[tuple[tuple[int, ...], int]]:
-        if list(generators) == [tuple()]:
-            for next_attr, extent in enumerate(attribute_extents):
-                yield (next_attr,), extent.count()
-            return
-
-        possible_suffixes: dict[tuple[int, ...], list[int]] = {}
-        for old_generator in generators:
-            if old_generator[:-1] not in possible_suffixes:
-                possible_suffixes[old_generator[:-1]] = []
-            possible_suffixes[old_generator[:-1]].append(old_generator[-1])
-
-        for old_generator in generators:
-            subgenerators = [old_generator[:i]+old_generator[i+1:] for i in range(len(old_generator))]
-            if any(subgenerator not in possible_suffixes for subgenerator in subgenerators):
-                continue
-
-            extent = extension(old_generator, attribute_extents)
-            next_attributes = reduce(set.intersection, (set(possible_suffixes[subgen]) for subgen in subgenerators))
-            for next_attr in next_attributes:
-                if next_attr < old_generator[-1]:
-                    continue
-                yield old_generator + (next_attr, ), count_and(extent, attribute_extents[next_attr])
-
     n_attrs = len(attribute_extents)
     max_length = n_attrs if max_length is None else max_length
     total_extent = attribute_extents[0] | ~attribute_extents[0]
@@ -650,7 +698,7 @@ def iter_minimal_rare_itemsets_via_mrgexp(
         if not prev_level_generators:
             break
 
-        new_candidates = generate_candidates(prev_level_generators)
+        new_candidates = generate_next_level_descriptions(prev_level_generators)
         for new_generator, new_support in new_candidates:
             sub_generators = (new_generator[:i] + new_generator[i + 1:] for i in range(level))
 
