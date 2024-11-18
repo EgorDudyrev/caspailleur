@@ -188,18 +188,10 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
     """
     N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
 
-    intent = bazeros(N_ATTRS) if intent is None else intent
+    intent = ~bazeros(N_ATTRS) if intent is None else intent
 
-    def conjunct_extent(premise: fbarray) -> fbarray:
-        res = ~bazeros(N_OBJS)
-        for m in premise.itersearch(True):
-            res &= attribute_extents[m]
-            if not res.any():
-                break
+    total_extent = extension(intent, attribute_extents)
 
-        return fbarray(res)
-
-    total_extent = conjunct_extent(intent)
     stack = [[m] for m in intent.itersearch(True)][::-1]
 
     yield intent
@@ -212,7 +204,7 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
             attrs_to_eval[m] = False
         attrs_to_eval = fbarray(attrs_to_eval)
 
-        conj = conjunct_extent(attrs_to_eval)
+        conj = extension(attrs_to_eval, attribute_extents)
         if conj != total_extent:
             continue
 
