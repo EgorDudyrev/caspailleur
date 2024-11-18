@@ -643,7 +643,7 @@ def generate_next_level_descriptions(
 
     """
     provide_support = attribute_extents is not None
-    zero_level = len(same_level_descriptions[0]) == 0
+    zero_level = next(len(descr) for descr in same_level_descriptions) == 0
 
     n_attributes = len(attribute_extents) if attribute_extents is not None else n_attributes
     if n_attributes is None:
@@ -698,7 +698,7 @@ def iter_minimal_rare_itemsets_via_mrgexp(
         if not prev_level_generators:
             break
 
-        new_candidates = generate_next_level_descriptions(prev_level_generators)
+        new_candidates = generate_next_level_descriptions(prev_level_generators, attribute_extents)
         for new_generator, new_support in new_candidates:
             sub_generators = (new_generator[:i] + new_generator[i + 1:] for i in range(level))
 
@@ -714,3 +714,51 @@ def iter_minimal_rare_itemsets_via_mrgexp(
                 continue
 
             cur_level_gens[new_generator] = new_support
+
+
+def iter_minimal_broad_clusterings_via_mrgexp(
+        attribute_extents: list[fbarray], min_coverage: int,
+        max_length: int = None,
+        min_added_coverage: int = 1
+) -> Iterator[fbarray]:
+    """Iterate minimal broad clusterings using an analogue of MRG-Exp algorithm for minimal rare itemsets mining
+
+
+    Notes
+    -----
+
+    The algorithm was introduced in:
+    E.Dudyrev et al. "Clustering with Stable Pattern Concepts"
+    Published in Amedeo Napoli and Sebastian Rudolph (Eds.):
+    The 12th International Workshop "What can FCA do for Artificial Intelligence?",
+    FCA4AI 2024, co-located with ECAI 2024, October 19 2024, Santiago de Compostela, Spain.
+    """
+    n_objs, n_attrs = len(attribute_extents[0]), len(attribute_extents)
+    max_length = n_attrs if max_length is None else max_length
+    empty_extent = attribute_extents[0] & ~attribute_extents[0]
+    leftovers = [~extent for extent in attribute_extents]
+
+    prev_level_generators, cur_level_gens = None, {tuple(): empty_extent.count()}
+    for level in range(1, max_length + 1):
+        prev_level_generators, cur_level_gens = cur_level_gens, {}
+        if not prev_level_generators:
+            break
+
+        new_candidates = generate_next_level_descriptions(prev_level_generators, leftovers)
+        for new_generator, new_leftovers_support in new_candidates:
+            new_coverage = n_objs - new_leftovers_support
+            sub_generators = (new_generator[:i] + new_generator[i + 1:] for i in range(level))
+
+            not_a_generator = any(
+                sub_gen not in prev_level_generators
+                or new_coverage < prev_level_generators[sub_gen] + min_added_coverage
+                for sub_gen in sub_generators
+            )
+            if not_a_generator:
+                continue
+
+            if new_coverage >= min_coverage:
+                yield next(isets2bas([new_generator], n_attrs))
+                continue
+
+            cur_level_gens[new_generator] = new_coverage

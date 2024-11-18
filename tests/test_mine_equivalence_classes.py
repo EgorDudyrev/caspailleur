@@ -339,3 +339,20 @@ def test_generate_next_level_descriptions():
     next_descriptions, supports = zip(*mec.generate_next_level_descriptions(descrs, attr_extents, None))
     assert next_descriptions == next_descriptions_true
     assert supports == supports_true
+
+
+def test_iter_minimal_broad_clusterings_via_mrgexp():
+    # using inverse example from the Towards Minimal Rare Itemset paper
+    attr_extents = [fbarray('00010'), fbarray('01000'), fbarray('10000'), fbarray('01111'), fbarray('01000')]
+    clusterings_true = [fbarray('11100'), fbarray('10101'), fbarray('00010')]
+
+    clusterings = list(mec.iter_minimal_broad_clusterings_via_mrgexp(attr_extents, 3))
+    assert set(clusterings) == set(clusterings_true)
+
+    clusterings = list(mec.iter_minimal_broad_clusterings_via_mrgexp(attr_extents, 3, min_added_coverage=4))
+    clusterings_true = [fbarray('00010')]
+    assert clusterings == clusterings_true
+
+    clusterings = list(mec.iter_minimal_broad_clusterings_via_mrgexp(attr_extents, 3, min_added_coverage=5))
+    clusterings_true = []
+    assert clusterings == clusterings_true
