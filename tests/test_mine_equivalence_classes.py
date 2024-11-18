@@ -80,6 +80,9 @@ def tests_iter_equivalence_class():
     eq_class = list(mec.iter_equivalence_class(attr_extents))
     assert eq_class == list(io.isets2bas(eq_class_true, 5))
 
+    eq_class = list(mec.iter_equivalence_class(attr_extents, presort_output=False))
+    assert set(eq_class) == set(io.isets2bas(eq_class_true, 5))
+
 
 def test_list_keys_via_eqclass():
     eq_class = list(io.isets2bas([

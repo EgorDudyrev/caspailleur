@@ -166,7 +166,7 @@ def list_attribute_concepts(intents: list[fbarray]) -> list[int]:
     return attr_concepts
 
 
-def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = None) -> Iterator[fbarray]:
+def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = None, presort_output = True) -> Iterator[fbarray]:
     """Iterate subsets of attributes from equivalence class
 
     The output equivalence class goes from the maximal subsets of attributes to the smallest ones.
@@ -192,9 +192,9 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
 
     total_extent = extension(intent, attribute_extents)
 
-    antigenerator, next_antigenerators = None, [tuple()]  # antigenerator: s.t. ext(intent\antigenerator) = ext(intent)
+    antigenerator, next_antigenerators = None, deque([tuple()])  # antigenerator: s.t. ext(intent\antigenerator) = ext(intent)
     for level in range(0, len(intent) + 1):
-        antigenerators, next_antigenerators = next_antigenerators, []
+        antigenerators, next_antigenerators = next_antigenerators, deque()
         antigenerators = list(antigenerators)
         for antigenerator in antigenerators:
             generator = intent - set(antigenerator)
@@ -207,10 +207,10 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
         if not next_antigenerators:
             break
 
-        next_antigenerators = sorted(
-            (antigen for antigen, _ in generate_next_level_descriptions(next_antigenerators, n_attributes=N_ATTRS)),
-            reverse=True
-        )
+        next_antigenerators = [antigen for antigen, _ in
+                               generate_next_level_descriptions(next_antigenerators, n_attributes=N_ATTRS)]
+        if presort_output:
+            next_antigenerators = sorted(next_antigenerators, reverse=True)
 
 
 def list_keys_via_eqclass(equiv_class: Iterable[fbarray]) -> list[fbarray]:
