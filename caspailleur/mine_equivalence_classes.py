@@ -685,7 +685,32 @@ def iter_minimal_rare_itemsets_via_mrgexp(
 ) -> Iterator[fbarray]:
     """List minimal rare itemsets using MRG-Exp (aka Carpathia-G-Rare) algorithm
 
-    The algorithm is covered in Szathmary, L., Napoli, A., & Valtchev, P. (2007, October). Towards rare itemset mining.
+    A minimal rare itemset (or a minimal rare description) is a minimal subset of attributes
+    that describes less than (or equal to) `max_support` objects.
+    Minimality here means that any subset of a minimal rare itemset describes more than `max_support` objects.
+
+    Parameters
+    ----------
+    attribute_extents:
+        Sequence extents of attributes.
+        Every extent is a set of objects described by an attribute and represented with a bitarray.
+    max_support:
+        Maximal number of objects that should be described by an itemset (aka a description).
+    max_length:
+        Maximum size of a rare itemset.
+        Default value: the number of attributes: len(attribute_extents).
+
+    Returns
+    -------
+    minimal_rare_itemsets:
+        Minimal rare itemsets found by the algorithm.
+        The itemsets are placed in the order of increasing sizes:
+        the first itemset contains the fewer attributes, the latter contains the maximal number of attributes.
+
+    Notes
+    -----
+
+    The algorithm is introduced in Szathmary, L., Napoli, A., & Valtchev, P. (2007, October). Towards rare itemset mining.
     In 19th IEEE international conference on tools with artificial intelligence (ICTAI 2007) (Vol. 1, pp. 305-312). IEEE.
     """
     n_attrs = len(attribute_extents)
@@ -723,6 +748,34 @@ def iter_minimal_broad_clusterings_via_mrgexp(
 ) -> Iterator[fbarray]:
     """Iterate minimal broad clusterings using an analogue of MRG-Exp algorithm for minimal rare itemsets mining
 
+    A minimal broad clustering is a minimal subset of attributes
+    that, together, cover more than (or equal to) `min_coverage` objects.
+    Minimality here means that any subset of a minimal broad clustering describes less than `min_coverage` objects.
+
+    Coverage of a clustering is the number of objects lying in the union of all the clusters
+    (here 'a cluster' is a synonym of 'an attribute').
+
+    Parameters
+    ----------
+    attribute_extents:
+        Sequence extents of attributes.
+        Every extent is a set of objects described by an attribute and represented with a bitarray.
+    min_coverage:
+        Minimal number of objects that should be covered by all the clusters (attributes) together
+    max_length:
+        Maximum size of a clustering.
+        Default value: the number of attributes: len(attribute_extents).
+    min_added_coverage:
+        Minimal number of objects that a cluster (i.e. an attribute) should bring to a clustering.
+        For example, for a clustering {a, b, c}, its every subset ({a,b}, {a, c}, {b, c}) should cover
+        less than `coverage({a,b,c}) - min_added_coverage` objects.
+
+    Returns
+    -------
+    minimal_broad_clusterings:
+        Minimal broad clusterings found by the algorithm.
+        The clusterings are placed in the order of increasing sizes:
+        the first clustering contains the fewer attributes, the latter contains the maximal number of attributes.
 
     Notes
     -----
