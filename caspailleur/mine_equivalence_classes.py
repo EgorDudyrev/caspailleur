@@ -188,29 +188,29 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
     """
     N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
 
-    intent = ~bazeros(N_ATTRS) if intent is None else intent
+    intent = set(range(N_ATTRS)) if intent is None else set(intent.search(True))
 
     total_extent = extension(intent, attribute_extents)
 
-    stack = [[m] for m in intent.itersearch(True)][::-1]
+    antigenerator, next_antigenerators = None, [tuple()]  # antigenerator: s.t. ext(intent\antigenerator) = ext(intent)
+    for level in range(0, len(intent) + 1):
+        antigenerators, next_antigenerators = next_antigenerators, []
+        antigenerators = list(antigenerators)
+        for antigenerator in antigenerators:
+            generator = intent - set(antigenerator)
 
-    yield intent
-    while stack:
-        attrs_to_remove = stack.pop(0)
-        last_attr = attrs_to_remove[-1]
+            extent = extension(generator, attribute_extents)
+            if extent == total_extent:
+                yield next(isets2bas([generator], N_ATTRS))
+                next_antigenerators.append(antigenerator)
 
-        attrs_to_eval = bitarray(intent)
-        for m in attrs_to_remove:
-            attrs_to_eval[m] = False
-        attrs_to_eval = fbarray(attrs_to_eval)
+        if not next_antigenerators:
+            break
 
-        conj = extension(attrs_to_eval, attribute_extents)
-        if conj != total_extent:
-            continue
-
-        # conj == total_extent
-        yield attrs_to_eval
-        stack += [attrs_to_remove+[m] for m in intent.itersearch(True) if m > last_attr][::-1]
+        next_antigenerators = sorted(
+            (antigen for antigen, _ in generate_next_level_descriptions(next_antigenerators, n_attributes=N_ATTRS)),
+            reverse=True
+        )
 
 
 def list_keys_via_eqclass(equiv_class: Iterable[fbarray]) -> list[fbarray]:
@@ -665,7 +665,7 @@ def generate_next_level_descriptions(
         extent = extension(description, attribute_extents) if provide_support else None
         next_attributes = reduce(set.intersection, (possible_suffixes[subgen] for subgen in subdescriptions))
         for next_attr in next_attributes:
-            if next_attr < description[-1]:
+            if next_attr <= description[-1]:
                 continue
             next_support = count_and(extent, attribute_extents[next_attr]) if provide_support else None
             yield description + (next_attr, ), next_support
