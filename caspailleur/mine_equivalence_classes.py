@@ -166,7 +166,7 @@ def list_attribute_concepts(intents: list[fbarray]) -> list[int]:
     return attr_concepts
 
 
-def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = None, presort_output = True) -> Iterator[fbarray]:
+def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = None) -> Iterator[fbarray]:
     """Iterate subsets of attributes from equivalence class
 
     The output equivalence class goes from the maximal subsets of attributes to the smallest ones.
@@ -188,11 +188,64 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
     """
     N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
 
+    intent = ~bazeros(N_ATTRS) if intent is None else intent
+
+    total_extent = extension(intent, attribute_extents)
+
+    stack = [[m] for m in intent.itersearch(True)][::-1]
+
+    yield intent
+    while stack:
+        attrs_to_remove = stack.pop(0)
+        last_attr = attrs_to_remove[-1]
+
+        attrs_to_eval = bitarray(intent)
+        for m in attrs_to_remove:
+            attrs_to_eval[m] = False
+        attrs_to_eval = fbarray(attrs_to_eval)
+
+        conj = extension(attrs_to_eval, attribute_extents)
+        if conj != total_extent:
+            continue
+
+        # conj == total_extent
+        yield attrs_to_eval
+        stack += [attrs_to_remove+[m] for m in intent.itersearch(True) if m > last_attr][::-1]
+
+
+def iter_equivalence_class_levelwise(
+        attribute_extents: list[fbarray], intent: fbarray = None,
+        presort_output: bool = True
+) -> Iterator[fbarray]:
+    """Iterate subsets of attributes from equivalence class using with level-wise iteration optimisation
+
+    The output equivalence class goes from the maximal subsets of attributes to the smallest ones.
+    Equivalent subsets of attributes are the ones that describe the same subset of objects.
+
+
+    Parameters
+    ----------
+    attribute_extents:
+        The list of objects described by each specific attribute (converted to bitarrays)
+    intent:
+        Intent to compute equivalence class for. If None is passed, Iterate equivalence class of all attributes
+    presort_output:
+        Modify the order of the outputed descriptions to make it match the output of `iter_equivalence_class` function.
+
+    Returns
+    -------
+    Iterator[frozenbitarray]:
+        Iterator over bitarrays representing equivalent subsets of attributes
+
+    """
+    N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
+
     intent = set(range(N_ATTRS)) if intent is None else set(intent.search(True))
 
     total_extent = extension(intent, attribute_extents)
 
-    antigenerator, next_antigenerators = None, deque([tuple()])  # antigenerator: s.t. ext(intent\antigenerator) = ext(intent)
+    # antigenerator: s.t. ext(intent\antigenerator) = ext(intent)
+    antigenerator, next_antigenerators = None, deque([tuple()])
     for level in range(0, len(intent) + 1):
         antigenerators, next_antigenerators = next_antigenerators, deque()
         antigenerators = list(antigenerators)

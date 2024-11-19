@@ -80,7 +80,28 @@ def tests_iter_equivalence_class():
     eq_class = list(mec.iter_equivalence_class(attr_extents))
     assert eq_class == list(io.isets2bas(eq_class_true, 5))
 
-    eq_class = list(mec.iter_equivalence_class(attr_extents, presort_output=False))
+
+def test_iter_equivalence_class():
+    K = np.array([
+        [True, False, False, True, False],
+        [True, False, True, False, False],
+        [False, True, True, False, False],
+        [False, True, True, True, False],
+    ])
+    attr_extents = list(io.np2bas(K.T))
+    eq_class_true = [
+        {0, 1, 2, 3, 4}, {0, 1, 2, 3}, {0, 1, 2, 4}, {0, 1, 3, 4}, {0, 2, 3, 4}, {1, 2, 3, 4},
+        {0, 1, 2}, {0, 1, 3}, {0, 1, 4}, {0, 2, 3}, {0, 2, 4}, {0, 3, 4}, {1, 2, 4}, {1, 3, 4}, {2, 3, 4},
+        {0, 1}, {0, 4}, {1, 4}, {2, 4}, {3, 4}, {4}
+    ]
+
+    eq_class = list(mec.iter_equivalence_class_levelwise(attr_extents, ~fbarray(bazeros(5))))
+    assert eq_class == list(io.isets2bas(eq_class_true, 5))
+
+    eq_class = list(mec.iter_equivalence_class_levelwise(attr_extents))
+    assert eq_class == list(io.isets2bas(eq_class_true, 5))
+
+    eq_class = list(mec.iter_equivalence_class_levelwise(attr_extents, presort_output=False))
     assert set(eq_class) == set(io.isets2bas(eq_class_true, 5))
 
 
