@@ -1,5 +1,6 @@
 import heapq
 from functools import reduce
+from operator import itemgetter
 from typing import Iterator, Iterable, Union, Sequence, Optional
 
 import deprecation
@@ -217,7 +218,7 @@ def iter_equivalence_class_levelwise(
         attribute_extents: list[fbarray], intent: fbarray = None,
         presort_output: bool = True
 ) -> Iterator[fbarray]:
-    """Iterate subsets of attributes from equivalence class using with level-wise iteration optimisation
+    """Iterate subsets of attributes from equivalence class using with level-wise iteration technique
 
     The output equivalence class goes from the maximal subsets of attributes to the smallest ones.
     Equivalent subsets of attributes are the ones that describe the same subset of objects.
@@ -241,6 +242,9 @@ def iter_equivalence_class_levelwise(
     N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
 
     intent = set(range(N_ATTRS)) if intent is None else set(intent.search(True))
+    if not intent:
+        yield fbarray(bazeros(N_ATTRS))
+        return
 
     total_extent = extension(intent, attribute_extents)
 
@@ -248,7 +252,6 @@ def iter_equivalence_class_levelwise(
     antigenerator, next_antigenerators = None, deque([tuple()])
     for level in range(0, len(intent) + 1):
         antigenerators, next_antigenerators = next_antigenerators, deque()
-        antigenerators = list(antigenerators)
         for antigenerator in antigenerators:
             generator = intent - set(antigenerator)
 
@@ -260,8 +263,9 @@ def iter_equivalence_class_levelwise(
         if not next_antigenerators:
             break
 
-        next_antigenerators = [antigen for antigen, _ in
-                               generate_next_level_descriptions(next_antigenerators, n_attributes=N_ATTRS)]
+        next_antigenerators = map(itemgetter(0), generate_next_level_descriptions(next_antigenerators))\
+            if level else [(attr_id,) for attr_id in intent]
+
         if presort_output:
             next_antigenerators = sorted(next_antigenerators, reverse=True)
 
