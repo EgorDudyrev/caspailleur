@@ -1,6 +1,7 @@
 import heapq
 from functools import reduce
-from typing import Iterator, Iterable, Union
+from operator import itemgetter
+from typing import Iterator, Iterable, Union, Sequence, Optional
 
 import deprecation
 
@@ -11,7 +12,7 @@ from .base_functions import extension
 
 from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray
-from bitarray.util import zeros as bazeros, subset as basubset
+from bitarray.util import zeros as bazeros, subset as basubset, count_and
 from collections import deque
 from tqdm.auto import tqdm
 
@@ -188,18 +189,10 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
     """
     N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
 
-    intent = bazeros(N_ATTRS) if intent is None else intent
+    intent = ~bazeros(N_ATTRS) if intent is None else intent
 
-    def conjunct_extent(premise: fbarray) -> fbarray:
-        res = ~bazeros(N_OBJS)
-        for m in premise.itersearch(True):
-            res &= attribute_extents[m]
-            if not res.any():
-                break
+    total_extent = extension(intent, attribute_extents)
 
-        return fbarray(res)
-
-    total_extent = conjunct_extent(intent)
     stack = [[m] for m in intent.itersearch(True)][::-1]
 
     yield intent
@@ -212,13 +205,69 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
             attrs_to_eval[m] = False
         attrs_to_eval = fbarray(attrs_to_eval)
 
-        conj = conjunct_extent(attrs_to_eval)
+        conj = extension(attrs_to_eval, attribute_extents)
         if conj != total_extent:
             continue
 
         # conj == total_extent
         yield attrs_to_eval
         stack += [attrs_to_remove+[m] for m in intent.itersearch(True) if m > last_attr][::-1]
+
+
+def iter_equivalence_class_levelwise(
+        attribute_extents: list[fbarray], intent: fbarray = None,
+        presort_output: bool = True
+) -> Iterator[fbarray]:
+    """Iterate subsets of attributes from equivalence class using with level-wise iteration technique
+
+    The output equivalence class goes from the maximal subsets of attributes to the smallest ones.
+    Equivalent subsets of attributes are the ones that describe the same subset of objects.
+
+
+    Parameters
+    ----------
+    attribute_extents:
+        The list of objects described by each specific attribute (converted to bitarrays)
+    intent:
+        Intent to compute equivalence class for. If None is passed, Iterate equivalence class of all attributes
+    presort_output:
+        Modify the order of the outputed descriptions to make it match the output of `iter_equivalence_class` function.
+
+    Returns
+    -------
+    Iterator[frozenbitarray]:
+        Iterator over bitarrays representing equivalent subsets of attributes
+
+    """
+    N_OBJS, N_ATTRS = len(attribute_extents[0]), len(attribute_extents)
+
+    intent = set(range(N_ATTRS)) if intent is None else set(intent.search(True))
+    if not intent:
+        yield fbarray(bazeros(N_ATTRS))
+        return
+
+    total_extent = extension(intent, attribute_extents)
+
+    # antigenerator: s.t. ext(intent\antigenerator) = ext(intent)
+    antigenerator, next_antigenerators = None, deque([tuple()])
+    for level in range(0, len(intent) + 1):
+        antigenerators, next_antigenerators = next_antigenerators, deque()
+        for antigenerator in antigenerators:
+            generator = intent - set(antigenerator)
+
+            extent = extension(generator, attribute_extents)
+            if extent == total_extent:
+                yield next(isets2bas([generator], N_ATTRS))
+                next_antigenerators.append(antigenerator)
+
+        if not next_antigenerators:
+            break
+
+        next_antigenerators = map(itemgetter(0), generate_next_level_descriptions(next_antigenerators))\
+            if level else [(attr_id,) for attr_id in intent]
+
+        if presort_output:
+            next_antigenerators = sorted(next_antigenerators, reverse=True)
 
 
 def list_keys_via_eqclass(equiv_class: Iterable[fbarray]) -> list[fbarray]:
@@ -605,3 +654,213 @@ def list_stable_extents_via_gsofia(
             stable_extents = dict(most_stable_extents)
 
     return set(stable_extents)
+
+
+def generate_next_level_descriptions(
+        same_level_descriptions: Sequence[tuple[int, ...]],
+        attribute_extents: Sequence[fbarray] = None,
+        n_attributes: int = None
+) -> Iterator[tuple[tuple[int, ...], Optional[int]]]:
+    """Generate the next level descriptions from the given ones
+
+    Descriptions (i.e. set of attributes/items) belong to the same level when they have the same length.
+    Description of n+1 attributes will only be generated
+    only if all its subdescriptions of n attributes can be found in `current_level_descriptions`.
+
+    Parameters
+    ----------
+    same_level_descriptions:
+        Sequence of descriptions (as tuples of indices of their attributes) of the same length
+    attribute_extents:
+        Sequence extents of attributes.
+        Every extent is a set of objects described by an attribute and represented with a bitarray.
+        The parameter is optional, and it provides a slight optimisation
+        for support computations of generated descriptions
+    n_attributes:
+        Number of attributes. The parameter is only required when no `attribute_extents` are provided
+        and the `same_level_descriptions` contain one empty-set description.
+
+    Returns
+    -------
+    Iterator of pairs (next_level_description, next_level_description_support) where
+    next_level_description: tuple[int, ...]
+        Next-level description (as a tuple of indices of its attributes) composed of the given
+        `current_level_descriptions`.
+    next_level_description_support: int | None
+        The support of the corresponding next_level_description. (if `attribute_extents` is provided, else None)
+        Support of a description is the number of objects it describes.
+
+    """
+    provide_support = attribute_extents is not None
+    zero_level = next(len(descr) for descr in same_level_descriptions) == 0
+
+    n_attributes = len(attribute_extents) if attribute_extents is not None else n_attributes
+    if n_attributes is None:
+        if not zero_level:
+            n_attributes = max(max(descr) for descr in same_level_descriptions) + 1
+        else:
+            raise ValueError('Provide `n_attributes` parameter to `generate_next_level_descriptions` functions. '
+                             'As it is not deducible from the values of the other parameters.')
+
+    if zero_level:
+        for next_attr in range(n_attributes):
+            yield (next_attr,), attribute_extents[next_attr].count() if provide_support else None
+        return
+
+    possible_suffixes: dict[tuple[int, ...], list[int]] = {}
+    for description in same_level_descriptions:
+        if description[:-1] not in possible_suffixes:
+            possible_suffixes[description[:-1]] = []
+        possible_suffixes[description[:-1]].append(description[-1])
+    possible_suffixes = {description: set(suffixes) for description, suffixes in possible_suffixes.items()}
+
+    for description in same_level_descriptions:
+        subdescriptions = [description[:i]+description[i+1:] for i in range(len(description))]
+        if any(subdescription not in possible_suffixes for subdescription in subdescriptions):
+            continue
+
+        extent = extension(description, attribute_extents) if provide_support else None
+        next_attributes = reduce(set.intersection, (possible_suffixes[subgen] for subgen in subdescriptions))
+        for next_attr in next_attributes:
+            if next_attr <= description[-1]:
+                continue
+            next_support = count_and(extent, attribute_extents[next_attr]) if provide_support else None
+            yield description + (next_attr, ), next_support
+
+
+def iter_minimal_rare_itemsets_via_mrgexp(
+        attribute_extents: list[fbarray], max_support: int,
+        max_length: int = None
+) -> Iterator[fbarray]:
+    """List minimal rare itemsets using MRG-Exp (aka Carpathia-G-Rare) algorithm
+
+    A minimal rare itemset (or a minimal rare description) is a minimal subset of attributes
+    that describes less than (or equal to) `max_support` objects.
+    Minimality here means that any subset of a minimal rare itemset describes more than `max_support` objects.
+
+    Parameters
+    ----------
+    attribute_extents:
+        Sequence extents of attributes.
+        Every extent is a set of objects described by an attribute and represented with a bitarray.
+    max_support:
+        Maximal number of objects that should be described by an itemset (aka a description).
+    max_length:
+        Maximum size of a rare itemset.
+        Default value: the number of attributes: len(attribute_extents).
+
+    Returns
+    -------
+    minimal_rare_itemsets:
+        Minimal rare itemsets found by the algorithm.
+        The itemsets are placed in the order of increasing sizes:
+        the first itemset contains the fewer attributes, the latter contains the maximal number of attributes.
+
+    Notes
+    -----
+
+    The algorithm is introduced in Szathmary, L., Napoli, A., & Valtchev, P. (2007, October). Towards rare itemset mining.
+    In 19th IEEE international conference on tools with artificial intelligence (ICTAI 2007) (Vol. 1, pp. 305-312). IEEE.
+    """
+    n_attrs = len(attribute_extents)
+    max_length = n_attrs if max_length is None else max_length
+    total_extent = attribute_extents[0] | ~attribute_extents[0]
+
+    prev_level_generators, cur_level_gens = None, {tuple(): total_extent.count()}
+    for level in range(1, max_length + 1):
+        prev_level_generators, cur_level_gens = cur_level_gens, {}
+        if not prev_level_generators:
+            break
+
+        new_candidates = generate_next_level_descriptions(prev_level_generators, attribute_extents)
+        for new_generator, new_support in new_candidates:
+            sub_generators = (new_generator[:i] + new_generator[i + 1:] for i in range(level))
+
+            not_a_generator = any(
+                sub_gen not in prev_level_generators or new_support == prev_level_generators[sub_gen]
+                for sub_gen in sub_generators
+            )
+            if not_a_generator:
+                continue
+
+            if new_support <= max_support:
+                yield next(isets2bas([new_generator], n_attrs))
+                continue
+
+            cur_level_gens[new_generator] = new_support
+
+
+def iter_minimal_broad_clusterings_via_mrgexp(
+        attribute_extents: list[fbarray], min_coverage: int,
+        max_length: int = None,
+        min_added_coverage: int = 1
+) -> Iterator[fbarray]:
+    """Iterate minimal broad clusterings using an analogue of MRG-Exp algorithm for minimal rare itemsets mining
+
+    A minimal broad clustering is a minimal subset of attributes
+    that, together, cover more than (or equal to) `min_coverage` objects.
+    Minimality here means that any subset of a minimal broad clustering describes less than `min_coverage` objects.
+
+    Coverage of a clustering is the number of objects lying in the union of all the clusters
+    (here 'a cluster' is a synonym of 'an attribute').
+
+    Parameters
+    ----------
+    attribute_extents:
+        Sequence extents of attributes.
+        Every extent is a set of objects described by an attribute and represented with a bitarray.
+    min_coverage:
+        Minimal number of objects that should be covered by all the clusters (attributes) together
+    max_length:
+        Maximum size of a clustering.
+        Default value: the number of attributes: len(attribute_extents).
+    min_added_coverage:
+        Minimal number of objects that a cluster (i.e. an attribute) should bring to a clustering.
+        For example, for a clustering {a, b, c}, its every subset ({a,b}, {a, c}, {b, c}) should cover
+        less than `coverage({a,b,c}) - min_added_coverage` objects.
+
+    Returns
+    -------
+    minimal_broad_clusterings:
+        Minimal broad clusterings found by the algorithm.
+        The clusterings are placed in the order of increasing sizes:
+        the first clustering contains the fewer attributes, the latter contains the maximal number of attributes.
+
+    Notes
+    -----
+
+    The algorithm was introduced in:
+    E.Dudyrev et al. "Clustering with Stable Pattern Concepts"
+    Published in Amedeo Napoli and Sebastian Rudolph (Eds.):
+    The 12th International Workshop "What can FCA do for Artificial Intelligence?",
+    FCA4AI 2024, co-located with ECAI 2024, October 19 2024, Santiago de Compostela, Spain.
+    """
+    n_objs, n_attrs = len(attribute_extents[0]), len(attribute_extents)
+    max_length = n_attrs if max_length is None else max_length
+    empty_extent = attribute_extents[0] & ~attribute_extents[0]
+    leftovers = [~extent for extent in attribute_extents]
+
+    prev_level_generators, cur_level_gens = None, {tuple(): empty_extent.count()}
+    for level in range(1, max_length + 1):
+        prev_level_generators, cur_level_gens = cur_level_gens, {}
+        if not prev_level_generators:
+            break
+
+        new_candidates = generate_next_level_descriptions(prev_level_generators, leftovers)
+        for new_generator, new_leftovers_support in new_candidates:
+            new_coverage = n_objs - new_leftovers_support
+            sub_generators = (new_generator[:i] + new_generator[i + 1:] for i in range(level))
+
+            not_a_generator = any(
+                sub_gen not in prev_level_generators
+                or new_coverage < prev_level_generators[sub_gen] + min_added_coverage
+                for sub_gen in sub_generators
+            )
+            if not_a_generator:
+                continue
+
+            if new_coverage >= min_coverage:
+                yield next(isets2bas([new_generator], n_attrs))
+                continue
+
+            cur_level_gens[new_generator] = new_coverage

@@ -77,6 +77,33 @@ def tests_iter_equivalence_class():
     eq_class = list(mec.iter_equivalence_class(attr_extents, ~fbarray(bazeros(5))))
     assert eq_class == list(io.isets2bas(eq_class_true, 5))
 
+    eq_class = list(mec.iter_equivalence_class(attr_extents))
+    assert eq_class == list(io.isets2bas(eq_class_true, 5))
+
+
+def test_iter_equivalence_class():
+    K = np.array([
+        [True, False, False, True, False],
+        [True, False, True, False, False],
+        [False, True, True, False, False],
+        [False, True, True, True, False],
+    ])
+    attr_extents = list(io.np2bas(K.T))
+    eq_class_true = [
+        {0, 1, 2, 3, 4}, {0, 1, 2, 3}, {0, 1, 2, 4}, {0, 1, 3, 4}, {0, 2, 3, 4}, {1, 2, 3, 4},
+        {0, 1, 2}, {0, 1, 3}, {0, 1, 4}, {0, 2, 3}, {0, 2, 4}, {0, 3, 4}, {1, 2, 4}, {1, 3, 4}, {2, 3, 4},
+        {0, 1}, {0, 4}, {1, 4}, {2, 4}, {3, 4}, {4}
+    ]
+
+    eq_class = list(mec.iter_equivalence_class_levelwise(attr_extents, ~fbarray(bazeros(5))))
+    assert eq_class == list(io.isets2bas(eq_class_true, 5))
+
+    eq_class = list(mec.iter_equivalence_class_levelwise(attr_extents))
+    assert eq_class == list(io.isets2bas(eq_class_true, 5))
+
+    eq_class = list(mec.iter_equivalence_class_levelwise(attr_extents, presort_output=False))
+    assert set(eq_class) == set(io.isets2bas(eq_class_true, 5))
+
 
 def test_list_keys_via_eqclass():
     eq_class = list(io.isets2bas([
@@ -312,3 +339,47 @@ def test_list_stable_extents_via_gsofia():
 
     stable_extents = mec.list_stable_extents_via_gsofia(bin_attributes, n_stable_extents=3)
     assert {all_extents[0], all_extents[4]} == stable_extents
+
+
+def test_iter_minimal_rare_itemsets_via_mrgexp():
+    # using example from the Towards Minimal Rare Itemset paper
+    attr_extents = [fbarray('11101'), fbarray('10111'), fbarray('01111'), fbarray('10000'), fbarray('10111')]
+    mris_true = [fbarray('11100'), fbarray('10101'), fbarray('00010')]
+
+    mris = list(mec.iter_minimal_rare_itemsets_via_mrgexp(attr_extents, 2))
+    assert set(mris) == set(mris_true)
+
+
+def test_generate_next_level_descriptions():
+    descrs = [tuple()]
+    next_descriptions_true = ((0,), (1,), (2,))
+    next_descriptions, _ = zip(*mec.generate_next_level_descriptions(descrs, None, 3))
+    assert next_descriptions == next_descriptions_true
+
+    descrs = [(1, 2), (2, 3), (1, 3), (1, 4)]
+    next_descriptions_true = ((1, 2, 3),)
+    next_descriptions, _ = zip(*mec.generate_next_level_descriptions(descrs, None, 3))
+    assert next_descriptions == next_descriptions_true
+
+    attr_extents = [fbarray('00000'), fbarray('11101'), fbarray('11011'), fbarray('10011'), fbarray('11111')]
+    supports_true = (2,)
+    next_descriptions, supports = zip(*mec.generate_next_level_descriptions(descrs, attr_extents, None))
+    assert next_descriptions == next_descriptions_true
+    assert supports == supports_true
+
+
+def test_iter_minimal_broad_clusterings_via_mrgexp():
+    # using inverse example from the Towards Minimal Rare Itemset paper
+    attr_extents = [fbarray('00010'), fbarray('01000'), fbarray('10000'), fbarray('01111'), fbarray('01000')]
+    clusterings_true = [fbarray('11100'), fbarray('10101'), fbarray('00010')]
+
+    clusterings = list(mec.iter_minimal_broad_clusterings_via_mrgexp(attr_extents, 3))
+    assert set(clusterings) == set(clusterings_true)
+
+    clusterings = list(mec.iter_minimal_broad_clusterings_via_mrgexp(attr_extents, 3, min_added_coverage=4))
+    clusterings_true = [fbarray('00010')]
+    assert clusterings == clusterings_true
+
+    clusterings = list(mec.iter_minimal_broad_clusterings_via_mrgexp(attr_extents, 3, min_added_coverage=5))
+    clusterings_true = []
+    assert clusterings == clusterings_true

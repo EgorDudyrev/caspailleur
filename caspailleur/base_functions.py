@@ -1,6 +1,6 @@
 from functools import reduce
 from itertools import chain, combinations
-from typing import Iterable, Iterator, Union, Any
+from typing import Iterable, Iterator, Union, Any, Sequence
 
 import deprecation
 from bitarray import frozenbitarray as fbarray, bitarray
@@ -32,7 +32,7 @@ def is_psubset_of(A: Union[set[int], fbarray], B: Union[set[int], fbarray]) -> b
     return (A & B == A) and A != B
 
 
-def maximal_extent(crosses_per_columns: Union[list[set], list[bitarray]]) -> Union[set, bitarray]:
+def maximal_extent(crosses_per_columns: Union[Sequence[set], Sequence[bitarray]]) -> Union[set, bitarray]:
     """Return the whole set of objects from `crosses_per_columns` data representation"""
     first_column = crosses_per_columns[0]
     if isinstance(first_column, bitarray):
@@ -45,7 +45,7 @@ def maximal_extent(crosses_per_columns: Union[list[set], list[bitarray]]) -> Uni
     return type(first_column)(all_attrs)
 
 
-def extension(description: Union[Iterable[int], bitarray], crosses_per_columns: Union[list[set], list[bitarray]])\
+def extension(description: Union[Iterable[int], bitarray], crosses_per_columns: Union[Sequence[set], Sequence[bitarray]])\
         -> Union[set[int], bitarray]:
     """Select the indices of rows described by `description`"""
     column_type = type(crosses_per_columns[0])
