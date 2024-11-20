@@ -291,10 +291,33 @@ def list_passkeys_via_eqclass(equiv_class: Iterable[fbarray]) -> list[fbarray]:
     return passkeys
 
 
-def iter_keys_of_intent(intent: fbarray, attr_extents: list[fbarray]) -> Iterator[fbarray]:
+def iter_keys_of_intent(intent: fbarray, attr_extents: list[fbarray], support_surplus: int = 0) -> Iterator[fbarray]:
+    """Iterate keys (i.e. minimal descriptions) that describe the same objects as `intent` + `support_surplus` objects
+
+    Parameters
+    ----------
+    intent:
+        The maximal description for some subset of objects, stored in the frozenbitarray format
+    attr_extents:
+        Iterable over extents of attributes.
+        Every extent is a set of objects, described by an attribute and represented with a bitarray.
+    support_surplus:
+        A maximal amount of additional objects that a found key (i.e. minimal description) can describe.
+        That is, if `intent` describes 100 objects and the surplus is set to 10,
+        then a found key should describe the same 100 objects of the intent plus up to 10 some other objects.
+        Set the parameter's value to 0 to find the exact keys
+
+    Returns
+    -------
+    Iterator[frozenbitarray]:
+        An iterator over the minimal descriptions that describe the same objects as the `intent`
+        plus up to `support_surplus` additional objects.
+
+    """
     n_attrs = len(intent)
     single_attrs = list(isets2bas([{attr_idx} for attr_idx in range(n_attrs)], n_attrs))
     extent = extension(intent, attr_extents)
+    support = extent.count()
 
     def subdescriptions(description: fbarray) -> Iterator[fbarray]:
         return (description & ~single_attrs[m_i] for m_i in description.itersearch(True))
@@ -303,7 +326,7 @@ def iter_keys_of_intent(intent: fbarray, attr_extents: list[fbarray]) -> Iterato
     while key_candidates:
         key_candidate = key_candidates.popleft()
         equiv_subdescrs = [descr for descr in subdescriptions(key_candidate)
-                           if extension(descr, attr_extents) == extent]
+                           if extension(descr, attr_extents).count() - support <= support_surplus]
         if not equiv_subdescrs:
             yield key_candidate
             continue
