@@ -126,12 +126,12 @@ def test_list_passkeys_via_keys():
 
 
 def test_iter_keys_of_intent():
-    n_attrs = 5
+    n_objs, n_attrs = 4, 5
     intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]
     intents = list(io.isets2bas(intents, n_attrs))
 
     attr_extents = [{0, 1}, {2, 3}, {0, 2, 3}, {1, 2}, set()]
-    attr_extents = list(io.isets2bas(attr_extents, n_attrs))
+    attr_extents = list(io.isets2bas(attr_extents, n_objs))
 
     keys_true = [
         [set()],  # intent: set()
@@ -149,6 +149,13 @@ def test_iter_keys_of_intent():
     for key_list_true, intent in zip(keys_true, intents):
         key_list = list(mec.iter_keys_of_intent(intent, attr_extents))
         assert set(key_list) == set(key_list_true), f'Problematic intent: {intent}'
+
+    keys = mec.iter_keys_of_intent(intents[1], attr_extents, support_surplus=1)
+    assert set(keys) == set(keys_true[1])
+    keys = mec.iter_keys_of_intent(intents[1], attr_extents, support_surplus=2)
+    assert set(keys) == set(keys_true[0])
+
+
 
 
 def test_iter_keys_of_intent_pretentious():
