@@ -167,7 +167,7 @@ def test_read_write_cxt():
 
 def test_from_fca_repo():
     context_name = 'planets_en'
-    assert (io.from_fca_repo(context_name) == io.from_fca_repo(context_name+'.cxt')).all(None)
+    assert (io.from_fca_repo(context_name)[0] == io.from_fca_repo(context_name+'.cxt')[0]).all(None)
 
     context_df = pd.DataFrame([
         [True, False, False, True, False, False, True],  # X..X..X
@@ -184,8 +184,17 @@ def test_from_fca_repo():
         index=['Merkur', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'],
         columns=['Small', 'Medium', 'Large', 'Near', 'Distant', 'Moon', 'No moon']
     )
+    metadata = {
+        'title': 'Planets',
+        'source': "Anggraini, D. (2011). Analisis Perubahan Kelompok Berdasarkan Perubahan Nilai Jual Pada Bloomberg Market Data dengan Menggunakan Formal Concept Analysis, p. 7",
+        'size': {'objects': 9, 'attributes': 7},
+        'language': 'English',
+        'description': 'size and distance of planets'
+    }
 
-    assert (io.from_fca_repo(context_name) == context_df).all(None)
+    context_loaded, meta_loaded = io.from_fca_repo(context_name)
+    assert (context_loaded == context_df).all(None)
+    assert meta_loaded == metadata
 
 
 def test_to_mermaid_diagram():
