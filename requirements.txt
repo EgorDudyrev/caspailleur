@@ -28,7 +28,7 @@ matplotlib==3.7.1
     # via scikit-mine
 networkx==3.1
     # via scikit-mine
-numpy==1.24.3
+numpy==1.26.4
     # via
     #   caspailleur (pyproject.toml)
     #   contourpy
@@ -40,7 +40,7 @@ packaging==23.1
     # via
     #   deprecation
     #   matplotlib
-pandas==2.0.1
+pandas==2.2.3
     # via scikit-mine
 pillow==9.5.0
     # via matplotlib
@@ -58,6 +58,8 @@ python-dateutil==2.8.2
     #   pandas
 pytz==2023.3
     # via pandas
+pyyaml==6.0.2
+    # via caspailleur (pyproject.toml)
 scikit-learn==1.2.2
     # via scikit-mine
 scikit-mine==1.0.0
