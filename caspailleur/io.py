@@ -562,18 +562,22 @@ def write_cxt(context: ContextType, file: TextIO = None) -> str:
     return file_data
 
 
-def from_fca_repo(context_name: str) -> PandasContextType:
+def from_fca_repo(context_name: str) -> tuple[PandasContextType, dict[str]]:
     """Download a formal context from the (git) repository of contexts.
 
     Go to 'https://fcarepository.org' for more information on the repo.
     """
     import urllib.request
+    import yaml
 
     context_name = context_name + '.cxt' if not context_name.endswith('.cxt') else context_name
 
-    url = f"https://github.com/fcatools/contexts/raw/main/contexts/{context_name}"
-    context_data = urllib.request.urlopen(url).read().decode("utf-8")
-    return read_cxt(context_data)
+    data_url = f"https://github.com/fcatools/contexts/raw/main/contexts/{context_name}"
+    context_data = urllib.request.urlopen(data_url).read().decode("utf-8")
+
+    metadata_url = "https://raw.githubusercontent.com/fcatools/contexts/refs/heads/main/contexts.yaml"
+    metadata = yaml.safe_load(urllib.request.urlopen(metadata_url))[context_name]
+    return read_cxt(context_data), metadata
 
 
 def to_mermaid_diagram(node_labels: list[str], neighbours: list[list[int]]) -> str:
