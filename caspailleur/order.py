@@ -23,7 +23,7 @@ def topological_sorting(elements: list[fbarray], ascending: bool = True) -> tupl
         THe mapping from the original indices to the indices of topologically sorted array.
     """
     ascending = 1 if ascending else -1
-    ars_topsort = sorted(elements, key=lambda el: (el.count() * ascending, tuple(el.itersearch(True))))
+    ars_topsort = sorted(elements, key=lambda el: (el.count() * ascending, tuple(el.search(True))))
 
     el_idx_map = {el: i for i, el in enumerate(ars_topsort)}
     orig_to_topsort_indices_map = [el_idx_map[el] for el in elements]
@@ -44,7 +44,7 @@ def inverse_order(order: List[fbarray]) -> List[fbarray]:
     """Reverse the given order. So that new_order[i][j] = order[j][i]"""
     inversed = [bazeros(len(order[0])) for _ in order]
     for el_i, ordered in enumerate(order):
-        for el_j in ordered.itersearch(True):
+        for el_j in ordered.search(True):
             inversed[el_j][el_i] = True
 
     return [fbarray(ordered) for ordered in inversed]
@@ -67,25 +67,25 @@ def sort_intents_inclusion(intents: List[fbarray], use_tqdm=False, return_transi
 
     attrs_descendants = [bitarray(zero_intents) for _ in range(n_attrs)]
     for intent_i, intent in enumerate(intents):
-        for m in intent.itersearch(True):
+        for m in intent.search(True):
             attrs_descendants[m][intent_i] = True
 
     for intent_i in tqdm(range(n_intents-1, -1, -1), disable=not use_tqdm, desc='Sorting intents'):
         intent = intents[intent_i]
 
         common_descendants = bitarray(~zero_intents)
-        for m in intent.itersearch(True):
+        for m in intent.search(True):
             common_descendants &= attrs_descendants[m]
 
         children = bitarray(zero_intents)
-        for new_m in (all_attrs & ~intent).itersearch(True):
+        for new_m in (all_attrs & ~intent).search(True):
             meet_idx = (common_descendants & attrs_descendants[new_m]).find(True)
             if meet_idx == -1:  # no meet found
                 continue
             children[meet_idx] = True
 
         trans_children = bitarray(zero_intents)
-        for child in children.itersearch(True):
+        for child in children.search(True):
             trans_children |= trans_lattice[child]
         trans_lattice[intent_i] = fbarray(children | trans_children)
         lattice[intent_i] = fbarray(children & ~trans_children)
@@ -101,14 +101,14 @@ def close_transitive_subsumption(subsumption_list: List[fbarray]) -> List[fbarra
     So that in the returned list `trans_subsumption_list`,
     `trans_subsumption_list[i]` contains indices of all intents, smaller that intent with index `i`
     """
-    assert all([max(subsumed.itersearch(True)) < i for i, subsumed in enumerate(subsumption_list) if subsumed.any()]), \
+    assert all([subsumed.index(True, right=True) < i for i, subsumed in enumerate(subsumption_list) if subsumed.any()]), \
         "`subsumption_list` relation should be defined on a list, topologically sorted by descending order." \
         " So all subsumption_list of element `i` should have smaller indices"
 
     trans_subsumption_list = []
     for subsumed in subsumption_list:
         trans_subsumed = bitarray(subsumed)
-        for el_i in subsumed.itersearch(True):
+        for el_i in subsumed.search(True):
             trans_subsumed |= trans_subsumption_list[el_i]
         trans_subsumption_list.append(fbarray(trans_subsumed))
     return trans_subsumption_list
@@ -120,16 +120,15 @@ def open_transitive_subsumption(trans_subsumption_list: List[fbarray]) -> List[f
     So that in the returned list `subsumption_list`,
     `subsumption_list[i]` contains indices of the biggest intents, smaller that intent with index `i`
     """
-    assert all([
-        max(subsumed.itersearch(True)) < i for i, subsumed in enumerate(trans_subsumption_list) if subsumed.any()
-    ]),\
+    assert all([subsumed.index(True, right=True) < i for i, subsumed in enumerate(trans_subsumption_list)
+                if subsumed.any()]), \
         "`trans_subsumption_list` relation should be defined on a list, topologically sorted by descending order." \
         " So all trans_subsumption_list of element `i` should have smaller indices"
 
     subsumption_list = []
     for trans_subsumed in trans_subsumption_list:
         subsumed = bitarray(trans_subsumed)
-        for el_i in list(subsumed.itersearch(True))[::-1]:
+        for el_i in subsumed.search(True, right=True):
             if subsumed[el_i]:
                 subsumed &= ~trans_subsumption_list[el_i]
         subsumption_list.append(fbarray(subsumed))
