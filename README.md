@@ -36,10 +36,18 @@ Let us study the "Famous Animals" dataset from [FCA repository](https://fcarepos
 
 ```python
 import caspailleur as csp
-df = csp.io.from_fca_repo('famous_animals_en')
+df, meta = csp.io.from_fca_repo('famous_animals_en')
 
+print(meta)
 print(df.replace({True: 'X', False: ''}))
 ```
+> {
+> **'title'**: 'Famous Animals',\
+> **'source'**: 'Priss, U. (2006), Formal concept analysis in information science. Ann. Rev. Info. Sci. Tech., 40: 521-543. p.525',\
+> **'size'**: {'objects': 5, 'attributes': 6},\
+> **'language'**: 'English', \
+> **'description'**: 'famous animals and their characteristics' }
+
 |                   | cartoon   | real   | tortoise   | dog   | cat   | mammal   |
 |:------------------|:----------|:-------|:-----------|:------|:------|:---------|
 | Garfield          | X         |        |            |       | X     | X        |
@@ -181,7 +189,7 @@ print('__n. descriptions:__', len(descriptions_df))
 print('__columns:__', ', '.join(descriptions_df.columns))
 print(descriptions_df[['description', 'support', 'is_key']].head(3))
 ```
-> __n. attributes:__ 10 \
+> __n. attributes:__ 6 \
 > __n. descriptions:__ 64
  
 > __columns:__ description, extent, intent, support, delta_stability, is_closed, is_key, is_passkey, is_proper_premise, is_pseudo_intent

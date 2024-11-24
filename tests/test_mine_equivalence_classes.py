@@ -156,8 +156,6 @@ def test_iter_keys_of_intent():
     assert set(keys) == set(keys_true[0])
 
 
-
-
 def test_iter_keys_of_intent_pretentious():
     n_attrs = 5
     intents = [set(), {0}, {2}, {3}, {0, 2}, {0, 3}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3, 4}]

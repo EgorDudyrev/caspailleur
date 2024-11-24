@@ -33,3 +33,7 @@ However, currently, it only fastens up the iteration through the equivalence cla
 The function is called `csp.mine_equivalence_classes.iter_equivalence_class_levelwise(...)`.
 The older and more straightforward iteration procedure is implemented in 
 `csp.mine_equivalence_classes.iter_equivalence_class(...)`.
+
+### New functionality (frontend version)
+Now `caspailleur` also downloads the context's metadata together with the context itself.
+The function name stays the same: `csp.io.from_fca_repo(...)`.
