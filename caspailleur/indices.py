@@ -32,7 +32,7 @@ def delta_stability_by_extents(extents: list[fbarray]) -> Iterator[int]:
 def delta_stability_by_description(
         description: Union[Iterable[int], bitarray], crosses_per_columns: list[fbarray], extent: fbarray = None
 ) -> int:
-    description = set(description.itersearch(True)) if isinstance(description, bitarray) else set(description)
+    description = set(description.search(True)) if isinstance(description, bitarray) else set(description)
 
     extent = extension(description, crosses_per_columns) if extent is None else extent
     out_attrs = [(m_i, m_ext) for m_i, m_ext in enumerate(crosses_per_columns) if m_i not in description]
@@ -115,14 +115,13 @@ def distributivity_index(
 
     n_distr = n_trans_parents
 
-    for intent_idx, intent in tqdm(
-            enumerate(intents), total=len(intents),
-            disable=not use_tqdm, desc='enumerate intents'
-    ):
+    intents_iterator = tqdm(enumerate(intents), total=len(intents), disable=not use_tqdm, desc='enumerate intents')
+    for intent_idx, intent in intents_iterator:
         distr_ancestors = deque([
             (mother, father)
-            for mother in parents[intent_idx].itersearch(True) for father in parents[intent_idx].itersearch(True)
-            if mother < father and intents[mother] | intents[father] == intent
+            for mother in parents[intent_idx].search(True)
+            for father in parents[intent_idx].search(True, mother+1)
+            if intents[mother] | intents[father] == intent
         ])
 
         visited_pairs = set()
@@ -138,11 +137,11 @@ def distributivity_index(
             mother_intent, father_intent = intents[mother], intents[father]
 
             distr_ancestors.extend([
-                (mother, gfather) for gfather in parents[father].itersearch(True)
+                (mother, gfather) for gfather in parents[father].search(True)
                 if mother_intent | intents[gfather] == intent
             ])
             distr_ancestors.extend([
-                (gmother, father) for gmother in parents[mother].itersearch(True)
+                (gmother, father) for gmother in parents[mother].search(True)
                 if intents[gmother] | father_intent == intent
             ])
 

@@ -74,7 +74,7 @@ def bas2isets(bitarrays: Iterable[fbarray]) -> Iterator[FrozenSet[int]]:
     bas2isets([ bitarray('01000'), bitarray('01011') ]) --> [ [0,1], [1,3,4] ]
     """
     for bar in bitarrays:
-        yield frozenset(bar.itersearch(True))
+        yield frozenset(bar.search(True))
 
 
 def to_named_itemsets(data: ContextType) -> NamedItemsetContextType:
@@ -428,7 +428,7 @@ def transpose_context(data: ContextType) -> ContextType:
         n_objs, n_attrs = len(crosses_data), len(crosses_data[0])
         transposed = [bazeros(n_objs) for _ in range(n_attrs)]
         for obj_i, ba in enumerate(crosses_data):
-            for attr_i in ba.itersearch(True):
+            for attr_i in ba.search(True):
                 transposed[attr_i][obj_i] = True
         transposed = list(map(bitarray, transposed))
 
@@ -475,7 +475,7 @@ def identify_supported_context_type(context: ContextType) -> Optional[typing.Typ
 def verbalise(description: Union[bitarray, Iterable[int]], names: list[str]) -> Iterable[str]:
     """Convert every index i (or every True i-th element of a bitarray) into a human-readable string `names[i]`"""
     if isinstance(description, bitarray):
-        return {names[i] for i in description.itersearch(True)}
+        return {names[i] for i in description.search(True)}
 
     if isinstance(description, Generator):
         return (names[i] for i in description)

@@ -49,7 +49,7 @@ def extension(description: Union[Iterable[int], bitarray], crosses_per_columns: 
         -> Union[set[int], bitarray]:
     """Select the indices of rows described by `description`"""
     column_type = type(crosses_per_columns[0])
-    description = description.itersearch(True) if isinstance(description, bitarray) else description
+    description = description.search(True) if isinstance(description, bitarray) else description
 
     total_extent = column_type(maximal_extent(crosses_per_columns))
     extent = reduce(column_type.__and__, (crosses_per_columns[attr_i] for attr_i in description), total_extent)
@@ -89,7 +89,7 @@ def closure(
     """
     result = intention(extension(description, crosses_per_columns), crosses_per_columns)
     if not isinstance(description, bitarray) and isinstance(result, bitarray):
-        return (i for i in result.itersearch(True))
+        return (i for i in result.search(True))  # convert ba.searchiterator into an interator
     return result
 
 
@@ -105,4 +105,4 @@ def isets2bas(itemsets: Iterable[Iterable[int]], length: int) -> Iterator[fbarra
     --------
     isets2bas([ [0, 1], [1,3,4] ], 5) --> [bitarray('01000'), bitarray('01011')]
     """
-    return io.isets2bas(itemsets, )
+    return io.isets2bas(itemsets, length)

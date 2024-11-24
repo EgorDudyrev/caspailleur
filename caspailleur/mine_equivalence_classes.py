@@ -157,7 +157,7 @@ def list_attribute_concepts(intents: list[fbarray]) -> list[int]:
     attr_concepts = [-1] * len(intents[0])
     found_attrs = bazeros(len(intents[0]))
     for intent_i, intent in enumerate(intents):
-        for m in intent.itersearch(True):
+        for m in intent.search(True):
             if attr_concepts[m] == -1:
                 attr_concepts[m] = intent_i
         found_attrs |= intent
@@ -193,7 +193,7 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
 
     total_extent = extension(intent, attribute_extents)
 
-    stack = [[m] for m in intent.itersearch(True)][::-1]
+    stack = [[m] for m in intent.search(True, right=True)]
 
     yield intent
     while stack:
@@ -211,7 +211,7 @@ def iter_equivalence_class(attribute_extents: list[fbarray], intent: fbarray = N
 
         # conj == total_extent
         yield attrs_to_eval
-        stack += [attrs_to_remove+[m] for m in intent.itersearch(True) if m > last_attr][::-1]
+        stack += [attrs_to_remove+[m] for m in intent.search(True, last_attr+1, right=True)]
 
 
 def iter_equivalence_class_levelwise(
@@ -320,7 +320,7 @@ def iter_keys_of_intent(intent: fbarray, attr_extents: list[fbarray], support_su
     support = extent.count()
 
     def subdescriptions(description: fbarray) -> Iterator[fbarray]:
-        return (description & ~single_attrs[m_i] for m_i in description.itersearch(True))
+        return (description & ~single_attrs[m_i] for m_i in description.search(True))
 
     key_candidates = deque([intent])
     while key_candidates:
@@ -385,7 +385,7 @@ def list_keys(intents: list[fbarray], only_passkeys: bool = False) -> dict[fbarr
     n_attrs, n_intents = len(intents[-1]), len(intents)
     attrs_descendants = [bazeros(n_intents) for _ in range(n_attrs)]
     for intent_i, intent in enumerate(intents):
-        for m in intent.itersearch(True):
+        for m in intent.search(True):
             attrs_descendants[m][intent_i] = True
 
     # assuming that every subset of a key is a key => extending not-a-key cannot result in a key
@@ -400,13 +400,13 @@ def list_keys(intents: list[fbarray], only_passkeys: bool = False) -> dict[fbarr
     attrs_to_test = deque([m_ba for m_ba in single_attrs])
     while attrs_to_test:
         attrs = attrs_to_test.popleft()
-        attrs_indices = list(attrs.itersearch(True))
+        attrs_indices = list(attrs.search(True))
 
         if any(attrs & (~single_attrs[m]) not in keys_dict for m in attrs_indices):
             continue
 
         common_descendants = ~bazeros(n_intents)
-        for m in attrs.itersearch(True):
+        for m in attrs.search(True):
             common_descendants &= attrs_descendants[m]
         if not common_descendants.any():
             continue
@@ -464,7 +464,7 @@ def list_keys_for_extents(
     testing_stack = deque(single_attrs)  # iteration order is inspired by Talky-G algorithm
     while testing_stack:
         attrs = testing_stack.pop()
-        attrs_indices = list(attrs.itersearch(True))
+        attrs_indices = list(attrs.search(True))
         sub_descriptions = [attrs & (~single_attrs[m]) for m in attrs_indices]
 
         # check that every subset of attrs is a key
