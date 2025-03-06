@@ -1,5 +1,10 @@
 # Changelog
 
+## Actual GitHub Version
+
+### Fixes
+Fix the bug with mining all implications instead of the stable ones (and vice versa) in `csp.mine_implications`.
+
 ## v0.2.1 
 
 ### Fixes

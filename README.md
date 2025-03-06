@@ -129,18 +129,18 @@ print(implications_df[['premise', 'conclusion', 'support']])
 _<details><summary>Implications table (10 rows)</summary>_
 <p>
 
-|   implication_id | premise                 | conclusion                      |   support |
-|-----------------:|:------------------------|:--------------------------------|----------:|
-|                0 | {cartoon}             | {mammal}                      |         2 |
-|                1 | {tortoise}            | {real}                        |         1 |
-|                2 | {dog}                 | {mammal}                      |         2 |
-|                3 | {cat}                 | {mammal}                      |         2 |
-|                4 | {dog, cat}          | {tortoise, real, cartoon} |         0 |
-|                5 | {tortoise, mammal}  | {dog, cat, cartoon}       |         0 |
-|                6 | {tortoise, cat}     | {dog, cartoon}              |         0 |
-|                7 | {dog, tortoise}     | {cat, cartoon}              |         0 |
-|                8 | {tortoise, cartoon} | {dog, cat}                  |         0 |
-|                9 | {real, cartoon}     | {dog, tortoise, cat}      |         0 |
+|   implication_id | premise             | conclusion                |   support |
+|-----------------:|:--------------------|:--------------------------|----------:|
+|                0 | {cartoon}           | {mammal}                  |         2 |
+|                1 | {tortoise}          | {real}                    |         1 |
+|                2 | {dog}               | {mammal}                  |         2 |
+|                3 | {cat}               | {mammal}                  |         2 |
+|                4 | {cartoon, real}     | {dog, tortoise, cat}      |         0 |
+|                5 | {tortoise, cartoon} | {dog, cat}                |         0 |
+|                6 | {dog, tortoise}     | {cat, cartoon}            |         0 |
+|                7 | {cat, toroise}      | {dog, cartoon}            |         0 |
+|                8 | {tortoise, mammal}  | {dog, cat, cartoon}       |         0 |
+|                9 | {dog, cat}          | {tortoise, cartoon, real} |         0 |
 
 </p></details>
  
