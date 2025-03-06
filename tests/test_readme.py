@@ -78,13 +78,14 @@ def test_mining_implications():
     implications_df = csp.mine_implications(df)
 
     premises_true = [
-        'cartoon', 'tortoise', 'dog', 'cat', 'cat, dog', 'mammal, tortoise', 'cat, tortoise', 'dog, tortoise',
-        'cartoon, tortoise', 'cartoon, real'
+        'cartoon', 'tortoise', 'dog', 'cat',
+        'cartoon, real', 'cartoon, tortoise', 'dog, tortoise', 'cat, tortoise', 'mammal, tortoise', 'cat, dog'
     ]
     assert implications_df['premise'].map(sorted).map(', '.join).tolist() == premises_true
     conclusions_true = [
-        'mammal', 'real', 'mammal', 'mammal', 'cartoon, real, tortoise', 'cartoon, cat, dog', 'cartoon, dog',
-        'cartoon, cat', 'cat, dog', 'cat, dog, tortoise'
+        'mammal', 'real', 'mammal', 'mammal',
+        'cat, dog, tortoise', 'cat, dog',
+        'cartoon, cat', 'cartoon, dog', 'cartoon, cat, dog', 'cartoon, real, tortoise'
     ]
     assert implications_df['conclusion'].map(sorted).map(', '.join).tolist() == conclusions_true
     supports_true = [2, 1, 2, 2, 0, 0, 0, 0, 0, 0]

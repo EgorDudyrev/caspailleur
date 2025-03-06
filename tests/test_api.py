@@ -87,6 +87,7 @@ def test_mine_concepts():
 
 
 def test_mine_implications():
+    """
     data = {'g1': ['a', 'b'], 'g2': ['b', 'c']}
 
     impls_df_true = pd.DataFrame({
@@ -126,3 +127,62 @@ def test_mine_implications():
     assert_df_equality(impls_df, impls_df_true_unit[['premise', 'conclusion', 'extent']])
 
     # TODO: Add refined tests for implication (and especially unit) base
+    """
+    # Recreate NewZealand context from FCA context repository
+    data = {
+        'Stewart Island': ['Hiking', 'Observing Nature', 'Sightseeing Flights'],
+        'Te Anau': ['Hiking', 'Observing Nature', 'Sightseeing Flights', 'Jet Boating'],
+        'Oamaru': ['Hiking', 'Observing Nature'],
+        'Queenstown': ['Hiking', 'Sightseeing Flights', 'Jet Boating', 'Wildwater Rafting']
+    }
+    for original_object, duplicates in {
+        'Stewart Island': ['Fjordland NP', 'Invercargill', 'Milford Sound', 'MT. Aspiring NP', 'Dunedin'],
+        'Oamaru': ['Otago Peninsula', 'Haast', 'Catlins'],
+        'Queenstown': ['Wanaka']
+    }.items():
+        for duplicate in duplicates:
+            data[duplicate] = data[original_object]
+
+    # Test (stable) proper premises on NewZealand data
+    impls_df_true = pd.DataFrame({
+        'premise': [set(), {'Jet Boating'}, {'Wildwater Rafting'}],
+        'conclusion': [{'Hiking'}, {'Sightseeing Flights'}, {'Jet Boating', 'Sightseeing Flights'}],
+        'conclusion_full': [{'Hiking'}, {'Jet Boating', 'Hiking', 'Sightseeing Flights'},
+                            {'Wildwater Rafting', 'Jet Boating', 'Hiking', 'Sightseeing Flights'}],
+        'extent': [{
+            'Stewart Island', 'Te Anau', 'Oamaru', 'Queenstown', 'Fjordland NP',
+            'Invercargill', 'Milford Sound', 'MT. Aspiring NP', 'Dunedin', 'Otago Peninsula',
+            'Haast', 'Catlins', 'Wanaka'},
+            {'Queenstown', 'Wanaka', 'Te Anau'},
+            {'Queenstown', 'Wanaka'}
+        ]
+    })
+    impls_df = api.mine_implications(data, 'Proper Premise',
+                                     to_compute=['premise', 'conclusion', 'conclusion_full', 'extent'])
+    assert_df_equality(impls_df, impls_df_true)
+
+    impls_df = api.mine_implications(data, 'Proper Premise', min_delta_stability=2,
+                                     to_compute=['premise', 'conclusion', 'conclusion_full', 'extent'])
+    assert_df_equality(impls_df, impls_df_true.iloc[[0, 2]].reset_index(drop=True))
+
+    # Test (stable) pseudo-intents on NewZealand data
+    impls_df_true = pd.DataFrame({
+        'premise': [set(), {'Hiking', 'Wildwater Rafting'}, {'Hiking', "Jet Boating"}],
+        'conclusion': [{'Hiking'}, {'Jet Boating', 'Sightseeing Flights'}, {'Sightseeing Flights'}],
+        'conclusion_full': [{'Hiking'}, {'Wildwater Rafting', 'Jet Boating', 'Hiking', 'Sightseeing Flights'},
+                            {'Jet Boating', 'Hiking', 'Sightseeing Flights'}],
+        'extent': [{
+            'Stewart Island', 'Te Anau', 'Oamaru', 'Queenstown', 'Fjordland NP',
+            'Invercargill', 'Milford Sound', 'MT. Aspiring NP', 'Dunedin', 'Otago Peninsula',
+            'Haast', 'Catlins', 'Wanaka'},
+            {'Queenstown', 'Wanaka'},
+            {'Queenstown', 'Wanaka', 'Te Anau'},
+        ]
+    })
+    impls_df = api.mine_implications(data, 'Pseudo-Intent',
+                                     to_compute=['premise', 'conclusion', 'conclusion_full', 'extent'])
+    assert_df_equality(impls_df, impls_df_true)
+
+    impls_df = api.mine_implications(data, 'Pseudo-Intent', min_delta_stability=2,
+                                     to_compute=['premise', 'conclusion', 'conclusion_full', 'extent'])
+    assert_df_equality(impls_df, impls_df_true.iloc[[0, 1]].reset_index(drop=True))

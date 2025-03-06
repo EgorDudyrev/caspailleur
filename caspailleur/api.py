@@ -517,8 +517,10 @@ def mine_implications(
     compute_only_stable_concepts = min_delta_stability != 0 or n_stable_concepts is not None
 
     extents_ba, int_ext_map = None, None
-    if compute_only_stable_concepts:
+
+    if not compute_only_stable_concepts:
         intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
+        intents_ba = topological_sorting(intents_ba)[0]
         keys_ba = mec.list_keys(intents_ba)
     else:  # min_delta_stability > 0, so searching for only some stable concepts
         stable_extents = list(mec.list_stable_extents_via_gsofia(
@@ -569,10 +571,9 @@ def mine_implications(
             column_conclusion = [list(conclusion)[0] for conclusion in column_conclusion]
     if 'conclusion_full' in to_compute:
         column_conclusion_full = verbalise_descriptions(map(intents_ba.__getitem__, intents_idxs))
-    if "extent" in to_compute:
-        if compute_only_stable_concepts:  # otherwise, extents are already computed
-            extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
-            int_ext_map = dict(zip(intents_ba, extents_ba))
+    if "extent" in to_compute and extents_ba is None:
+        extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
+        int_ext_map = dict(zip(intents_ba, extents_ba))
     if "extent" in cols_to_return:
         column_extent = [verbalise(int_ext_map[intents_ba[intent_i]], objects) for intent_i in intents_idxs]
     if "support" in cols_to_return:
