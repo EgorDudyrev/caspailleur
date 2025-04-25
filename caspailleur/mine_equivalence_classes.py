@@ -940,8 +940,6 @@ def iter_minimal_broad_clusterings_via_pyramidal_search(
     -------
     minimal_broad_clusterings:
         Minimal broad clusterings found by the algorithm.
-        The clusterings are placed in the order of increasing sizes:
-        the first clustering contains the fewer attributes, the latter contains the maximal number of attributes.
 
     """
     n_objs, n_attrs = len(clusters_extents[0]), len(clusters_extents)
