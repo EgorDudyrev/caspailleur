@@ -887,3 +887,101 @@ def iter_minimal_broad_clusterings_via_mrgexp(
                 continue
 
             cur_level_gens[new_generator] = new_coverage
+
+
+def iter_minimal_broad_clusterings_via_pyramidal_search(
+        clusters_extents: list[fbarray], min_coverage: int,
+        max_length: int = None,
+        min_added_coverage: int = 1,
+        max_overlap: Union[int, float] = 1.
+) -> Iterator[fbarray]:
+    """Iterate minimal broad clusterings by prioritising the first provided clusters
+
+    WARNING: This is the alpha version of the function.
+    It can be renamed/replaced/refactored at the release.
+
+    A minimal broad clustering is a minimal subset of attributes
+    that, together, cover more than (or equal to) `min_coverage` objects.
+    Minimality here means that any subset of a minimal broad clustering describes less than `min_coverage` objects.
+
+    Coverage of a clustering is the number of objects lying in the union of all the clusters
+    (here 'a cluster' is a synonym of 'an attribute').
+
+    The algorithm traverses the space of all possible clusterings in a "pyramidal" way
+    that combines both depth-first and breadth-first graph traversals
+    (we fill find a better suiting name for this traversal later).
+
+    This ensures two properties:
+    1. Every outputted clustering is a minimal broad clustering: i.e. its every subclustering does not cover enough objects;
+    2. The output-priority is given to the clusterings built on top of the first clusters:
+    e.g. among two minimal broad clusterings X={1,2,3,4} and Y={5}, clustering X will be outputted before clustering Y,
+     as all indices of clusters from X are below the indices of clusters from Y.
+    This also means, that the clusters with high indices will be considered the very last.
+
+    Parameters
+    ----------
+    clusters_extents:
+        Sequence of extents for every cluster.
+        Every extent is a set of objects contained in cluster and represented with a bitarray.
+    min_coverage:
+        Minimal number of objects that should be covered by all the clusters (attributes) together
+    max_length:
+        Maximum size of a clustering.
+        Default value: the number of attributes: len(attribute_extents).
+    min_added_coverage:
+        Minimal number of objects that a cluster (i.e. an attribute) should bring to a clustering.
+        For example, for a clustering {a, b, c}, its every subset ({a,b}, {a, c}, {b, c}) should cover
+        less than `coverage({a,b,c}) - min_added_coverage` objects.
+    max_overlap:
+        Maximal size of the intersection between two clusters.
+        Can be provided both as an absolute number or as a percentage of objects from the dataset .
+
+    Returns
+    -------
+    minimal_broad_clusterings:
+        Minimal broad clusterings found by the algorithm.
+        The clusterings are placed in the order of increasing sizes:
+        the first clustering contains the fewer attributes, the latter contains the maximal number of attributes.
+
+    """
+    n_objs, n_attrs = len(clusters_extents[0]), len(clusters_extents)
+    max_length = n_attrs if max_length is None else max_length
+    max_overlap = int(max_overlap * n_objs) if isinstance(max_overlap, float) else max_overlap
+
+    empty_extent = clusters_extents[0] & ~clusters_extents[0]
+
+    nonoverlappings = {tuple(): 0}  # nonoverlapping clustering => number of covered objects
+    queue = deque([(i,) for i in range(n_attrs)])
+    while queue:
+        candidate = queue.popleft()
+        subcandidates = [candidate[:i]+candidate[i+1:] for i in range(len(candidate))]
+        if any(subcandidate not in nonoverlappings for subcandidate in subcandidates):
+            continue
+
+        last_added = candidate[-1]  # the same as min(candidate)
+        for i in candidate[-1:]:
+            if (clusters_extents[i] & clusters_extents[last_added]).count() > max_overlap:
+                continue
+
+        extent = reduce(bitarray.__or__, [clusters_extents[i] for i in subcandidates], empty_extent)
+        coverage = extent.count()
+        if any(nonoverlappings[subcandidate] + min_added_coverage < coverage for subcandidate in subcandidates):
+            continue
+
+        if extent.count() >= min_coverage:
+            candidate_ba = bazeros(n_attrs)
+            for i in candidate:
+                candidate_ba[i] = True
+            yield fbarray(candidate_ba)
+            continue
+
+        if len(candidate) >= max_length:
+            continue
+
+        nonoverlappings[candidate] = coverage
+
+        nexts: list[tuple[int, ...]] = [
+            candidate + (i,) for i in range(last_added)
+            if candidate[1:]+(i,) in nonoverlappings  # small preliminary check to omit definitely false candidates
+        ]
+        queue.extendleft(reversed(nexts))
