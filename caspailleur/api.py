@@ -20,7 +20,7 @@ from . import definitions
 from . import mine_equivalence_classes as mec, implication_bases as ibases
 
 
-MINE_DESCRIPTION_COLUMN = Literal[
+MINE_DESCRIPTIONS_COLUMN = Literal[
     "description", "extent", "intent",
     "support", "delta_stability",
     "is_closed", "is_key", "is_passkey", "is_proper_premise", "is_pseudo_intent"
@@ -70,7 +70,7 @@ def _setup_colnames_to_compute(
 
 def iter_descriptions(
         data: ContextType,
-        to_compute: Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']] = 'all'
+        to_compute: Union[list[MINE_DESCRIPTIONS_COLUMN], Literal['all']] = 'all'
 ) -> Iterator[dict]:
     """Iterate all possible descriptions in the data one by one
 
@@ -80,9 +80,9 @@ def iter_descriptions(
         Data in a format, supported by Caspailleur.io module.
         For example, Pandas DataFrame with binary values,
         or list of lists of strings (where every list of strings represents an itemset).
-    to_compute: list[MINE_DESCRIPTION_COLUMN] or 'all'
+    to_compute: list[MINE_DESCRIPTIONS_COLUMN] or 'all'
         A list of characteristics to compute (by default: "all")
-        The list of all possible characteristics is defined in caspailleur.MINE_DESCRIPTION_COLUMN value.
+        The list of all possible characteristics is defined in caspailleur.api.MINE_DESCRIPTIONS_COLUMN value.
 
     Returns
     -------
@@ -100,11 +100,11 @@ def iter_descriptions(
     """
     bitarrays, objects, attributes = to_named_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
-    to_compute, cols_to_return = _setup_colnames_to_compute(MINE_DESCRIPTION_COLUMN, to_compute, {}, True)
+    to_compute, cols_to_return = _setup_colnames_to_compute(MINE_DESCRIPTIONS_COLUMN, to_compute, {}, True)
 
     sub_pseudo_intents = []
 
-    def get_vals_for_column(column_name: MINE_DESCRIPTION_COLUMN):
+    def get_vals_for_column(column_name: MINE_DESCRIPTIONS_COLUMN):
         if column_name == 'description':
             return set(verbalise(description_idxs, attributes))
         if column_name == 'extent':
@@ -139,7 +139,7 @@ def iter_descriptions(
 def mine_descriptions(
         data: ContextType,
         min_support: Union[int, float] = 0,
-        to_compute: Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']] = 'all',
+        to_compute: Union[list[MINE_DESCRIPTIONS_COLUMN], Literal['all']] = 'all',
         return_every_computed_column: bool = False
 ) -> pd.DataFrame:
     """Mine all frequent descriptions and their characteristics
@@ -156,9 +156,9 @@ def mine_descriptions(
     min_support: int or float
         Minimal value of the support for a description, i.e. how many objects it describes.
         Can be defined by an integer (so the number of objects) or by a float (so the percentage of objects).
-    to_compute: list[MINE_DESCRIPTION_COLUMN] or 'all'
+    to_compute: list[MINE_DESCRIPTIONS_COLUMN] or 'all'
         A list of characteristics to compute (by default: "all")
-        The list of all possible characteristics is defined in caspailleur.MINE_DESCRIPTION_COLUMN value.
+        The list of all possible characteristics is defined in caspailleur.api.MINE_DESCRIPTIONS_COLUMN value.
     return_every_computed_column: bool
         A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
         For example, the computation of column 'is_proper_premise' requires the computation of column 'is_key'.
@@ -183,7 +183,7 @@ def mine_descriptions(
     ####################################################
     # Computing what columns and parameters to compute #
     ####################################################
-    col_dependencies: dict[MINE_DESCRIPTION_COLUMN, set[MINE_DESCRIPTION_COLUMN]] = {
+    col_dependencies: dict[MINE_DESCRIPTIONS_COLUMN, set[MINE_DESCRIPTIONS_COLUMN]] = {
         'is_pseudo_intent': {'is_proper_premise', 'intent'},
         'is_proper_premise': {'intent', 'is_key'},
         'is_key': {'intent'},
@@ -195,7 +195,7 @@ def mine_descriptions(
         'intent': {'extent'},
     }
     to_compute, cols_to_return = _setup_colnames_to_compute(
-        MINE_DESCRIPTION_COLUMN, to_compute, col_dependencies, return_every_computed_column)
+        MINE_DESCRIPTIONS_COLUMN, to_compute, col_dependencies, return_every_computed_column)
 
     ################################
     # Compute the required columns #
@@ -265,7 +265,7 @@ def mine_concepts(
         or list of lists of integers (where every list of integers represents an itemset).
     to_compute: list[MINE_CONCEPT_COLUMN] or 'all'
         A list of characteristics to compute (by default, compute 'all' possible columns)
-        The list of all possible characteristics is defined in caspailleur.MINE_CONCEPT_COLUMN value.
+        The list of all possible characteristics is defined in caspailleur.api.MINE_CONCEPTS_COLUMN value.
     return_every_computed_column: bool
         A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
         For example, the computation of column 'is_proper_premise' requires the computation of column 'is_key'.
@@ -426,7 +426,7 @@ def mine_implications(
         See the Notes section below for more examples.
     to_compute: list[MINE_IMPLICATIONS_COLUMN] or 'all'
         A list of characteristics to compute (by default, compute 'all')
-        The list of all possible characteristics is defined in caspailleur.MINE_IMPLICATION_COLUMN value.
+        The list of all possible characteristics is defined in caspailleur.api.MINE_IMPLICATIONS_COLUMN value.
     return_every_computed_column: bool
         A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
         For example, the computation of column 'support' requires the computation of column 'extent'.
