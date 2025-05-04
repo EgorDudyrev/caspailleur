@@ -326,9 +326,9 @@ def mine_concepts(
     #################################
     # Running the (long) computations
     #################################
-    bitarrays, objects, attributes = to_named_bitarrays(data)
-    attr_extents = transpose_context(bitarrays)
-    bitarrays, attr_extents = list(map(fbarray, bitarrays)), list(map(fbarray, attr_extents))
+    itemsets_ba, objects, attributes = to_named_bitarrays(data)
+    attr_extents = transpose_context(itemsets_ba)
+    itemsets_ba, attr_extents = list(map(fbarray, itemsets_ba)), list(map(fbarray, attr_extents))
 
     def verbalise_descriptions(bas):
         return [verbalise(ba, attributes) for ba in bas]
@@ -339,59 +339,84 @@ def mine_concepts(
             per_concept[cncpt_i].append(ba)
         return per_concept
 
-    if 'intent' in to_compute:
-        if compute_only_stable_concepts:
-            n_objects = len(objects)
+    def compute_intents(
+            attr_extents_, itemsets_ba_,
+            min_support_, compute_only_stable_concepts_, min_delta_stability_, n_stable_concepts_
+    ):
+        if compute_only_stable_concepts_:
+            n_objects = len(attr_extents_[0])
             stable_extents = mec.list_stable_extents_via_gsofia(
-                attr_extents, n_objects, min_delta_stability, n_stable_concepts,
-                min_supp=to_absolute_number(min_support, n_objects), n_attributes=len(attr_extents)
+                attr_extents_, n_objects, min_delta_stability_, n_stable_concepts_,
+                min_supp=to_absolute_number(min_support_, n_objects), n_attributes=len(attr_extents_)
             )
-            intents_ba = [intention(extent, attr_extents) for extent in stable_extents]
+            intents_ba = [intention(extent, attr_extents_) for extent in stable_extents]
         else:
-            intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
-
+            intents_ba = mec.list_intents_via_LCM(itemsets_ba_, min_supp=min_support_)
         intents_ba = topological_sorting(intents_ba)[0]
         n_concepts = len(intents_ba)
-        column_intent = verbalise_descriptions(intents_ba)
-    if 'extent' in to_compute:
-        extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
-        column_extent = [verbalise(extent, objects) for extent in extents_ba]
-    if 'keys' in to_compute:
-        if compute_only_stable_concepts:
-            keys_ba = mec.list_keys_for_extents(extents_ba, attr_extents)
-        else:
-            keys_ba = mec.list_keys(intents_ba)
+        return intents_ba, n_concepts
 
-        column_keys = [verbalise_descriptions(keys) for keys in group_by_concept(keys_ba.items(), n_concepts)]
-    if 'passkeys' in to_compute:
-        if compute_only_stable_concepts:
-            passkeys_ba = mec.list_passkeys_for_extents(extents_ba, attr_extents)
-        else:
-            passkeys_ba = mec.list_passkeys(intents_ba)
-        column_passkeys = [verbalise_descriptions(pkeys) for pkeys in group_by_concept(passkeys_ba.items(), n_concepts)]
-    if 'proper_premises' in to_compute:
-        ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
-        column_proper_premises = [verbalise_descriptions(pps) for pps in group_by_concept(ppremises_ba.items(), n_concepts)]
+    def compute_extents(intents_ba_, attr_extents_):
+        return [fbarray(extension(intent, attr_extents_)) for intent in intents_ba_]
+
+    def compute_keys(extents_ba_, intents_ba_, attr_extents_, compute_only_stable_concepts_):
+        if compute_only_stable_concepts_:
+            return mec.list_keys_for_extents(extents_ba_, attr_extents_)
+        return mec.list_keys(intents_ba_)
+
+    def compute_passkeys(extents_ba_, intents_ba_, attr_extents_, compute_only_stable_concepts_):
+        if compute_only_stable_concepts_:
+            return mec.list_passkeys_for_extents(extents_ba_, attr_extents_)
+        return mec.list_passkeys(intents_ba_)
+
+    intents_ba, n_concepts = None, None
+    if 'intent' in to_compute:
+        intents_ba, n_concepts = compute_intents(
+            attr_extents, itemsets_ba,
+            min_support, compute_only_stable_concepts, min_delta_stability, n_stable_concepts
+        )
+    extents_ba = compute_extents(intents_ba, attr_extents) if 'extent' in to_compute else None
+    keys_ba = compute_keys(extents_ba, intents_ba, attr_extents, compute_only_stable_concepts) if 'keys' in to_compute else None
+    passkeys_ba = compute_passkeys(extents_ba, intents_ba, attr_extents, compute_only_stable_concepts) if 'passkeys' in to_compute else None
+    proper_premises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba)) if 'proper_premises' in to_compute else None
+    pseudo_intents_ba = None
     if 'pseudo_intents' in to_compute:
-        pintents_ba = dict(ibases.list_pseudo_intents_via_keys(
-            ppremises_ba.items(), intents_ba, use_tqdm=use_tqdm, n_keys=len(ppremises_ba)))
-        column_pseudo_intents = [verbalise_descriptions(pis) for pis in group_by_concept(pintents_ba.items(), n_concepts)]
-    if 'support' in to_compute:
+        pseudo_intents_ba = dict(ibases.list_pseudo_intents_via_keys(
+            proper_premises_ba.items(), intents_ba, use_tqdm=use_tqdm, n_keys=len(proper_premises_ba)))
+
+    # Columns for order on concepts
+    previous_concepts, sub_concepts = None, None
+    if 'previous_concepts' in to_compute:
+        previous_concepts, sub_concepts = sort_intents_inclusion(intents_ba, return_transitive_order=True)
+    next_concepts = inverse_order(previous_concepts) if 'next_concepts' in to_compute else None
+    super_concepts = inverse_order(sub_concepts) if 'super_concepts' in to_compute else None
+
+    ###################################
+    # Verbalise the columns to return #
+    ###################################
+    if 'intent' in cols_to_return:
+        column_intent = verbalise_descriptions(intents_ba)
+    if 'extent' in cols_to_return:
+        column_extent = [verbalise(extent, objects) for extent in extents_ba]
+    if 'keys' in cols_to_return:
+        column_keys = [verbalise_descriptions(keys) for keys in group_by_concept(keys_ba.items(), n_concepts)]
+    if 'passkeys' in cols_to_return:
+        column_passkeys = [verbalise_descriptions(pkeys) for pkeys in group_by_concept(passkeys_ba.items(), n_concepts)]
+    if 'proper_premises' in cols_to_return:
+        column_proper_premises = [verbalise_descriptions(pps) for pps in
+                                  group_by_concept(proper_premises_ba.items(), n_concepts)]
+    if 'pseudo_intents' in cols_to_return:
+        column_pseudo_intents = [verbalise_descriptions(pis) for pis in
+                                 group_by_concept(pseudo_intents_ba.items(), n_concepts)]
+    if 'support' in cols_to_return:
         column_support = [extent.count() for extent in extents_ba]
-    if 'delta_stability' in to_compute:
+    if 'delta_stability' in cols_to_return:
         column_delta_stability = [idxs.delta_stability_by_description(descr, attr_extents, extent_ba)
                                   for descr, extent_ba in zip(intents_ba, extents_ba)]
 
-    # Columns for order on concepts
-    if 'previous_concepts' in to_compute:
-        previous_concepts, sub_concepts = sort_intents_inclusion(intents_ba, return_transitive_order=True)
-    if 'next_concepts' in to_compute:
-        next_concepts = inverse_order(previous_concepts)
-    if 'super_concepts' in to_compute:
-        super_concepts = inverse_order(sub_concepts)
     for colname in ['super_concepts', 'sub_concepts', 'next_concepts', 'previous_concepts']:
         if colname in cols_to_return:
-            locals()[f"column_{colname}"] = [set(ba.search(True)) for ba in locals()[f"{colname}"]]
+            locals()[f"column_{colname}"] = [set(ba.search(True)) for ba in locals()[colname]]
 
     locals_ = locals()
     return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('concept_id')
