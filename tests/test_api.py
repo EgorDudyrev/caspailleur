@@ -197,5 +197,7 @@ def test_mine_implications():
         {2, 4}, {4}, {1}, {0, 2}, {1, 4}, {1, 3, 4}, {3, 4}, {0, 1, 2, 3, 4}, {0}, {0, 2, 3},
         {0, 1, 2, 4}, {0, 4}
     ]
-    impls_df = api.mine_implications(itemsets, 'Proper Premise', to_compute=['conclusion'])
+    impls_df = api.mine_implications(itemsets, 'Proper Premise', to_compute=['conclusion', 'support', 'delta_stability'])
     assert (impls_df['conclusion'].map(len) > 0).all()
+    assert list(impls_df['support']) == [2, 2, 2, 1]
+    assert list(impls_df['delta_stability']) == [1, 1, 1, 1]

@@ -33,7 +33,7 @@ MINE_CONCEPTS_COLUMN = Literal[
 ]
 
 MINE_IMPLICATIONS_COLUMN = Literal[
-    "premise", "conclusion", "conclusion_full", "extent", "support"
+    "premise", "conclusion", "conclusion_full", "extent", "support", "delta_stability"
 ]
 
 BASIS_NAME = Literal[
@@ -525,6 +525,7 @@ def mine_implications(
 
     dependencies = {
         "support": {'extent'},
+        "delta_stability": {'extent'}
     }
 
     to_compute, cols_to_return = _setup_colnames_to_compute(
@@ -601,6 +602,11 @@ def mine_implications(
         column_extent = [verbalise(int_ext_map[intents_ba[intent_i]], objects) for intent_i in intents_idxs]
     if "support" in cols_to_return:
         column_support = [int_ext_map[intents_ba[intent_i]].count() for intent_i in intents_idxs]
+    if 'delta_stability' in cols_to_return:
+        column_delta_stability = [
+            idxs.delta_stability_by_description(intents_ba[intent_i], attr_extents, int_ext_map[intents_ba[intent_i]])
+            for intent_i in intents_idxs
+        ]
 
     locals_ = locals()
     return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('implication_id')
