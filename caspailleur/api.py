@@ -249,7 +249,10 @@ def mine_descriptions(
 
 def mine_concepts(
         data: ContextType,
-        to_compute: Union[list[MINE_CONCEPTS_COLUMN], Literal['all']] = 'all',
+        to_compute: Union[list[MINE_CONCEPTS_COLUMN], Literal['all']] = (
+                "extent", "intent", "support", "delta_stability", "keys", "passkeys",
+                "previous_concepts", "next_concepts", "sub_concepts",  "super_concepts",
+        ),
         return_every_computed_column: bool = False,
         min_support: Union[int, float] = 0,
         min_delta_stability: Union[int, float] = 0, n_stable_concepts: Optional[int] = None,
@@ -264,7 +267,8 @@ def mine_concepts(
         For example, Pandas DataFrame with binary values,
         or list of lists of integers (where every list of integers represents an itemset).
     to_compute: list[MINE_CONCEPT_COLUMN] or 'all'
-        A list of characteristics to compute (by default, compute 'all' possible columns)
+        A list of characteristics to compute
+        (by default, compute 'all' possible columns except for 'proper_premises' and 'pseudo_intents')
         The list of all possible characteristics is defined in caspailleur.api.MINE_CONCEPTS_COLUMN value.
     return_every_computed_column: bool
         A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
