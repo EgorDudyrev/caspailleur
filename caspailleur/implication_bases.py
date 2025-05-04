@@ -1,3 +1,4 @@
+from functools import reduce
 from typing import List, Dict, Tuple, Iterator, Iterable
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import subset
@@ -100,6 +101,44 @@ def saturate(
         if subset(premise, new_closure):
             new_closure |= intents[intent_i]
     return fbarray(new_closure)
+
+
+def subset_saturate(premise: bitarray, implications: list[tuple[bitarray, int]], intents: list[bitarray]) -> bitarray:
+    """Extend `premise` with attributes implied by its sub-premises
+
+    Parameters
+    ----------
+    premise: frozenbitarray
+        bitarray to saturate with `implications` and `intents`
+    implications:
+        List of implications to saturate with. Each implication is a pair of a bitarray and an intent index.
+        Intent serves as the conclusion of each implication.
+    intents: list[frozenbitarray]
+        List of intents
+
+    Returns
+    -------
+    saturated_premise: frozenbitarray
+        `Premise` saturated with implications and intents
+
+
+    Examples
+    --------
+    >>> intents = [ bitarray('0000'), bitarray('0101'), bitarray('1111') ]
+    >>> implications = [ (bitarray('0100'), 1),  (bitarray('0001'), 2) ]
+    >>> subset_saturate(bitarray('0110'), implications, intents )
+    bitarray('0111')
+
+    Premise '0110' is a superset of one implication: '0100' -> '0101' (i.e. intents[1]).
+    So the subset-saturated premise would be '0110' | '0101' == '0111'.
+
+    The new subset-saturated premise also implied intent[2] == '1111'.  But we do not apply this intent,
+    since the condition for this intent '0001' is not a subset of the original premise '0110'.
+    If you  want the second implication to be applied, use `saturate` function.
+    """
+    implied_intents = (intents[sub_int_i] for sub_prem, sub_int_i in implications
+                       if sub_prem & premise == sub_prem and sub_prem != premise)
+    return reduce(bitarray.__or__, implied_intents, premise)
 
 
 def verify_proper_premise_via_keys(

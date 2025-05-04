@@ -186,3 +186,16 @@ def test_mine_implications():
     impls_df = api.mine_implications(data, 'Pseudo-Intent', min_delta_stability=2,
                                      to_compute=['premise', 'conclusion', 'conclusion_full', 'extent'])
     assert_df_equality(impls_df, impls_df_true.iloc[[0, 1]].reset_index(drop=True))
+
+    # Test for fixing the bug I have faced in "https://mdaquin.github.io/d/recipes_ing.csv" dataset.
+    # (the dataset got updated during the fix of the bug)
+    # 'Conclusion' column was computed based using pseudo-intents.
+    # Because of that, some conclusions of Proper-Premise basis were empty.
+    # Now, conclusions of implications are computed with
+    itemsets = [
+        {2, 3, 4}, {1, 2, 3}, {2}, {2, 3}, {1, 3}, set(), {1, 2, 4}, {3}, {1, 2}, {1, 2, 3, 4},
+        {2, 4}, {4}, {1}, {0, 2}, {1, 4}, {1, 3, 4}, {3, 4}, {0, 1, 2, 3, 4}, {0}, {0, 2, 3},
+        {0, 1, 2, 4}, {0, 4}
+    ]
+    impls_df = api.mine_implications(itemsets, 'Proper Premise', to_compute=['conclusion'])
+    assert (impls_df['conclusion'].map(len) > 0).all()

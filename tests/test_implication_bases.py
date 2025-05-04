@@ -1,6 +1,7 @@
 from caspailleur import implication_bases as impbas
 from caspailleur import mine_equivalence_classes as mec
 from caspailleur import io
+from bitarray import frozenbitarray as fbarray
 
 
 def test_list_proper_premises_via_keys():
@@ -30,3 +31,13 @@ def test_list_pseudo_intents_via_keys():
 
     pintents = impbas.list_pseudo_intents_via_keys(keys_intent_map.items(), intents)
     assert {pintent for pintent, _ in pintents} == set(pintents_true)
+
+
+def test_subset_saturate():
+    intents = [fbarray('0000'), fbarray('0101'), fbarray('1111')]
+    implications = [(fbarray('0100'), 1), (fbarray('0001'), 2)]
+    saturated = impbas.subset_saturate(fbarray('0110'), implications, intents)
+    assert saturated == fbarray('0111')
+
+    saturated = impbas.subset_saturate(fbarray('0101'), implications, intents)
+    assert saturated == fbarray('1111')

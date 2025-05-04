@@ -542,12 +542,10 @@ def mine_implications(
 
     # compute pseudo-closures to reduce the conclusions by attributes implied by other implications
     if 'conclusion' in to_compute:
-        pseudo_closures = [
-            ibases.saturate(premise, [impl for impl in basis[:impl_i] if impl[1] < intent_i], intents_ba)
-            for impl_i, (premise, intent_i) in enumerate(basis)
-        ]
-        basis = [(premise, intents_ba[intent_i] & ~pintent, intent_i)
-                 for (premise, intent_i), pintent in zip(basis, pseudo_closures)]
+        subset_implied = [ibases.subset_saturate(premise, basis[:premise_i], intents_ba)
+                          for premise_i, (premise, _) in enumerate(basis)]
+        basis = [(premise, intents_ba[intent_i] & ~implied, intent_i)
+                 for (premise, intent_i), implied in zip(basis, subset_implied)]
     else:
         basis = [(premise, None, intent_i) for premise, intent_i in basis]
 
