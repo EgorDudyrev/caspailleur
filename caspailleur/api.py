@@ -8,6 +8,7 @@ The proposed functions are:
 * mine_concepts(data) to get all the concepts (and their characteristics) in the data
 * mine_implications(data, basis_name) to get a basis of implications for the data
 """
+from functools import reduce
 from typing import Iterator, Iterable, Literal, Union, Optional, get_args, Type
 import pandas as pd
 from bitarray import frozenbitarray as fbarray
@@ -27,7 +28,8 @@ MINE_DESCRIPTIONS_COLUMN = Literal[
 ]
 
 MINE_CONCEPTS_COLUMN = Literal[
-    "extent", "intent", "support", "delta_stability",
+    "extent", "intent", "new_extent", "new_intent",
+    "support", "delta_stability",
     "keys", "passkeys", "proper_premises", "pseudo_intents",
     "previous_concepts", "next_concepts", "sub_concepts",  "super_concepts",
 ]
@@ -250,7 +252,7 @@ def mine_descriptions(
 def mine_concepts(
         data: ContextType,
         to_compute: Union[list[MINE_CONCEPTS_COLUMN], Literal['all']] = (
-                "extent", "intent", "support", "delta_stability", "keys", "passkeys",
+                "extent", "intent", "new_extent", "new_intent", "support", "delta_stability", "keys", "passkeys",
                 "previous_concepts", "next_concepts", "sub_concepts",  "super_concepts",
         ),
         return_every_computed_column: bool = False,
@@ -331,6 +333,8 @@ def mine_concepts(
         'sub_concepts': {'previous_concepts'},
         'next_concepts': {'previous_concepts'},
         'previous_concepts': {'intent'},
+        'new_intent': {'intent', 'next_concepts'},
+        'new_extent': {'extent', 'previous_concepts'}
     }
     to_compute, cols_to_return = _setup_colnames_to_compute(
         MINE_CONCEPTS_COLUMN, to_compute, col_dependencies, return_every_computed_column)
@@ -381,6 +385,16 @@ def mine_concepts(
             return mec.list_passkeys_for_extents(extents_ba_, attr_extents_)
         return mec.list_passkeys(intents_ba_)
 
+    def compute_new_intents(intents_ba_, next_concepts_):
+        empty_bitarray = intents_ba_[0] & ~intents_ba_[0]
+        return [intent & ~reduce(fbarray.__or__, (intents_ba_[i] for i in nexts.search(True)), empty_bitarray)
+                for intent, nexts in zip(intents_ba_, next_concepts_)]
+
+    def compute_new_extents(extents_ba_, previous_concepts_):
+        empty_bitarray = extents_ba_[0] & ~extents_ba_[0]
+        return [extent & ~reduce(fbarray.__or__, (extents_ba_[i] for i in prevs.search(True)), empty_bitarray)
+                for extent, prevs in zip(extents_ba_, previous_concepts_)]
+
     intents_ba, n_concepts = None, None
     if 'intent' in to_compute:
         intents_ba, n_concepts = compute_intents(
@@ -402,6 +416,9 @@ def mine_concepts(
         previous_concepts, sub_concepts = sort_intents_inclusion(intents_ba, return_transitive_order=True)
     next_concepts = inverse_order(previous_concepts) if 'next_concepts' in to_compute else None
     super_concepts = inverse_order(sub_concepts) if 'super_concepts' in to_compute else None
+
+    new_intents = compute_new_intents(intents_ba, next_concepts) if 'new_intent' in to_compute else None
+    new_extents = compute_new_extents(extents_ba, previous_concepts) if 'new_extent' in to_compute else None
 
     ###################################
     # Verbalise the columns to return #
@@ -429,6 +446,11 @@ def mine_concepts(
     for colname in ['super_concepts', 'sub_concepts', 'next_concepts', 'previous_concepts']:
         if colname in cols_to_return:
             locals()[f"column_{colname}"] = [set(ba.search(True)) for ba in locals()[colname]]
+
+    if 'new_intent' in cols_to_return:
+        column_new_intent = verbalise_descriptions(new_intents)
+    if 'new_extent' in cols_to_return:
+        column_new_extent = [verbalise(new_extent, objects) for new_extent in new_extents]
 
     locals_ = locals()
     concepts_df = pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('concept_id')

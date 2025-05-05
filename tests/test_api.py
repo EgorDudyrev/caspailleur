@@ -57,6 +57,8 @@ def test_mine_concepts():
     concepts_df_true = pd.DataFrame({
         'extent': [{'g1', 'g2'}, {'g1'}, {'g2'}, set()],
         'intent': [{'b'}, {'a', 'b'}, {'b', 'c'}, {'a', 'b', 'c'}],
+        'new_extent': [set(), {'g1'}, {'g2'}, set()],
+        'new_intent': [{'b'}, {'a'}, {'c'}, set()],
         'support': [2, 1, 1, 0],
         'delta_stability': [1, 1, 1, 0],
         'keys': [[set()], [{'a'}], [{'c'}], [{'a','c'}]],
