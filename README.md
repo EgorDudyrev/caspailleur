@@ -215,7 +215,7 @@ intent_labels = (new_intent_labels + ';' + old_intent_labels).map(lambda l: ', '
 extent_labels = concepts_df['extent'].map(sorted).map(', '.join)
 
 node_labels = intent_labels + '<br><br>' + extent_labels
-node_labels = node_labels.replace(' ', '&nbsp;')  # replace space with non-breakable space
+node_labels = [l.replace(' ', '&nbsp') for l in node_labels] # replace space with non-breakable space for better Mermaid visualisation
 
 diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['previous_concepts'])
 print(diagram_code)
@@ -223,13 +223,13 @@ print(diagram_code)
 
 ```mermaid
 flowchart TD
-A["<br><br>Garfield, Greyfriar's Bobby, Harriet, Snoopy, Socks"];
-B["<b>mammal</b><br><br>Garfield, Greyfriar's Bobby, Snoopy, Socks"];
-C["<b>real</b><br><br>Greyfriar's Bobby, Harriet, Socks"];
-D["<b>cartoon</b>, mammal<br><br>Garfield, Snoopy"];
-E["mammal, real<br><br>Greyfriar's Bobby, Socks"];
-F["<b>dog</b>, mammal<br><br>Greyfriar's Bobby, Snoopy"];
-G["<b>cat</b>, mammal<br><br>Garfield, Socks"];
+A["<br><br>Garfield,&nbspGreyfriar's Bobby,&nbspHarriet,&nbspSnoopy,&nbspSocks"];
+B["<b>mammal</b><br><br>Garfield,&nbspGreyfriar's&nbspBobby,&nbspSnoopy,&nbspSocks"];
+C["<b>real</b><br><br>Greyfriar's&nbspBobby,&nbspHarriet,&nbspSocks"];
+D["<b>cartoon</b>,&nbspmammal<br><br>Garfield,&nbspSnoopy"];
+E["mammal,&nbspreal<br><br>Greyfriar's&nbspBobby,&nbspSocks"];
+F["<b>dog</b>,&nbspmammal<br><br>Greyfriar's&nbspBobby,&nbspSnoopy"];
+G["<b>cat</b>,&nbspmammal<br><br>Garfield,&nbspSocks"];
 A --- B;
 A --- C;
 B --- D;
