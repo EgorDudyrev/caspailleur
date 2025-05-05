@@ -459,8 +459,8 @@ def mine_implications(
         unit_base: bool = False,
         to_compute: Optional[Union[list[MINE_IMPLICATIONS_COLUMN], Literal['all']]] = 'all',
         return_every_computed_column: bool = False,
-        min_support: Union[int, float] = 0,
-        min_delta_stability: Union[int, float] = 0, n_stable_concepts: Optional[int] = None
+        min_support: Union[int, float] = 1,
+        min_delta_stability: Union[int, float] = 1, n_stable_concepts: Optional[int] = None
 ) -> pd.DataFrame:
     """Compute an implication basis (i.e. a set of non-redundant implications) for the given data
 
