@@ -8,7 +8,8 @@ The proposed functions are:
 * mine_concepts(data) to get all the concepts (and their characteristics) in the data
 * mine_implications(data, basis_name) to get a basis of implications for the data
 """
-from typing import Iterator, Iterable, Literal, Union, Optional, get_args
+from functools import reduce
+from typing import Iterator, Iterable, Literal, Union, Optional, get_args, Type
 import pandas as pd
 from bitarray import frozenbitarray as fbarray
 
@@ -20,20 +21,21 @@ from . import definitions
 from . import mine_equivalence_classes as mec, implication_bases as ibases
 
 
-MINE_DESCRIPTION_COLUMN = Literal[
+MINE_DESCRIPTIONS_COLUMN = Literal[
     "description", "extent", "intent",
     "support", "delta_stability",
     "is_closed", "is_key", "is_passkey", "is_proper_premise", "is_pseudo_intent"
 ]
 
 MINE_CONCEPTS_COLUMN = Literal[
-    "extent", "intent", "support", "delta_stability",
+    "extent", "intent", "new_extent", "new_intent",
+    "support", "delta_stability",
     "keys", "passkeys", "proper_premises", "pseudo_intents",
     "previous_concepts", "next_concepts", "sub_concepts",  "super_concepts",
 ]
 
 MINE_IMPLICATIONS_COLUMN = Literal[
-    "premise", "conclusion", "conclusion_full", "extent", "support"
+    "premise", "conclusion", "conclusion_full", "extent", "support", "delta_stability"
 ]
 
 BASIS_NAME = Literal[
@@ -43,14 +45,14 @@ BASIS_NAME = Literal[
 
 
 def _setup_colnames_to_compute(
-        all_columns,
-        columns_to_compute: Union[list[str], Literal['all'], None],
+        all_columns: Type[str],
+        columns_to_compute: Union[list[str], Literal['all']],
         dependencies: dict[Union[str, tuple[str, bool]], set[str]], return_all_computed: bool
 ) -> tuple[set[str], list[str]]:
-    columns_to_return = list(get_args(all_columns))
+    columns_to_return: list[str] = list(get_args(all_columns))
     if columns_to_compute is not None and columns_to_compute != 'all':
         columns_to_return = list(columns_to_compute)
-    columns_to_compute = set(columns_to_return)
+    columns_to_compute: set[str] = set(columns_to_return)
 
     assert columns_to_compute <= set(get_args(all_columns)), \
         f"The following elements were asked for but cannot be computed {columns_to_compute - set(all_columns)}. " \
@@ -70,7 +72,7 @@ def _setup_colnames_to_compute(
 
 def iter_descriptions(
         data: ContextType,
-        to_compute: Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']] = 'all'
+        to_compute: Union[list[MINE_DESCRIPTIONS_COLUMN], Literal['all']] = 'all'
 ) -> Iterator[dict]:
     """Iterate all possible descriptions in the data one by one
 
@@ -80,9 +82,9 @@ def iter_descriptions(
         Data in a format, supported by Caspailleur.io module.
         For example, Pandas DataFrame with binary values,
         or list of lists of strings (where every list of strings represents an itemset).
-    to_compute: list[MINE_DESCRIPTION_COLUMN] or 'all'
+    to_compute: list[MINE_DESCRIPTIONS_COLUMN] or 'all'
         A list of characteristics to compute (by default: "all")
-        The list of all possible characteristics is defined in caspailleur.MINE_DESCRIPTION_COLUMN value.
+        The list of all possible characteristics is defined in caspailleur.api.MINE_DESCRIPTIONS_COLUMN value.
 
     Returns
     -------
@@ -100,11 +102,11 @@ def iter_descriptions(
     """
     bitarrays, objects, attributes = to_named_bitarrays(data)
     attr_extents = transpose_context(bitarrays)
-    to_compute, cols_to_return = _setup_colnames_to_compute(MINE_DESCRIPTION_COLUMN, to_compute, {}, True)
+    to_compute, cols_to_return = _setup_colnames_to_compute(MINE_DESCRIPTIONS_COLUMN, to_compute, {}, True)
 
     sub_pseudo_intents = []
 
-    def get_vals_for_column(column_name: MINE_DESCRIPTION_COLUMN):
+    def get_vals_for_column(column_name: MINE_DESCRIPTIONS_COLUMN):
         if column_name == 'description':
             return set(verbalise(description_idxs, attributes))
         if column_name == 'extent':
@@ -139,7 +141,7 @@ def iter_descriptions(
 def mine_descriptions(
         data: ContextType,
         min_support: Union[int, float] = 0,
-        to_compute: Union[list[MINE_DESCRIPTION_COLUMN], Literal['all']] = 'all',
+        to_compute: Union[list[MINE_DESCRIPTIONS_COLUMN], Literal['all']] = 'all',
         return_every_computed_column: bool = False
 ) -> pd.DataFrame:
     """Mine all frequent descriptions and their characteristics
@@ -156,9 +158,9 @@ def mine_descriptions(
     min_support: int or float
         Minimal value of the support for a description, i.e. how many objects it describes.
         Can be defined by an integer (so the number of objects) or by a float (so the percentage of objects).
-    to_compute: list[MINE_DESCRIPTION_COLUMN] or 'all'
+    to_compute: list[MINE_DESCRIPTIONS_COLUMN] or 'all'
         A list of characteristics to compute (by default: "all")
-        The list of all possible characteristics is defined in caspailleur.MINE_DESCRIPTION_COLUMN value.
+        The list of all possible characteristics is defined in caspailleur.api.MINE_DESCRIPTIONS_COLUMN value.
     return_every_computed_column: bool
         A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
         For example, the computation of column 'is_proper_premise' requires the computation of column 'is_key'.
@@ -183,7 +185,7 @@ def mine_descriptions(
     ####################################################
     # Computing what columns and parameters to compute #
     ####################################################
-    col_dependencies: dict[MINE_DESCRIPTION_COLUMN, set[MINE_DESCRIPTION_COLUMN]] = {
+    col_dependencies: dict[MINE_DESCRIPTIONS_COLUMN, set[MINE_DESCRIPTIONS_COLUMN]] = {
         'is_pseudo_intent': {'is_proper_premise', 'intent'},
         'is_proper_premise': {'intent', 'is_key'},
         'is_key': {'intent'},
@@ -195,7 +197,7 @@ def mine_descriptions(
         'intent': {'extent'},
     }
     to_compute, cols_to_return = _setup_colnames_to_compute(
-        MINE_DESCRIPTION_COLUMN, to_compute, col_dependencies, return_every_computed_column)
+        MINE_DESCRIPTIONS_COLUMN, to_compute, col_dependencies, return_every_computed_column)
 
     ################################
     # Compute the required columns #
@@ -249,11 +251,15 @@ def mine_descriptions(
 
 def mine_concepts(
         data: ContextType,
-        to_compute: Union[list[MINE_CONCEPTS_COLUMN], Literal['all']] = 'all',
+        to_compute: Union[list[MINE_CONCEPTS_COLUMN], Literal['all']] = (
+                "extent", "intent", "new_extent", "new_intent", "support", "delta_stability", "keys", "passkeys",
+                "previous_concepts", "next_concepts", "sub_concepts",  "super_concepts",
+        ),
         return_every_computed_column: bool = False,
         min_support: Union[int, float] = 0,
         min_delta_stability: Union[int, float] = 0, n_stable_concepts: Optional[int] = None,
         use_tqdm: bool = False,
+        sort_by_descending: Literal['support', 'delta_stability', 'extent.size', 'intent.size'] = 'support'
 ) -> pd.DataFrame:
     """Compute the frequent concepts in the data
 
@@ -264,8 +270,9 @@ def mine_concepts(
         For example, Pandas DataFrame with binary values,
         or list of lists of integers (where every list of integers represents an itemset).
     to_compute: list[MINE_CONCEPT_COLUMN] or 'all'
-        A list of characteristics to compute (by default, compute 'all' possible columns)
-        The list of all possible characteristics is defined in caspailleur.MINE_CONCEPT_COLUMN value.
+        A list of characteristics to compute
+        (by default, compute 'all' possible columns except for 'proper_premises' and 'pseudo_intents')
+        The list of all possible characteristics is defined in caspailleur.api.MINE_CONCEPTS_COLUMN value.
     return_every_computed_column: bool
         A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
         For example, the computation of column 'is_proper_premise' requires the computation of column 'is_key'.
@@ -286,10 +293,14 @@ def mine_concepts(
     use_tqdm: bool
         A flag whether to use tqdm progress bar for long computations.
         Is used for computing pseudo-intents.
+    sort_by_descending: 'support', 'delta_stability', 'extent.size', 'intent.size'.
+        Sort concepts in the outputted dataframe by descending support, delta_stability, the size of extent, or intent.
+        Change of this parameter will also update concepts' indices in order-related columns in the outputted dataframe.
+        That would not happen with simple pandas DataFrame.sort_values() function.
 
     Returns
     -------
-    descriptions_df: pandas.DataFrame
+    concepts_df: pandas.DataFrame
         Pandas DataFrame where every row represents a concept, and every column represents its characteristics
         defined by `to_compute` and `return_every_computed_column` parameters.
 
@@ -305,6 +316,9 @@ def mine_concepts(
     ##################################################
     # whether to compute all concepts whose support is higher min_support
     compute_only_stable_concepts = min_delta_stability != 0 or n_stable_concepts is not None
+    if to_compute != 'all' and sort_by_descending.replace('.size', '') not in to_compute:
+        to_compute = list(to_compute) + [sort_by_descending.replace('.size', '')]
+
     col_dependencies: dict[MINE_CONCEPTS_COLUMN, set[MINE_CONCEPTS_COLUMN]] = {
         'pseudo_intents': {'proper_premises', 'intent'},
         'proper_premises': {'intent', 'keys'},
@@ -319,6 +333,8 @@ def mine_concepts(
         'sub_concepts': {'previous_concepts'},
         'next_concepts': {'previous_concepts'},
         'previous_concepts': {'intent'},
+        'new_intent': {'intent', 'next_concepts'},
+        'new_extent': {'extent', 'previous_concepts'}
     }
     to_compute, cols_to_return = _setup_colnames_to_compute(
         MINE_CONCEPTS_COLUMN, to_compute, col_dependencies, return_every_computed_column)
@@ -326,9 +342,9 @@ def mine_concepts(
     #################################
     # Running the (long) computations
     #################################
-    bitarrays, objects, attributes = to_named_bitarrays(data)
-    attr_extents = transpose_context(bitarrays)
-    bitarrays, attr_extents = list(map(fbarray, bitarrays)), list(map(fbarray, attr_extents))
+    itemsets_ba, objects, attributes = to_named_bitarrays(data)
+    attr_extents = transpose_context(itemsets_ba)
+    itemsets_ba, attr_extents = list(map(fbarray, itemsets_ba)), list(map(fbarray, attr_extents))
 
     def verbalise_descriptions(bas):
         return [verbalise(ba, attributes) for ba in bas]
@@ -339,62 +355,125 @@ def mine_concepts(
             per_concept[cncpt_i].append(ba)
         return per_concept
 
-    if 'intent' in to_compute:
-        if compute_only_stable_concepts:
-            n_objects = len(objects)
+    def compute_intents(
+            attr_extents_, itemsets_ba_,
+            min_support_, compute_only_stable_concepts_, min_delta_stability_, n_stable_concepts_
+    ):
+        if compute_only_stable_concepts_:
+            n_objects = len(attr_extents_[0])
             stable_extents = mec.list_stable_extents_via_gsofia(
-                attr_extents, n_objects, min_delta_stability, n_stable_concepts,
-                min_supp=to_absolute_number(min_support, n_objects), n_attributes=len(attr_extents)
+                attr_extents_, n_objects, min_delta_stability_, n_stable_concepts_,
+                min_supp=to_absolute_number(min_support_, n_objects), n_attributes=len(attr_extents_)
             )
-            intents_ba = [intention(extent, attr_extents) for extent in stable_extents]
+            intents_ba = [intention(extent, attr_extents_) for extent in stable_extents]
         else:
-            intents_ba = mec.list_intents_via_LCM(bitarrays, min_supp=min_support)
-
+            intents_ba = mec.list_intents_via_LCM(itemsets_ba_, min_supp=min_support_)
         intents_ba = topological_sorting(intents_ba)[0]
         n_concepts = len(intents_ba)
-        column_intent = verbalise_descriptions(intents_ba)
-    if 'extent' in to_compute:
-        extents_ba = [fbarray(extension(intent, attr_extents)) for intent in intents_ba]
-        column_extent = [verbalise(extent, objects) for extent in extents_ba]
-    if 'keys' in to_compute:
-        if compute_only_stable_concepts:
-            keys_ba = mec.list_keys_for_extents(extents_ba, attr_extents)
-        else:
-            keys_ba = mec.list_keys(intents_ba)
+        return intents_ba, n_concepts
 
-        column_keys = [verbalise_descriptions(keys) for keys in group_by_concept(keys_ba.items(), n_concepts)]
-    if 'passkeys' in to_compute:
-        if compute_only_stable_concepts:
-            passkeys_ba = mec.list_passkeys_for_extents(extents_ba, attr_extents)
-        else:
-            passkeys_ba = mec.list_passkeys(intents_ba)
-        column_passkeys = [verbalise_descriptions(pkeys) for pkeys in group_by_concept(passkeys_ba.items(), n_concepts)]
-    if 'proper_premises' in to_compute:
-        ppremises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba))
-        column_proper_premises = [verbalise_descriptions(pps) for pps in group_by_concept(ppremises_ba.items(), n_concepts)]
+    def compute_extents(intents_ba_, attr_extents_):
+        return [fbarray(extension(intent, attr_extents_)) for intent in intents_ba_]
+
+    def compute_keys(extents_ba_, intents_ba_, attr_extents_, compute_only_stable_concepts_):
+        if compute_only_stable_concepts_:
+            return mec.list_keys_for_extents(extents_ba_, attr_extents_)
+        return mec.list_keys(intents_ba_)
+
+    def compute_passkeys(extents_ba_, intents_ba_, attr_extents_, compute_only_stable_concepts_):
+        if compute_only_stable_concepts_:
+            return mec.list_passkeys_for_extents(extents_ba_, attr_extents_)
+        return mec.list_passkeys(intents_ba_)
+
+    def compute_new_intents(intents_ba_, next_concepts_):
+        empty_bitarray = intents_ba_[0] & ~intents_ba_[0]
+        return [intent & ~reduce(fbarray.__or__, (intents_ba_[i] for i in nexts.search(True)), empty_bitarray)
+                for intent, nexts in zip(intents_ba_, next_concepts_)]
+
+    def compute_new_extents(extents_ba_, previous_concepts_):
+        empty_bitarray = extents_ba_[0] & ~extents_ba_[0]
+        return [extent & ~reduce(fbarray.__or__, (extents_ba_[i] for i in prevs.search(True)), empty_bitarray)
+                for extent, prevs in zip(extents_ba_, previous_concepts_)]
+
+    intents_ba, n_concepts = None, None
+    if 'intent' in to_compute:
+        intents_ba, n_concepts = compute_intents(
+            attr_extents, itemsets_ba,
+            min_support, compute_only_stable_concepts, min_delta_stability, n_stable_concepts
+        )
+    extents_ba = compute_extents(intents_ba, attr_extents) if 'extent' in to_compute else None
+    keys_ba = compute_keys(extents_ba, intents_ba, attr_extents, compute_only_stable_concepts) if 'keys' in to_compute else None
+    passkeys_ba = compute_passkeys(extents_ba, intents_ba, attr_extents, compute_only_stable_concepts) if 'passkeys' in to_compute else None
+    proper_premises_ba = dict(ibases.iter_proper_premises_via_keys(intents_ba, keys_ba)) if 'proper_premises' in to_compute else None
+    pseudo_intents_ba = None
     if 'pseudo_intents' in to_compute:
-        pintents_ba = dict(ibases.list_pseudo_intents_via_keys(
-            ppremises_ba.items(), intents_ba, use_tqdm=use_tqdm, n_keys=len(ppremises_ba)))
-        column_pseudo_intents = [verbalise_descriptions(pis) for pis in group_by_concept(pintents_ba.items(), n_concepts)]
-    if 'support' in to_compute:
+        pseudo_intents_ba = dict(ibases.list_pseudo_intents_via_keys(
+            proper_premises_ba.items(), intents_ba, use_tqdm=use_tqdm, n_keys=len(proper_premises_ba)))
+
+    # Columns for order on concepts
+    previous_concepts, sub_concepts = None, None
+    if 'previous_concepts' in to_compute:
+        previous_concepts, sub_concepts = sort_intents_inclusion(intents_ba, return_transitive_order=True)
+    next_concepts = inverse_order(previous_concepts) if 'next_concepts' in to_compute else None
+    super_concepts = inverse_order(sub_concepts) if 'super_concepts' in to_compute else None
+
+    new_intents = compute_new_intents(intents_ba, next_concepts) if 'new_intent' in to_compute else None
+    new_extents = compute_new_extents(extents_ba, previous_concepts) if 'new_extent' in to_compute else None
+
+    ###################################
+    # Verbalise the columns to return #
+    ###################################
+    if 'intent' in cols_to_return:
+        column_intent = verbalise_descriptions(intents_ba)
+    if 'extent' in cols_to_return:
+        column_extent = [verbalise(extent, objects) for extent in extents_ba]
+    if 'keys' in cols_to_return:
+        column_keys = [verbalise_descriptions(keys) for keys in group_by_concept(keys_ba.items(), n_concepts)]
+    if 'passkeys' in cols_to_return:
+        column_passkeys = [verbalise_descriptions(pkeys) for pkeys in group_by_concept(passkeys_ba.items(), n_concepts)]
+    if 'proper_premises' in cols_to_return:
+        column_proper_premises = [verbalise_descriptions(pps) for pps in
+                                  group_by_concept(proper_premises_ba.items(), n_concepts)]
+    if 'pseudo_intents' in cols_to_return:
+        column_pseudo_intents = [verbalise_descriptions(pis) for pis in
+                                 group_by_concept(pseudo_intents_ba.items(), n_concepts)]
+    if 'support' in cols_to_return:
         column_support = [extent.count() for extent in extents_ba]
-    if 'delta_stability' in to_compute:
+    if 'delta_stability' in cols_to_return:
         column_delta_stability = [idxs.delta_stability_by_description(descr, attr_extents, extent_ba)
                                   for descr, extent_ba in zip(intents_ba, extents_ba)]
 
-    # Columns for order on concepts
-    if 'previous_concepts' in to_compute:
-        previous_concepts, sub_concepts = sort_intents_inclusion(intents_ba, return_transitive_order=True)
-    if 'next_concepts' in to_compute:
-        next_concepts = inverse_order(previous_concepts)
-    if 'super_concepts' in to_compute:
-        super_concepts = inverse_order(sub_concepts)
     for colname in ['super_concepts', 'sub_concepts', 'next_concepts', 'previous_concepts']:
         if colname in cols_to_return:
-            locals()[f"column_{colname}"] = [set(ba.search(True)) for ba in locals()[f"{colname}"]]
+            locals()[f"column_{colname}"] = [set(ba.search(True)) for ba in locals()[colname]]
+
+    if 'new_intent' in cols_to_return:
+        column_new_intent = verbalise_descriptions(new_intents)
+    if 'new_extent' in cols_to_return:
+        column_new_extent = [verbalise(new_extent, objects) for new_extent in new_extents]
 
     locals_ = locals()
-    return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('concept_id')
+    concepts_df = pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('concept_id')
+
+    ###########################################
+    # Sort the rows in the concepts dataframe #
+    ###########################################
+    if sort_by_descending in {'support', 'delta_stability'}:
+        sorting_key = [(v, i) for i, v in concepts_df[sort_by_descending].items()]
+    elif sort_by_descending in {'extent.size', 'intent.size'}:
+        sorting_key = [(len(v), i) for i, v in concepts_df[sort_by_descending.replace('.size', '')].items()]
+    else:
+        raise ValueError(f'Unsupported value for {sort_by_descending=}. '
+                         f'The supported values are: ["support", "delta_stability", "extent.size", "intent.size"].')
+    sorting_key = sorted(sorting_key, key=lambda value_topoindex: (-value_topoindex[0], value_topoindex[1]))
+    old_to_new_idx_map = {old_id: new_id for new_id, (_, old_id) in enumerate(sorting_key)}
+    new_to_old_idx_map = {new_id: old_id for old_id, new_id in old_to_new_idx_map.items()}
+    concepts_df = concepts_df.loc[[new_to_old_idx_map[i] for i in sorted(new_to_old_idx_map)]]
+    concepts_df = concepts_df.reset_index(drop=True).rename_axis('concept_id')
+    for colname in {'super_concepts', 'sub_concepts', 'next_concepts', 'previous_concepts'} & set(concepts_df.columns):
+        concepts_df.loc[:, colname] = concepts_df[colname].map(lambda idxs: {old_to_new_idx_map[i] for i in idxs})
+
+    return concepts_df
 
 
 def mine_implications(
@@ -402,8 +481,8 @@ def mine_implications(
         unit_base: bool = False,
         to_compute: Optional[Union[list[MINE_IMPLICATIONS_COLUMN], Literal['all']]] = 'all',
         return_every_computed_column: bool = False,
-        min_support: Union[int, float] = 0,
-        min_delta_stability: Union[int, float] = 0 , n_stable_concepts: Optional[int] = None
+        min_support: Union[int, float] = 1,
+        min_delta_stability: Union[int, float] = 0, n_stable_concepts: Optional[int] = None
 ) -> pd.DataFrame:
     """Compute an implication basis (i.e. a set of non-redundant implications) for the given data
 
@@ -426,7 +505,7 @@ def mine_implications(
         See the Notes section below for more examples.
     to_compute: list[MINE_IMPLICATIONS_COLUMN] or 'all'
         A list of characteristics to compute (by default, compute 'all')
-        The list of all possible characteristics is defined in caspailleur.MINE_IMPLICATION_COLUMN value.
+        The list of all possible characteristics is defined in caspailleur.api.MINE_IMPLICATIONS_COLUMN value.
     return_every_computed_column: bool
         A flag whether to return every computed column or only the ones defined by `to_compute` parameter.
         For example, the computation of column 'support' requires the computation of column 'extent'.
@@ -500,6 +579,7 @@ def mine_implications(
 
     dependencies = {
         "support": {'extent'},
+        "delta_stability": {'extent'}
     }
 
     to_compute, cols_to_return = _setup_colnames_to_compute(
@@ -576,6 +656,11 @@ def mine_implications(
         column_extent = [verbalise(int_ext_map[intents_ba[intent_i]], objects) for intent_i in intents_idxs]
     if "support" in cols_to_return:
         column_support = [int_ext_map[intents_ba[intent_i]].count() for intent_i in intents_idxs]
+    if 'delta_stability' in cols_to_return:
+        column_delta_stability = [
+            idxs.delta_stability_by_description(intents_ba[intent_i], attr_extents, int_ext_map[intents_ba[intent_i]])
+            for intent_i in intents_idxs
+        ]
 
     locals_ = locals()
     return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('implication_id')

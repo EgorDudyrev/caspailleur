@@ -57,6 +57,8 @@ def test_mine_concepts():
     concepts_df_true = pd.DataFrame({
         'extent': [{'g1', 'g2'}, {'g1'}, {'g2'}, set()],
         'intent': [{'b'}, {'a', 'b'}, {'b', 'c'}, {'a', 'b', 'c'}],
+        'new_extent': [set(), {'g1'}, {'g2'}, set()],
+        'new_intent': [{'b'}, {'a'}, {'c'}, set()],
         'support': [2, 1, 1, 0],
         'delta_stability': [1, 1, 1, 0],
         'keys': [[set()], [{'a'}], [{'c'}], [{'a','c'}]],
@@ -68,6 +70,8 @@ def test_mine_concepts():
         'sub_concepts': [{1, 2, 3}, {3}, {3}, set()],
         'super_concepts': [set(), {0}, {0}, {0, 1, 2}],
     })
+    concepts_df = api.mine_concepts(data)
+    assert_df_equality(concepts_df, concepts_df_true.drop(columns=['proper_premises', 'pseudo_intents']))
 
     concepts_df = api.mine_concepts(data, to_compute='all')
     assert_df_equality(concepts_df, concepts_df_true)
@@ -84,6 +88,18 @@ def test_mine_concepts():
 
     stable_concepts_df = api.mine_concepts(data, to_compute='all', min_delta_stability=1, n_stable_concepts=3)
     assert_df_equality(stable_concepts_df, stable_concepts_df_true)
+
+    ################
+    # Test sorting #
+    ################
+    stable_concepts_df = api.mine_concepts(data, sort_by_descending='extent.size')
+    assert sorted(stable_concepts_df['extent'].map(len), reverse=True) == list(stable_concepts_df['extent'].map(len))
+    stable_concepts_df = api.mine_concepts(data, sort_by_descending='intent.size')
+    assert sorted(stable_concepts_df['intent'].map(len), reverse=True) == list(stable_concepts_df['intent'].map(len))
+    stable_concepts_df = api.mine_concepts(data, sort_by_descending='support')
+    assert sorted(stable_concepts_df['support'], reverse=True) == list(stable_concepts_df['support'])
+    stable_concepts_df = api.mine_concepts(data, sort_by_descending='delta_stability')
+    assert sorted(stable_concepts_df['delta_stability'], reverse=True) == list(stable_concepts_df['delta_stability'])
 
 
 def test_mine_implications():
@@ -197,5 +213,7 @@ def test_mine_implications():
         {2, 4}, {4}, {1}, {0, 2}, {1, 4}, {1, 3, 4}, {3, 4}, {0, 1, 2, 3, 4}, {0}, {0, 2, 3},
         {0, 1, 2, 4}, {0, 4}
     ]
-    impls_df = api.mine_implications(itemsets, 'Proper Premise', to_compute=['conclusion'])
+    impls_df = api.mine_implications(itemsets, 'Proper Premise', to_compute=['conclusion', 'support', 'delta_stability'])
     assert (impls_df['conclusion'].map(len) > 0).all()
+    assert list(impls_df['support']) == [2, 2, 2, 1]
+    assert list(impls_df['delta_stability']) == [1, 1, 1, 1]
