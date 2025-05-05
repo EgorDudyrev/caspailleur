@@ -87,6 +87,18 @@ def test_mine_concepts():
     stable_concepts_df = api.mine_concepts(data, to_compute='all', min_delta_stability=1, n_stable_concepts=3)
     assert_df_equality(stable_concepts_df, stable_concepts_df_true)
 
+    ################
+    # Test sorting #
+    ################
+    stable_concepts_df = api.mine_concepts(data, sort_by_descending='extent.size')
+    assert sorted(stable_concepts_df['extent'].map(len), reverse=True) == list(stable_concepts_df['extent'].map(len))
+    stable_concepts_df = api.mine_concepts(data, sort_by_descending='intent.size')
+    assert sorted(stable_concepts_df['intent'].map(len), reverse=True) == list(stable_concepts_df['intent'].map(len))
+    stable_concepts_df = api.mine_concepts(data, sort_by_descending='support')
+    assert sorted(stable_concepts_df['support'], reverse=True) == list(stable_concepts_df['support'])
+    stable_concepts_df = api.mine_concepts(data, sort_by_descending='delta_stability')
+    assert sorted(stable_concepts_df['delta_stability'], reverse=True) == list(stable_concepts_df['delta_stability'])
+
 
 def test_mine_implications():
     """

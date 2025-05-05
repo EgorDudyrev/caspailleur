@@ -8,7 +8,7 @@ The proposed functions are:
 * mine_concepts(data) to get all the concepts (and their characteristics) in the data
 * mine_implications(data, basis_name) to get a basis of implications for the data
 """
-from typing import Iterator, Iterable, Literal, Union, Optional, get_args
+from typing import Iterator, Iterable, Literal, Union, Optional, get_args, Type
 import pandas as pd
 from bitarray import frozenbitarray as fbarray
 
@@ -43,14 +43,14 @@ BASIS_NAME = Literal[
 
 
 def _setup_colnames_to_compute(
-        all_columns,
-        columns_to_compute: Union[list[str], Literal['all'], None],
+        all_columns: Type[str],
+        columns_to_compute: Union[list[str], Literal['all']],
         dependencies: dict[Union[str, tuple[str, bool]], set[str]], return_all_computed: bool
 ) -> tuple[set[str], list[str]]:
-    columns_to_return = list(get_args(all_columns))
+    columns_to_return: list[str] = list(get_args(all_columns))
     if columns_to_compute is not None and columns_to_compute != 'all':
         columns_to_return = list(columns_to_compute)
-    columns_to_compute = set(columns_to_return)
+    columns_to_compute: set[str] = set(columns_to_return)
 
     assert columns_to_compute <= set(get_args(all_columns)), \
         f"The following elements were asked for but cannot be computed {columns_to_compute - set(all_columns)}. " \
@@ -257,6 +257,7 @@ def mine_concepts(
         min_support: Union[int, float] = 0,
         min_delta_stability: Union[int, float] = 0, n_stable_concepts: Optional[int] = None,
         use_tqdm: bool = False,
+        sort_by_descending: Literal['support', 'delta_stability', 'extent.size', 'intent.size'] = 'extent.size'
 ) -> pd.DataFrame:
     """Compute the frequent concepts in the data
 
@@ -290,10 +291,14 @@ def mine_concepts(
     use_tqdm: bool
         A flag whether to use tqdm progress bar for long computations.
         Is used for computing pseudo-intents.
+    sort_by_descending: 'support', 'delta_stability', 'extent.size', 'intent.size'.
+        Sort concepts in the outputted dataframe by descending support, delta_stability, the size of extent, or intent.
+        Change of this parameter will also update concepts' indices in order-related columns in the outputted dataframe.
+        That would not happen with simple pandas DataFrame.sort_values() function.
 
     Returns
     -------
-    descriptions_df: pandas.DataFrame
+    concepts_df: pandas.DataFrame
         Pandas DataFrame where every row represents a concept, and every column represents its characteristics
         defined by `to_compute` and `return_every_computed_column` parameters.
 
@@ -309,6 +314,9 @@ def mine_concepts(
     ##################################################
     # whether to compute all concepts whose support is higher min_support
     compute_only_stable_concepts = min_delta_stability != 0 or n_stable_concepts is not None
+    if to_compute != 'all' and sort_by_descending.replace('.size', '') not in to_compute:
+        to_compute = list(to_compute) + [sort_by_descending.replace('.size', '')]
+
     col_dependencies: dict[MINE_CONCEPTS_COLUMN, set[MINE_CONCEPTS_COLUMN]] = {
         'pseudo_intents': {'proper_premises', 'intent'},
         'proper_premises': {'intent', 'keys'},
@@ -423,7 +431,27 @@ def mine_concepts(
             locals()[f"column_{colname}"] = [set(ba.search(True)) for ba in locals()[colname]]
 
     locals_ = locals()
-    return pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('concept_id')
+    concepts_df = pd.DataFrame({f: locals_[f"column_{f}"] for f in cols_to_return}).rename_axis('concept_id')
+
+    ###########################################
+    # Sort the rows in the concepts dataframe #
+    ###########################################
+    if sort_by_descending in {'support', 'delta_stability'}:
+        sorting_key = [(v, i) for i, v in concepts_df[sort_by_descending].items()]
+    elif sort_by_descending in {'extent.size', 'intent.size'}:
+        sorting_key = [(len(v), i) for i, v in concepts_df[sort_by_descending.replace('.size', '')].items()]
+    else:
+        raise ValueError(f'Unsupported value for {sort_by_descending=}. '
+                         f'The supported values are: ["support", "delta_stability", "extent.size", "intent.size"].')
+    sorting_key = sorted(sorting_key, key=lambda value_topoindex: (-value_topoindex[0], value_topoindex[1]))
+    old_to_new_idx_map = {old_id: new_id for new_id, (_, old_id) in enumerate(sorting_key)}
+    new_to_old_idx_map = {new_id: old_id for old_id, new_id in old_to_new_idx_map.items()}
+    concepts_df = concepts_df.loc[[new_to_old_idx_map[i] for i in sorted(new_to_old_idx_map)]]
+    concepts_df = concepts_df.reset_index(drop=True).rename_axis('concept_id')
+    for colname in {'super_concepts', 'sub_concepts', 'next_concepts', 'previous_concepts'} & set(concepts_df.columns):
+        concepts_df.loc[:, colname] = concepts_df[colname].map(lambda idxs: {old_to_new_idx_map[i] for i in idxs})
+
+    return concepts_df
 
 
 def mine_implications(
