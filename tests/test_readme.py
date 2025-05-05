@@ -36,13 +36,14 @@ def test_mining_concepts():
     concepts_df = csp.mine_concepts(df)
 
     extents_true = [
-        "Garfield, Greyfriar's Bobby, Harriet, Snoopy, Socks", "Greyfriar's Bobby, Harriet, Socks",
-        "Garfield, Greyfriar's Bobby, Snoopy, Socks", 'Garfield, Snoopy', 'Harriet', "Greyfriar's Bobby, Socks",
-        "Greyfriar's Bobby, Snoopy", 'Garfield, Socks', 'Snoopy', 'Garfield', "Greyfriar's Bobby", 'Socks', '']
-
+        "Garfield, Greyfriar's Bobby, Harriet, Snoopy, Socks", "Garfield, Greyfriar's Bobby, Snoopy, Socks",
+        "Greyfriar's Bobby, Harriet, Socks", 'Garfield, Snoopy', "Greyfriar's Bobby, Socks",
+        "Greyfriar's Bobby, Snoopy", 'Garfield, Socks', 'Harriet', 'Snoopy', 'Garfield', "Greyfriar's Bobby", 'Socks',
+        ''
+    ]
 
     intents_true = [
-        '', 'real', 'mammal', 'cartoon, mammal', 'real, tortoise', 'mammal, real', 'dog, mammal', 'cat, mammal',
+        '', 'mammal', 'real', 'cartoon, mammal', 'mammal, real', 'dog, mammal', 'cat, mammal', 'real, tortoise',
         'cartoon, dog, mammal', 'cartoon, cat, mammal', 'dog, mammal, real', 'cat, mammal, real',
         'cartoon, cat, dog, mammal, real, tortoise'
     ]
@@ -54,10 +55,10 @@ def test_mining_concepts():
         df, min_support=3, min_delta_stability=1,
         to_compute=['intent', 'keys', 'support', 'delta_stability', 'sub_concepts']
     )
-    intents_true = [set(), {'real'}, {'mammal'}]
-    keys_true = [[set()], [{'real'}], [{'mammal'}]]
-    supports_true = [5, 3, 4]
-    delta_stability_true = [1, 1, 2]
+    intents_true = [set(), {'mammal'}, {'real'}]
+    keys_true = [[set()], [{'mammal'}], [{'real'}]]
+    supports_true = [5, 4, 3]
+    delta_stability_true = [1, 2, 1]
     sub_concepts_true = [{1, 2}, set(), set()]
     assert concepts_df['intent'].tolist() == intents_true
     assert concepts_df['keys'].tolist() == keys_true
@@ -79,29 +80,24 @@ def test_mining_implications():
 
     premises_true = [
         'cartoon', 'tortoise', 'dog', 'cat',
-        'cartoon, real', 'cartoon, tortoise', 'dog, tortoise', 'cat, tortoise', 'mammal, tortoise', 'cat, dog'
     ]
     assert implications_df['premise'].map(sorted).map(', '.join).tolist() == premises_true
     conclusions_true = [
         'mammal', 'real', 'mammal', 'mammal',
-        'cat, dog, tortoise', 'cat, dog',
-        'cartoon, cat', 'cartoon, dog', 'cartoon, cat, dog', 'cartoon, real, tortoise'
     ]
     assert implications_df['conclusion'].map(sorted).map(', '.join).tolist() == conclusions_true
-    supports_true = [2, 1, 2, 2, 0, 0, 0, 0, 0, 0]
+    supports_true = [2, 1, 2, 2]
     assert implications_df['support'].tolist() == supports_true
 
     implications_df = csp.mine_implications(
         df, basis_name='Canonical', unit_base=True,
         to_compute=['premise', 'conclusion', 'extent'],
-        min_support=1, min_delta_stability=1
+        min_support=2
     )
-    assert implications_df['premise'].map(set).tolist() == [{'cat'}, {'dog'}, {'tortoise'}, {'cartoon'}]
-    assert implications_df['conclusion'].tolist() == ['mammal', 'mammal', 'real', 'mammal']
-    assert implications_df['extent'].tolist() == [
-        {'Socks', 'Garfield'}, {"Greyfriar's Bobby", "Snoopy"},
-        {'Harriet'}, {'Snoopy', 'Garfield'}
-    ]
+    assert implications_df['premise'].map(set).tolist() == [{'cat'}, {'dog'}, {'cartoon'}]
+    assert implications_df['conclusion'].tolist() == ['mammal', 'mammal', 'mammal']
+    assert implications_df['extent'].tolist() == [{'Garfield', 'Socks'}, {"Greyfriar's Bobby", 'Snoopy'},
+                                                  {'Garfield', 'Snoopy'}]
 
 
 def test_mining_descriptions():
@@ -137,11 +133,18 @@ def test_visualising_lattice():
     }, index=['Garfield', 'Snoopy', 'Socks', "Greyfriar's Bobby", "Harriet"])
 
     concepts_df = csp.mine_concepts(df, min_support=2)
-    node_labels = concepts_df['intent'].map(sorted).map(', '.join) + '<br><br>' + concepts_df['extent'].map(sorted).map(', '.join)
-    diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['previous_concepts'])
-    print(diagram_code)
 
-    diagram_code_true = 'flowchart TD\nA["<br><br>Garfield, Greyfriar\'s Bobby, Harriet, Snoopy, Socks"];\nB["real<br><br>Greyfriar\'s Bobby, Harriet, Socks"];\nC["mammal<br><br>Garfield, Greyfriar\'s Bobby, Snoopy, Socks"];\nD["cartoon, mammal<br><br>Garfield, Snoopy"];\nE["mammal, real<br><br>Greyfriar\'s Bobby, Socks"];\nF["dog, mammal<br><br>Greyfriar\'s Bobby, Snoopy"];\nG["cat, mammal<br><br>Garfield, Socks"];\n\nA --- B;\nA --- C;\nB --- E;\nC --- D;\nC --- E;\nC --- F;\nC --- G;'
+    new_intent_labels = ('<b>' + concepts_df['new_intent'].map(sorted).map(', '.join) + '</b>').replace('<b></b>', '')
+    old_intent_labels = (concepts_df['intent'] - concepts_df['new_intent']).map(sorted).map(', '.join)
+    intent_labels = (new_intent_labels + ';' + old_intent_labels).map(lambda l: ', '.join(l.strip(';').split(';')))
+    extent_labels = concepts_df['extent'].map(sorted).map(', '.join)
+
+    node_labels = (intent_labels + '<br><br>' + extent_labels)
+    node_labels = node_labels.replace(' ', '&nbsp;')
+
+    diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['previous_concepts'])
+
+    diagram_code_true = 'flowchart TD\nA["<br><br>Garfield, Greyfriar\'s Bobby, Harriet, Snoopy, Socks"];\nB["<b>mammal</b><br><br>Garfield, Greyfriar\'s Bobby, Snoopy, Socks"];\nC["<b>real</b><br><br>Greyfriar\'s Bobby, Harriet, Socks"];\nD["<b>cartoon</b>, mammal<br><br>Garfield, Snoopy"];\nE["mammal, real<br><br>Greyfriar\'s Bobby, Socks"];\nF["<b>dog</b>, mammal<br><br>Greyfriar\'s Bobby, Snoopy"];\nG["<b>cat</b>, mammal<br><br>Garfield, Socks"];\n\nA --- B;\nA --- C;\nB --- D;\nB --- E;\nB --- F;\nB --- G;\nC --- E;'
     assert diagram_code == diagram_code_true
 
 

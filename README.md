@@ -81,19 +81,19 @@ _<details><summary>Concepts table (13 rows)</summary>_
 
 |   concept_id | extent                                              | intent                                    |
 |-------------:|:----------------------------------------------------|:------------------------------------------|
-|            0 | Snoopy, Socks, Harriet, Greyfriar's Bobby, Garfield |                                           |
-|            1 | Greyfriar's Bobby, Socks, Harriet                   | real                                      |
-|            2 | Garfield, Greyfriar's Bobby, Snoopy, Socks          | mammal                                    |
+|            0 | Greyfriar's Bobby, Snoopy, Harriet, Socks, Garfield |                                           |
+|            1 | Greyfriar's Bobby, Socks, Garfield, Snoopy          | mammal                                    |
+|            2 | Greyfriar's Bobby, Socks, Harriet                   | real                                      |
 |            3 | Garfield, Snoopy                                    | cartoon, mammal                           |
-|            4 | Harriet                                             | real, tortoise                            |
-|            5 | Greyfriar's Bobby, Socks                            | real, mammal                              |
-|            6 | Greyfriar's Bobby, Snoopy                           | dog, mammal                               |
-|            7 | Garfield, Socks                                     | mammal, cat                               |
-|            8 | Snoopy                                              | dog, cartoon, mammal                      |
-|            9 | Garfield                                            | cartoon, mammal, cat                      |
-|           10 | Greyfriar's Bobby                                   | real, mammal, dog                         |
-|           11 | Socks                                               | real, mammal, cat                         |
-|           12 |                                                     | dog, cat, real, mammal, tortoise, cartoon |
+|            4 | Greyfriar's Bobby, Socks                            | mammal, real                              |
+|            5 | Greyfriar's Bobby, Snoopy                           | dog, mammal                               |
+|            6 | Socks, Garfield                                     | cat, mammal                               |
+|            7 | Harriet                                             | tortoise, real                            |
+|            8 | Snoopy                                              | cartoon, dog, mammal                      |
+|            9 | Garfield                                            | cartoon, cat, mammal                      |
+|           10 | Greyfriar's Bobby                                   | mammal, dog, real                         |
+|           11 | Socks                                               | cat, mammal, real                         |
+|           12 |                                                     | mammal, cartoon, cat, dog, real, tortoise |
 
 </p></details>
 
@@ -108,39 +108,32 @@ concepts_df = csp.mine_concepts(
 print(concepts_df)
 ```
 
-|   concept_id | intent     | keys         |   support |   delta_stability | sub_concepts |
-|-------------:|:-----------|:-------------|----------:|------------------:|:-------------|
-|            0 | set()      | [set()]      |         5 |                 1 | {1, 2}       |
-|            1 | { real }   | [{ real }]   |         3 |                 1 | set()        |
-|            2 | { mammal } | [{ mammal }] |         4 |                 2 | set()        |
+|   concept_id | intent     | keys         |   support |   delta_stability | sub_concepts   |
+|-------------:|:-----------|:-------------|----------:|------------------:|:---------------|
+|            0 | set()      | [set()]      |         5 |                 1 | {1, 2}         |
+|            1 | {'mammal'} | [{'mammal'}] |         4 |                 2 | set()          |
+|            2 | {'real'}   | [{'real'}]   |         3 |                 1 | set()          |
 
 
 ### Mining implications
 
 For many datasets, the number of concepts is too large to be read by hand.
-Luckily, relationships between attributes can be described via implication bases whose number is usually much smaller
-(although there may be many implications selecting no objects).
+Luckily, relationships between attributes can be described via implication bases whose number is usually much smaller.
 
 ```python
 implications_df = csp.mine_implications(df)
 
 print(implications_df[['premise', 'conclusion', 'support']])
 ```
-_<details><summary>Implications table (10 rows)</summary>_
+_<details><summary>Implications table (4 rows)</summary>_
 <p>
 
-|   implication_id | premise             | conclusion                |   support |
-|-----------------:|:--------------------|:--------------------------|----------:|
-|                0 | {cartoon}           | {mammal}                  |         2 |
-|                1 | {tortoise}          | {real}                    |         1 |
-|                2 | {dog}               | {mammal}                  |         2 |
-|                3 | {cat}               | {mammal}                  |         2 |
-|                4 | {cartoon, real}     | {dog, tortoise, cat}      |         0 |
-|                5 | {tortoise, cartoon} | {dog, cat}                |         0 |
-|                6 | {dog, tortoise}     | {cat, cartoon}            |         0 |
-|                7 | {cat, toroise}      | {dog, cartoon}            |         0 |
-|                8 | {tortoise, mammal}  | {dog, cat, cartoon}       |         0 |
-|                9 | {dog, cat}          | {tortoise, cartoon, real} |         0 |
+|   implication_id | premise      | conclusion   |   support |
+|-----------------:|:-------------|:-------------|----------:|
+|                0 | {'cartoon'}  | {'mammal'}   |         2 |
+|                1 | {'tortoise'} | {'real'}     |         1 |
+|                2 | {'dog'}      | {'mammal'}   |         2 |
+|                3 | {'cat'}      | {'mammal'}   |         2 |
 
 </p></details>
  
@@ -149,8 +142,13 @@ We can read the implications in the table and find out dependencies in the data.
 (from impl. 0: _cartoon -> mammal_);
 - one can find famous tortoises only in real life\
 (from impl. 1: _tortoise -> real_);
-- nobody is a dog and a cat at the same time \
-  (from impl. 4: _dog, cat -> ..._ with support 0).
+
+Set `min_support=0` to see implications on contradicting subsets of attributes, e.g.:
+- nobody is a dog and a cat at the same time  \
+  (from: _dog, cat -> ..._ with support 0).
+  
+Note, however, that there can be _a lot of_ implications with 0 support. 
+And so their computation might take a lot of time.
 
   
 If finding full implication basis takes too much time, one can mine only a part of columns and implications:
@@ -158,17 +156,16 @@ If finding full implication basis takes too much time, one can mine only a part 
 implications_df = csp.mine_implications(
   df, basis_name='Canonical', unit_base=True,
   to_compute=['premise', 'conclusion', 'extent'],
-  min_support=1, min_delta_stability=1
+  min_support=2,
 )
 
 print(implications_df)
 ```
-|   implication_id | premise    | conclusion   | extent                      |
-|-----------------:|:-----------|:-------------|:----------------------------|
-|                0 | {cat}      | mammal       | {Socks, Garfield}           |
-|                1 | {dog}      | mammal       | {Greyfriar's Bobby, Snoopy} |
-|                2 | {tortoise} | real         | {Harriet}                   |
-|                3 | {cartoon}  | mammal       | {Snoopy, Garfield}          |
+|   implication_id | premise     | conclusion   | extent                          |
+|-----------------:|:------------|:-------------|:--------------------------------|
+|                0 | {'cat'}     | mammal       | {'Socks', 'Garfield'}           |
+|                1 | {'dog'}     | mammal       | {"Greyfriar's Bobby", 'Snoopy'} |
+|                2 | {'cartoon'} | mammal       | {'Garfield', 'Snoopy'}          |
 
 
 
@@ -210,27 +207,37 @@ Mermaid diagrams can be visualised via https://mermaid.live/ service or can be e
 
 ```python
 concepts_df = csp.mine_concepts(df, min_support=2)
-node_labels = concepts_df['intent'].map(', '.join) + '<br><br>'+concepts_df['extent'].map(', '.join)
+
+# manually define what to show in the nodes of the diagram
+new_intent_labels = ('<b>' + concepts_df['new_intent'].map(sorted).map(', '.join) + '</b>').replace('<b></b>', '')
+old_intent_labels = (concepts_df['intent'] - concepts_df['new_intent']).map(sorted).map(', '.join)
+intent_labels = (new_intent_labels + ';' + old_intent_labels).map(lambda l: ', '.join(l.strip(';').split(';')))
+extent_labels = concepts_df['extent'].map(sorted).map(', '.join)
+
+node_labels = intent_labels + '<br><br>' + extent_labels
+node_labels = node_labels.replace(' ', '&nbsp;')  # replace space with non-breakable space
+
 diagram_code = csp.io.to_mermaid_diagram(node_labels, concepts_df['previous_concepts'])
 print(diagram_code)
 ```
 
 ```mermaid
 flowchart TD
-A["<br><br>Snoopy, Greyfriar's Bobby, Garfield, Socks, Harriet"];
-B["real<br><br>Greyfriar's Bobby, Socks, Harriet"];
-C["mammal<br><br>Greyfriar's Bobby, Garfield, Socks, Snoopy"];
-D["mammal, cartoon<br><br>Garfield, Snoopy"];
+A["<br><br>Garfield, Greyfriar's Bobby, Harriet, Snoopy, Socks"];
+B["<b>mammal</b><br><br>Garfield, Greyfriar's Bobby, Snoopy, Socks"];
+C["<b>real</b><br><br>Greyfriar's Bobby, Harriet, Socks"];
+D["<b>cartoon</b>, mammal<br><br>Garfield, Snoopy"];
 E["mammal, real<br><br>Greyfriar's Bobby, Socks"];
-F["mammal, dog<br><br>Greyfriar's Bobby, Snoopy"];
-G["cat, mammal<br><br>Garfield, Socks"];
+F["<b>dog</b>, mammal<br><br>Greyfriar's Bobby, Snoopy"];
+G["<b>cat</b>, mammal<br><br>Garfield, Socks"];
 A --- B;
 A --- C;
+B --- D;
 B --- E;
-C --- D;
+B --- F;
+B --- G;
 C --- E;
-C --- F;
-C --- G;
+
 ```
 _If, above, you see the source of the diagram, visit the [GitHub version](https://github.com/EgorDudyrev/caspailleur)
 of this ReadMe for the diagram itself.
