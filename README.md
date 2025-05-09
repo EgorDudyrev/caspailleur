@@ -1,8 +1,8 @@
-<img src="https://github.com/EgorDudyrev/caspailleur/blob/main/logo/caspailleur_logo_v1.png?raw=True" />
+<img src="https://github.com/smartFCA/caspailleur/blob/main/logo/caspailleur_logo_v1.png?raw=True" />
 
 [![PyPi](https://img.shields.io/pypi/v/caspailleur)](https://pypi.org/project/caspailleur)
-[![GitHub Workflow](https://img.shields.io/github/actions/workflow/status/EgorDudyrev/caspailleur/python-package.yml?logo=github)](https://github.com/EgorDudyrev/caspailleur/actions/workflows/python-package.yml)
-[![Licence](https://img.shields.io/github/license/EgorDudyrev/FCApy)](https://github.com/EgorDudyrev/caspailleur/blob/main/LICENSE)
+[![GitHub Workflow](https://img.shields.io/github/actions/workflow/status/smartFCA/caspailleur/python-package.yml?logo=github)](https://github.com/smartFCA/caspailleur/actions/workflows/python-package.yml)
+[![Licence](https://img.shields.io/github/license/smartFCA/caspailleur)](https://github.com/smartFCA/caspailleur/blob/main/LICENSE)
 [![LORIA](https://img.shields.io/badge/Made_in-LORIA-61acdf)](https://www.loria.fr/)
 [![SmartFCA](https://img.shields.io/badge/Funded_by-SmartFCA-537cbb)](https://www.smartfca.org)
 
@@ -20,7 +20,7 @@ pip install caspailleur
 and the latest version of the package can be installed from GitHub repository:
 
 ```console
-pip install caspailleur@git+https://github.com/EgorDudyrev/caspailleur
+pip install caspailleur@git+https://github.com/smartFCA/caspailleur
 ```
 
 ## Analysis example
@@ -28,7 +28,7 @@ pip install caspailleur@git+https://github.com/EgorDudyrev/caspailleur
 ### Glossary
 
 The field of Formal Concept Analysis has many mathematical terms and some conflicting notation traditions.
-Here is the glossary used throughout the `caspailleur` package: [Glossary.md](https://github.com/EgorDudyrev/caspailleur/blob/main/Glossary.md).
+Here is the glossary used throughout the `caspailleur` package: [Glossary.md](https://github.com/smartFCA/caspailleur/blob/main/Glossary.md).
 
 ### Data description
 
@@ -239,7 +239,7 @@ B --- G;
 C --- E;
 
 ```
-_If, above, you see the source of the diagram, visit the [GitHub version](https://github.com/EgorDudyrev/caspailleur)
+_If, above, you see the source of the diagram, visit the [GitHub version](https://github.com/smartFCA/caspailleur)
 of this ReadMe for the diagram itself.
 If, above, you see the diagram, go to the source code of the ReadMe for the diagram code._
 
@@ -416,7 +416,7 @@ The diagram below presents dependencies between the characteristic attribute set
       D --> H; A --> H; 
 ```
 
-_In case the diagram is not compiling, visit the GitHub version of README: https://github.com/EgorDudyrev/caspailleur_
+_In case the diagram is not compiling, visit the GitHub version of README: https://github.com/smartFCA/caspailleur_
 
 
 > [!NOTE]
