@@ -60,14 +60,16 @@ def alphaSofia(
         projected_context = project_context(attribute_extents, projection_i)
 
         for old_description in list(descriptions):
-            descriptions[old_description] = measure(old_description, projected_context)
-            if descriptions[old_description] < threshold:
+            value = measure(old_description, projected_context)
+            if value >= threshold:
+                descriptions[old_description] = value
+            else:
                 del descriptions[old_description]
 
             new_description = old_description + (projection_i,)
-            descriptions[new_description] = measure(new_description, projected_context)
-            if descriptions[new_description] < threshold:
-                del descriptions[new_description]
+            value = measure(new_description, projected_context)
+            if value >= threshold:
+                descriptions[new_description] = value
 
         if n_best_descriptions is not None and len(descriptions) > n_best_descriptions:
             descriptions: dict[tuple[int,...], float] = dict(heapq.nlargest(n_best_descriptions, descriptions.items(), key=itemgetter(1)))
