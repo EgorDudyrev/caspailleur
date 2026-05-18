@@ -33,7 +33,7 @@ def project_measure(measure: TPatternMeasure, n_first_attributes: int) -> TPatte
     return wrapper
 
 
-def alphaSofia(
+def betaSofia(
         attribute_extents: list[bitarray], measure: TPatternMeasure, threshold: float, n_best_descriptions: int = None
 ) -> dict[tuple[int,...], float]:
     """Mine subsets of attributes whose `measure` value is above the `threshold`
@@ -45,7 +45,8 @@ def alphaSofia(
     The `measure` function takes two arguments:
         1) an iterable of attribute indices, and
         2) list if bitarrays, representing binary columns in the data.
-    IMPORTANT: the `measure` should give some value for empty
+    IMPORTANT: the `measure` should always return some high value (an upper bound) when called upon
+        empty description and empty list of attribute_extents: `measure_max = measure(tuple(), list())`.
     """
     try:
         upper_bound = measure(tuple(), [])
