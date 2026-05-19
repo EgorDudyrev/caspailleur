@@ -126,3 +126,14 @@ def f1_score(description, context, target):
     # if context is a list of columns represented with bitarrays
     extent = extension(description, context)
     return 2*count_and(extent, target)/(extent.count()+target.count())
+
+
+@overload
+def wracc_score(description: Iterable[TAttribute], context: FormalContext, target: set[TObject]) -> float: ...
+@overload
+def wracc_score(description: Iterable[int], context: list[bitarray], target: bitarray) -> float: ...
+def wracc_score(description, context, target):
+    target_perc = len(target)/len(context.objects) if isinstance(context, FormalContext) else target.count()/len(target)
+    freq = frequency(description, context)
+    relative_acc = recall(description, context, target) - target_perc
+    return freq * relative_acc
