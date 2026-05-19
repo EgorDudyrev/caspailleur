@@ -95,10 +95,11 @@ def precision(description: Iterable[TAttribute], context: FormalContext, target:
 def precision(description: Iterable[int], context: list[bitarray], target: bitarray) -> float: ...
 def precision(description, context, target) -> float:
     if isinstance(context, FormalContext):
-        return true_positives(description, context, target)/support(description, context)
+        support_ = support(description, context)
+        return true_positives(description, context, target)/support_ if support_ else 0
     # if context is a list of columns represented with bitarrays
     extent = extension(description, context)
-    return count_and(extent, target)/extent.count()
+    return count_and(extent, target)/extent.count() if extent.any() else 0
 
 
 @overload
@@ -107,10 +108,10 @@ def recall(description: Iterable[TAttribute], context: FormalContext, target: se
 def recall(description: Iterable[int], context: list[bitarray], target: bitarray) -> float: ...
 def recall(description, context, target):
     if isinstance(context, FormalContext):
-        return true_positives(description, context, target)/len(target)
+        return true_positives(description, context, target)/len(target) if target else 0
     # if context is a list of columns represented with bitarrays
     extent = extension(description, context)
-    return count_and(extent, target)/target.count()
+    return count_and(extent, target)/target.count() if target.any() else 0
 
 
 @overload
@@ -133,7 +134,6 @@ def wracc_score(description: Iterable[TAttribute], context: FormalContext, targe
 @overload
 def wracc_score(description: Iterable[int], context: list[bitarray], target: bitarray) -> float: ...
 def wracc_score(description, context, target):
-    target_perc = len(target)/len(context.objects) if isinstance(context, FormalContext) else target.count()/len(target)
     freq = frequency(description, context)
-    relative_acc = recall(description, context, target) - target_perc
+    relative_acc = precision(description, context, target) - precision([], context, target)
     return freq * relative_acc
