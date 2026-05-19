@@ -30,6 +30,7 @@ class FormalContext:
     def from_pandas(cls, df: pd.DataFrame) -> Self:
         objects = set(df.index)
         attributes = set(df.columns)
+        df = df.astype(bool)
         incidence = {(g, m) for g in objects for m in attributes if df.at[g, m]}
         return cls(objects, attributes, incidence)
 
@@ -89,7 +90,7 @@ class FormalContext:
         return cls(objects, attributes, incidence)
 
     def to_attribute_extents_ba(self, objects_order: list[TAttribute] = None, attributes_order: list[TAttribute] = None) -> list[bitarray]:
-        objects_order = objects_order if objects_order is None else objects_order
+        objects_order = list(self.objects) if objects_order is None else objects_order
         attributes_order = list(self.attributes) if attributes_order is None else attributes_order
         return [bitarray([(g, m) in self.incidence for g in objects_order]) for m in attributes_order]
 
