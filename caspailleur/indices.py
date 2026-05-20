@@ -3,8 +3,8 @@ from collections import deque
 from bitarray import frozenbitarray as fbarray, bitarray
 from tqdm.auto import tqdm
 
-from caspailleur.order import check_topologically_sorted
-from caspailleur.base_functions import extension
+from caspailleur.algorithms.order import check_topologically_sorted
+from caspailleur.algorithms.base_functions import extension
 
 
 ############################

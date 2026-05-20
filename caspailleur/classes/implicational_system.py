@@ -1,6 +1,8 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
-from caspailleur.oop import TAttribute
+from classes.formal_context import TAttribute
+
+from caspailleur.classes.formal_context import TAttribute
 
 
 @dataclass

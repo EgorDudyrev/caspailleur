@@ -5,7 +5,7 @@ from typing import Iterable, Iterator, Union, Any, Sequence
 import deprecation
 from bitarray import frozenbitarray as fbarray, bitarray
 
-from . import io
+from caspailleur import io
 
 
 ################

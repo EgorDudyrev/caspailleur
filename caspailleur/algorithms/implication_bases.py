@@ -3,7 +3,7 @@ from typing import List, Dict, Tuple, Iterator, Iterable
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import subset
 from tqdm.auto import tqdm
-from caspailleur.order import check_topologically_sorted
+from caspailleur.algorithms.order import check_topologically_sorted
 
 
 def saturate_bruteforce(

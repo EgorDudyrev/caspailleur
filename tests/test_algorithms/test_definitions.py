@@ -1,5 +1,5 @@
-from caspailleur import definitions as defs
-from caspailleur.base_functions import powerset
+from caspailleur.algorithms import definitions as defs
+from caspailleur.algorithms.base_functions import powerset
 
 
 def test_is_closed():

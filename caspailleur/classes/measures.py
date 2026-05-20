@@ -2,8 +2,8 @@ from typing import overload, Iterable
 from bitarray import bitarray
 from bitarray.util import count_and
 
-from caspailleur.oop import TObject, TAttribute, FormalContext
-from caspailleur.base_functions import extension
+from caspailleur.classes.formal_context import TObject, TAttribute, FormalContext
+from caspailleur.algorithms.base_functions import extension
 
 
 @overload

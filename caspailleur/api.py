@@ -13,13 +13,11 @@ from typing import Iterator, Iterable, Literal, Union, Optional, get_args, Type
 import pandas as pd
 from bitarray import frozenbitarray as fbarray
 
-from .base_functions import powerset, extension, intention
-from .io import ContextType, to_named_bitarrays, transpose_context, isets2bas, verbalise, to_absolute_number
-from .order import topological_sorting, sort_intents_inclusion, inverse_order
-from . import indices as idxs
-from . import definitions
-from . import mine_equivalence_classes as mec, implication_bases as ibases
-
+from caspailleur.algorithms.base_functions import powerset, extension, intention
+from caspailleur.io import ContextType, to_named_bitarrays, transpose_context, isets2bas, verbalise, to_absolute_number
+from caspailleur.algorithms.order import topological_sorting, sort_intents_inclusion, inverse_order
+from caspailleur import indices as idxs
+from caspailleur.algorithms import implication_bases as ibases, mine_equivalence_classes as mec, definitions
 
 MINE_DESCRIPTIONS_COLUMN = Literal[
     "description", "extent", "intent",

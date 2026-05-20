@@ -1,6 +1,6 @@
 import pytest
 
-from caspailleur import order
+from caspailleur.algorithms import order
 from caspailleur import io
 
 
