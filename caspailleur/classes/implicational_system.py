@@ -6,9 +6,16 @@ from caspailleur.classes.formal_context import TAttribute
 from caspailleur.algorithms.base_functions import powerset
 
 
-@dataclass
-class ImplicationalSystem:
-    implications: dict[frozenset[TAttribute], set[frozenset[TAttribute]]]
+IMPLICATIONAL_REGISTRY: dict[str, type['ImplicationalSystemBackend']] = dict()
+
+
+def register_implicational_backend(key: str):
+    def decorator(cls):
+        assert key not in IMPLICATIONAL_REGISTRY
+        IMPLICATIONAL_REGISTRY[key] = cls
+        return cls
+    return decorator
+
 
 class ImplicationalSystemBackend(ABC):
     @property
@@ -48,8 +55,7 @@ class ImplicationalSystemBackend(ABC):
         return (description for description in powerset(self.base_set) if description in self)
 
 
-class ImplicationalSystemBackend(ABC):
-    @abstractmethod
+@register_implicational_backend('Naive')
 class NaiveImplicationalSystemBackend(ImplicationalSystemBackend):
     def __init__(self, implications: dict[frozenset[TAttribute], set[TAttribute]]):
         self._implications = dict(implications)
