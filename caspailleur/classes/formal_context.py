@@ -7,6 +7,8 @@ import pandas as pd
 from bitarray import bitarray
 
 from caspailleur import io
+from caspailleur.algorithms.base_functions import powerset
+
 
 TObject = TypeVar("TObject", bound=Hashable)
 TAttribute = TypeVar("TAttribute", bound=Hashable)
@@ -127,3 +129,10 @@ class FormalContext:
         attributes_order = list(self.attributes) if attributes_order is None else attributes_order
         projection_chain = (self.project(attributes_order[:i]) for i in range(len(attributes_order)))
         return projection_chain
+
+    def iterate_descriptions(self, attribute_order: list[TAttribute] = None) -> Iterator[set[TAttribute]]:
+        attribute_order = list(self.attributes) if attribute_order is None else attribute_order
+        return powerset(attribute_order)
+
+    def __iter__(self) -> Iterator[set[TAttribute]]:
+        return self.iterate_descriptions()

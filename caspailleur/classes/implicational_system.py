@@ -1,8 +1,8 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
-from classes.formal_context import TAttribute
 
 from caspailleur.classes.formal_context import TAttribute
+from caspailleur.algorithms.base_functions import powerset
 
 
 @dataclass
@@ -38,3 +38,10 @@ class ImplicationalSystem:
 
     def size(self) -> int:
         return sum(len(premise)+len(conclusion) for premise, conclusion in self.implications.items())
+
+    @property
+    def base_set(self) -> set[TAttribute]:
+        return {attr for premise, conclusion in self.implications.items() for attr in premise | conclusion}
+
+    def __iter__(self) -> Iterable[TAttribute]:
+        return (description for description in powerset(self.base_set) if description in self)
