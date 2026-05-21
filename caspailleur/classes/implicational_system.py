@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -32,6 +33,44 @@ class ImplicationalSystem:
         if premise not in self.implications:
             self.implications[premise] = set()
         self.implications[premise] |= set(conclusion)
+
+    def __len__(self) -> int:
+        return len(self.implications)
+
+    def size(self) -> int:
+        return sum(len(premise)+len(conclusion) for premise, conclusion in self.implications.items())
+
+    @property
+    def base_set(self) -> set[TAttribute]:
+        return {attr for premise, conclusion in self.implications.items() for attr in premise | conclusion}
+
+    def __iter__(self) -> Iterable[TAttribute]:
+        return (description for description in powerset(self.base_set) if description in self)
+
+
+class ImplicationalSystemBackend(ABC):
+    @abstractmethod
+    @property
+    def implications(self) -> dict[frozenset[TAttribute], set[TAttribute]]:
+        pass
+
+    @abstractmethod
+    def saturate(self, description: set[TAttribute]) -> set[TAttribute]:
+        pass
+
+    @abstractmethod
+    def add(self, premise: Iterable[TAttribute], conclusion: Iterable[TAttribute]):
+        ...
+
+    @abstractmethod
+    def remove(self, premise: Iterable[TAttribute], conclusion: Iterable[TAttribute]):
+        pass
+
+    def __call__(self, description: set[TAttribute]) -> set[TAttribute]:
+        return self.saturate(description)
+
+    def __contains__(self, item: set[TAttribute]) -> bool:
+        return self.saturate(item) == item
 
     def __len__(self) -> int:
         return len(self.implications)
