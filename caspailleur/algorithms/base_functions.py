@@ -69,6 +69,15 @@ def intention(
     return (m for m, col in enumerate(crosses_per_columns) if is_subset_of(objects, col))
 
 
+def select_subsets_vertical_ba(description: bitarray, crosses_per_columns: list[bitarray]) -> bitarray:
+    empty_column = crosses_per_columns[0] & ~crosses_per_columns[0]
+    non_subsets = bitarray(empty_column)
+    for excluded_element in description.search(False):
+        non_subsets |= crosses_per_columns[excluded_element]
+    return ~non_subsets
+
+
+
 def closure(
         description: Union[Iterable[int], bitarray], crosses_per_columns: Union[list[set[int]], list[bitarray]]
 ) -> Union[Iterator[int], bitarray]:

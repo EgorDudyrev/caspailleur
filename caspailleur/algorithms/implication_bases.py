@@ -3,7 +3,9 @@ from typing import List, Dict, Tuple, Iterator, Iterable
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import subset
 from tqdm.auto import tqdm
+
 from caspailleur.algorithms.order import check_topologically_sorted
+from caspailleur.algorithms.base_functions import select_subsets_vertical_ba
 
 
 def saturate_bruteforce(
@@ -139,6 +141,23 @@ def subset_saturate(premise: bitarray, implications: list[tuple[bitarray, int]],
     implied_intents = (intents[sub_int_i] for sub_prem, sub_int_i in implications
                        if sub_prem & premise == sub_prem and sub_prem != premise)
     return reduce(bitarray.__or__, implied_intents, premise)
+
+
+def saturate_vertical_ba(premise: bitarray, vertical_premises: list[bitarray], conclusions: list[bitarray]) -> bitarray:
+    """Extend `premise` with attributes in implications defined by `vertical_premises` and `conclusions`"""
+    closure = bitarray(premise)
+    already_covered_premises = vertical_premises[0] & ~vertical_premises[0]
+    while True:
+        covered_premises = select_subsets_vertical_ba(closure, vertical_premises)
+        conclusions_to_add = covered_premises & ~already_covered_premises
+        if not conclusions_to_add.any():
+            break
+
+        for i in conclusions_to_add.search(True):
+            closure |= conclusions[i]
+        already_covered_premises = covered_premises
+
+    return closure
 
 
 def verify_proper_premise_via_keys(

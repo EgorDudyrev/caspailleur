@@ -5,8 +5,10 @@ from typing import Literal, Union, Optional, overload
 from bitarray import bitarray
 from bitarray.util import zeros as bazeros, ones as baones, subset as basubset
 
-from caspailleur.classes.formal_context import TAttribute
+from caspailleur.algorithms.base_functions import select_subsets_vertical_ba
+from caspailleur.algorithms.implication_bases import saturate_vertical_ba
 from caspailleur.algorithms.base_functions import powerset
+from caspailleur.classes.formal_context import TAttribute
 
 IMPLICATIONAL_REGISTRY: dict[str, type['ImplicationalSystemBackend']] = dict()
 
@@ -126,21 +128,7 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
         return dict(zip(premises, conclusions))
 
     def saturate_ba(self, description_ba: bitarray) -> bitarray:
-        empty_premise_list = bazeros(len(self))
-
-        closure = bitarray(description_ba)
-        already_covered_premises = bitarray(empty_premise_list)
-        while True:
-            covered_premises = self._covered_premises(closure)
-            conclusions_to_add = covered_premises & ~already_covered_premises
-            if not conclusions_to_add.any():
-                break
-
-            conclusions_to_add = (self._conclusions[i] for i in conclusions_to_add.search(True))
-            closure = self._ba_union_complete(conclusions_to_add, initial=closure)
-            already_covered_premises = covered_premises
-
-        return closure
+        return saturate_vertical_ba(description_ba, self._vertical_premises, self._conclusions)
 
     def saturate(self, description: set[TAttribute]) -> set[TAttribute]:
         for attribute in description:
@@ -212,12 +200,8 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
 
     def __contains__(self, item: set[TAttribute]) -> bool:
         premise_ba = self._attrs2ba(item)
-        covered_premises = self._covered_premises(premise_ba)
+        covered_premises = select_subsets_vertical_ba(premise_ba, self._vertical_premises)
         return all(basubset(self._conclusions[i], premise_ba) for i in covered_premises.search(True))
-
-    def _covered_premises(self, attributes_ba: bitarray) -> bitarray:
-        not_covered_premises = map(self._vertical_premises.__getitem__, attributes_ba.search(False))
-        return ~self._ba_union_complete(not_covered_premises, initial=bazeros(len(self)))
 
     def _ba2attrs(self, ba: bitarray) -> Iterable[TAttribute]:
         return (self._attribute_order[i] for i in ba.search(True))
