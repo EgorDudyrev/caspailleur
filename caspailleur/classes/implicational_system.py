@@ -5,6 +5,7 @@ from typing import Literal, Union, Optional, overload
 from bitarray import bitarray
 from bitarray.util import zeros as bazeros, ones as baones, subset as basubset
 
+from caspailleur.algorithms.implication_bases import close_by_one_for_closures
 from caspailleur.algorithms.base_functions import select_subsets_vertical_ba
 from caspailleur.algorithms.implication_bases import saturate_vertical_ba
 from caspailleur.algorithms.base_functions import powerset
@@ -69,7 +70,14 @@ class ImplicationalSystemBackend(ABC):
         return {attr for premise, conclusion in self.implications.items() for attr in premise | conclusion}
 
     def __iter__(self) -> Iterable[set[TAttribute]]:
-        return (set(description) for description in powerset(self.base_set) if description in self)
+        return self.iterate_closures()
+
+    def iterate_closures(self, algorithm: Literal['CbO', 'Naive'] = 'CbO') -> Iterable[set[TAttribute]]:
+        if algorithm == 'CbO':
+            return close_by_one_for_closures(self.base_set, self.saturate)
+        if algorithm == 'Naive':
+            return (set(description) for description in powerset(self.base_set) if description in self)
+        raise ValueError(f'Algorithm {algorithm} is not supported')
 
 
 @register_implicational_backend('Naive')
@@ -129,6 +137,9 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
 
     def saturate_ba(self, description_ba: bitarray) -> bitarray:
         return saturate_vertical_ba(description_ba, self._vertical_premises, self._conclusions)
+
+    def saturate_indices(self, description_indices: Iterable[int]) -> set[int]:
+        return set(self._ba2idxs(self.saturate_ba(self._idxs2ba(description_indices))))
 
     def saturate(self, description: set[TAttribute]) -> set[TAttribute]:
         for attribute in description:
@@ -192,11 +203,6 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
             self._conclusions.pop(premise_idx)
             for premises in self._vertical_premises:
                 premises.pop(premise_idx)
-
-    def __iter__(self) -> Iterable[set[TAttribute]]:
-        descriptions_generator = map(set, powerset(self._attribute_order))
-        models = filter(self.__contains__, descriptions_generator)
-        return models
 
     def __contains__(self, item: set[TAttribute]) -> bool:
         premise_ba = self._attrs2ba(item)
@@ -305,5 +311,8 @@ class ImplicationalSystem:
     def base_set(self) -> set[TAttribute]:
         return self.backend.base_set
 
-    def __iter__(self) -> Iterable[TAttribute]:
+    def __iter__(self) -> Iterable[set[TAttribute]]:
         return self.backend.__iter__()
+
+    def iterate_closures(self, algorithm: Literal['CbO', 'Naive'] = 'CbO') -> Iterable[set[TAttribute]]:
+        return self.backend.iterate_closures(algorithm)

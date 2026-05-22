@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from functools import reduce
-from typing import List, Dict, Tuple, Iterator, Iterable
+from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import subset
 from tqdm.auto import tqdm
@@ -304,3 +305,25 @@ def list_pseudo_intents_via_keys(
         pseudo_intents = add_pintent(key, key_saturated, intent_i, pseudo_intents)
 
     return [tuple(pi_data[1:]) for pi_data in pseudo_intents]
+
+
+T = TypeVar('T')
+def close_by_one_for_closures(elements: set[T], closure_func: Callable[[Iterable[T]], set[T]]) -> Iterator[set[T]]:
+    elements = list(elements)
+    elements_indices = {element: idx for idx, element in enumerate(elements)}
+
+    stack: list[list[int]] = [list()]
+    while stack:
+        premise = stack.pop()
+        last_added_idx = elements_indices[premise[-1]] if premise else -1
+        closure = closure_func(premise)
+
+        new_elements = closure - set(premise)
+        not_canonic = any(elements_indices[element] < last_added_idx for element in new_elements)
+        if not_canonic:
+            continue
+
+        yield closure
+        closure_list = list(closure)
+        next_premises = (closure_list + [element] for element in elements[last_added_idx+1:] if element not in closure)
+        stack.extend(next_premises)
