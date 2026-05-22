@@ -20,10 +20,23 @@ def register_implicational_backend(key: str):
 
 
 class ImplicationalSystemBackend(ABC):
+    def __init__(self, implications: dict[frozenset[TAttribute], set[TAttribute]]):
+        self.implications = implications
+
     @property
     @abstractmethod
     def implications(self) -> dict[frozenset[TAttribute], set[TAttribute]]:
         pass
+
+    @implications.setter
+    def implications(self, value: dict[frozenset[TAttribute], set[TAttribute]]):
+        if self.implications == value:
+            return
+
+        for premise, conclusion in self.implications.items():
+            self.remove(premise, conclusion)
+        for premise, conclusion in value.items():
+            self.add(premise, conclusion)
 
     @abstractmethod
     def saturate(self, description: set[TAttribute]) -> set[TAttribute]:
@@ -60,9 +73,10 @@ class ImplicationalSystemBackend(ABC):
 @register_implicational_backend('Naive')
 class NaiveImplicationalSystemBackend(ImplicationalSystemBackend):
     def __init__(self, implications: dict[frozenset[TAttribute], set[TAttribute]]):
-        self._implications = dict(implications)
-
-    @property
+        self._implications = implications
+        super().__init__(implications)
+    
+    @ImplicationalSystemBackend.implications.getter
     def implications(self) -> dict[frozenset[TAttribute], set[TAttribute]]:
         return dict(self._implications)
 
@@ -98,10 +112,9 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
         self._conclusions: list[bitarray] = list()  # for binary matrix Premise X Attributes-implied-by-it
         self._attribute_order: list[TAttribute] = list()  # mapping from index of _vertical_premises element to Attribute
         self._attribute_index_map: dict[TAttribute, int] = dict()  # mapping from an Attribute to its _vertical_premises columns
-        for premise, conclusion in implications.items():
-            self.add(premise, conclusion)
+        super().__init__(implications)
 
-    @property
+    @ImplicationalSystemBackend.implications.getter
     def implications(self) -> dict[frozenset[TAttribute], set[TAttribute]]:
         premises = [list() for _ in range(len(self))]
         for attribute_idx, vertical_premises in enumerate(self._vertical_premises):
@@ -243,17 +256,48 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
 
 class ImplicationalSystem:
     def __init__(self, implications: dict[frozenset[TAttribute], set[TAttribute]], backend_class: Union[type[ImplicationalSystemBackend], Literal[tuple(IMPLICATIONAL_REGISTRY)]] = 'Naive'):
-        backend_class = IMPLICATIONAL_REGISTRY[backend_class] if not isinstance(backend_class, type) else backend_class
-        assert issubclass(backend_class, ImplicationalSystemBackend)
-        self._backend = backend_class(implications)
+        self.backend = backend_class
+        self.implications = implications
 
     @property
     def implications(self) -> dict[frozenset[TAttribute], set[TAttribute]]:
         return self.backend.implications
 
+    @implications.setter
+    def implications(self, value: dict[frozenset[TAttribute], set[TAttribute]]) -> None:
+        self.backend.implications = value
+
     @property
     def backend(self) -> ImplicationalSystemBackend:
         return self._backend
+
+    @backend.setter
+    @overload
+    def backend(self, value: ImplicationalSystemBackend) -> None: ...
+
+    @backend.setter
+    @overload
+    def backend(self, value: type[ImplicationalSystemBackend]) -> None: ...
+
+    @backend.setter
+    @overload
+    def backend(self, value: Literal[tuple(IMPLICATIONAL_REGISTRY)]) -> None: ...
+
+    @backend.setter
+    def backend(self, value) -> None:
+        existing_implications = self.implications if hasattr(self, '_backend') else dict()
+
+        if isinstance(value, ImplicationalSystemBackend):
+            new_backend = value.__class__(existing_implications) if existing_implications else value
+        elif isinstance(value, type) and issubclass(value, ImplicationalSystemBackend):
+            new_backend = value(existing_implications)
+        elif isinstance(value, str) and value in IMPLICATIONAL_REGISTRY:
+            new_backend = IMPLICATIONAL_REGISTRY[value](existing_implications)
+        else:
+            raise ValueError(f"Implicational system backend {value} is not supported.")
+
+        self._backend: ImplicationalSystemBackend = new_backend
+
 
     def saturate(self, description: set[TAttribute]) -> set[TAttribute]:
         return self.backend.saturate(description)
