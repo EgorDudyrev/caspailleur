@@ -1,14 +1,12 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from functools import reduce
-from typing import Literal, Union, Optional
+from typing import Literal, Union, Optional, overload
 
 from bitarray import bitarray
-from bitarray.util import zeros as bazeros, ones as baones
+from bitarray.util import zeros as bazeros, ones as baones, subset as basubset
 
 from caspailleur.classes.formal_context import TAttribute
 from caspailleur.algorithms.base_functions import powerset
-from caspailleur.io import isets2bas
 
 IMPLICATIONAL_REGISTRY: dict[str, type['ImplicationalSystemBackend']] = dict()
 
@@ -43,7 +41,7 @@ class ImplicationalSystemBackend(ABC):
         return self.saturate(description)
 
     def __contains__(self, item: set[TAttribute]) -> bool:
-        return self.saturate(item) == item
+        return all(conclusion <= item for premise, conclusion in self.implications.items() if premise <= item)
 
     def __len__(self) -> int:
         return len(self.implications)
@@ -107,12 +105,11 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
     def implications(self) -> dict[frozenset[TAttribute], set[TAttribute]]:
         premises = [list() for _ in range(len(self))]
         for attribute_idx, vertical_premises in enumerate(self._vertical_premises):
-            attribute = self._attribute_order[attribute_idx]
             for premise_idx in vertical_premises.search(True):
-                premises[premise_idx].append(attribute)
+                premises[premise_idx].append(attribute_idx)
 
-        premises = [frozenset(premise) for premise in premises]
-        conclusions = [set(map(self._attribute_order.__getitem__, conclusion.search(True))) for conclusion in self._conclusions]
+        premises = [frozenset(self._idxs2attrs(attribute_idxs)) for attribute_idxs in premises]
+        conclusions = [set(self._ba2attrs(conclusion_ba)) for conclusion_ba in self._conclusions]
         return dict(zip(premises, conclusions))
 
     def saturate_ba(self, description_ba: bitarray) -> bitarray:
@@ -121,22 +118,24 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
         closure = bitarray(description_ba)
         already_covered_premises = bitarray(empty_premise_list)
         while True:
-            covered_premises = ~reduce(bitarray.__or__, (self._vertical_premises[i] for i in closure.search(False)), empty_premise_list)
+            covered_premises = self._covered_premises(closure)
             conclusions_to_add = covered_premises & ~already_covered_premises
             if not conclusions_to_add.any():
                 break
 
-            closure = reduce(bitarray.__or__, (self._conclusions[i] for i in conclusions_to_add.search(True)), closure)
+            conclusions_to_add = (self._conclusions[i] for i in conclusions_to_add.search(True))
+            closure = self._ba_union_complete(conclusions_to_add, initial=closure)
             already_covered_premises = covered_premises
 
         return closure
 
     def saturate(self, description: set[TAttribute]) -> set[TAttribute]:
-        description_idxs = self._attributes2indices(description)
-        description_ba = bitarray(next(isets2bas([description_idxs], len(self._attribute_order))))
+        for attribute in description:
+            self._add_attribute(attribute)
 
+        description_ba = self._attrs2ba(description)
         closure_ba = self.saturate_ba(description_ba)
-        closure = {self._attribute_order[i] for i in closure_ba.search(True)}
+        closure = set(self._ba2attrs(closure_ba))
         return closure
 
     def __len__(self) -> int:
@@ -150,26 +149,25 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
             return None
         return index_options.index(True)
 
-    def _attributes2indices(self, iterable: Iterable[TAttribute]) -> list[int]:
-        empty_premise_list = bazeros(len(self))
+    def _add_attribute(self, attribute: TAttribute) -> None:
+        if attribute in self._attribute_index_map:
+            return None
 
-        itemset = []
-        for attribute in iterable:
-            if attribute not in self._attribute_index_map:
-                self._attribute_index_map[attribute] = len(self._attribute_order)
-                self._attribute_order.append(attribute)
-                self._vertical_premises.append(bitarray(empty_premise_list))
-                for conclusion in self._conclusions: conclusion.append(False)
-
-            itemset.append(self._attribute_index_map[attribute])
-        return itemset
+        self._attribute_index_map[attribute] = len(self._attribute_order)
+        self._attribute_order.append(attribute)
+        self._vertical_premises.append(bazeros(len(self)))
+        for conclusion in self._conclusions:
+            conclusion.append(False)
+        return None
 
     def add(self, premise: Iterable[TAttribute], conclusion: Iterable[TAttribute]):
-        premise_idxs = self._attributes2indices(premise)
-        conclusion_idxs = self._attributes2indices(conclusion)
-        premise_ba, conclusion_ba = map(bitarray, isets2bas([premise_idxs, conclusion_idxs], len(self._attribute_order)))
+        premise, conclusion = set(premise), set(conclusion)
+        for attribute in premise | conclusion:
+            self._add_attribute(attribute)
 
-        if (premise_idx := self._find_premise(premise_ba)) is not None:
+        premise_ba, conclusion_ba = self._attrs2ba(premise), self._attrs2ba(conclusion)
+        premise_idx = self._find_premise(premise_ba)
+        if premise_idx is not None:
             self._conclusions[premise_idx] |= conclusion_ba
             return
 
@@ -179,13 +177,15 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
 
 
     def remove(self, premise: Iterable[TAttribute], conclusion: Iterable[TAttribute]):
-        premise_idxs = self._attributes2indices(premise)
-        conclusion_idxs = self._attributes2indices(conclusion)
-        premise_ba, conclusion_ba = isets2bas([premise_idxs, conclusion_idxs], len(self._attribute_order))
+        premise, conclusion = set(premise), set(conclusion)
+        for attribute in premise | conclusion:
+            self._add_attribute(attribute)
 
+        premise_ba, conclusion_ba = self._attrs2ba(premise), self._attrs2ba(conclusion)
         premise_idx = self._find_premise(premise_ba)
         if premise_idx is None:
             return
+
         self._conclusions[premise_idx] &= ~conclusion_ba
         if not self._conclusions[premise_idx].any():
             self._conclusions.pop(premise_idx)
@@ -193,9 +193,52 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
                 premises.pop(premise_idx)
 
     def __iter__(self) -> Iterable[set[TAttribute]]:
-        n = len(self._attribute_order)
-        return ({self._attribute_order[i] for i in idxs} for idxs in powerset(range(n))
-                if (ba := next(isets2bas([idxs], n))) == self.saturate_ba(ba))
+        descriptions_generator = map(set, powerset(self._attribute_order))
+        models = filter(self.__contains__, descriptions_generator)
+        return models
+
+    def __contains__(self, item: set[TAttribute]) -> bool:
+        premise_ba = self._attrs2ba(item)
+        covered_premises = self._covered_premises(premise_ba)
+        return all(basubset(self._conclusions[i], premise_ba) for i in covered_premises.search(True))
+
+    def _covered_premises(self, attributes_ba: bitarray) -> bitarray:
+        not_covered_premises = map(self._vertical_premises.__getitem__, attributes_ba.search(False))
+        return ~self._ba_union_complete(not_covered_premises, initial=bazeros(len(self)))
+
+    def _ba2attrs(self, ba: bitarray) -> Iterable[TAttribute]:
+        return (self._attribute_order[i] for i in ba.search(True))
+
+    def _attrs2ba(self, attributes: set[TAttribute]) -> bitarray:
+        ba = bazeros(len(self._attribute_order))
+        for attr in attributes:
+            ba[self._attribute_index_map[attr]] = True
+        return ba
+
+    def _idxs2attrs(self, indices: Iterable[int]) -> Iterable[TAttribute]:
+        return (self._attribute_order[i] for i in indices)
+
+    def _attrs2idxs(self, attributes: Iterable[TAttribute]) -> Iterable[int]:
+        return (self._attribute_index_map[attr] for attr in attributes)
+
+    def _idxs2ba(self, indices: Iterable[int]) -> bitarray:
+        ba = bazeros(len(self._attribute_order))
+        for idx in indices:
+            ba[idx] = True
+        return ba
+
+    def _ba2idxs(self, ba: bitarray) -> Iterable[int]:
+        return ba.search(True)
+
+    @staticmethod
+    def _ba_union_complete(bitarrays: Iterable[bitarray], initial: bitarray = None) -> bitarray:
+        union = bitarray(initial) if initial is not None else None
+        for ba in bitarrays:
+            if union is None:
+                union = ba
+            union |= ba
+
+        return union
 
 
 class ImplicationalSystem:
