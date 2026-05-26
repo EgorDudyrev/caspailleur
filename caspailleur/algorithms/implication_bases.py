@@ -2,7 +2,7 @@ from collections.abc import Callable
 from functools import reduce
 from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar
 from bitarray import frozenbitarray as fbarray, bitarray
-from bitarray.util import subset
+from bitarray.util import subset, zeros as bazeros
 from tqdm.auto import tqdm
 
 from caspailleur.algorithms.order import check_topologically_sorted
@@ -308,11 +308,18 @@ def list_pseudo_intents_via_keys(
 
 
 T = TypeVar('T')
-def close_by_one_for_closures(elements: set[T], closure_func: Callable[[Iterable[T]], set[T]]) -> Iterator[set[T]]:
+def close_by_one_for_closures(
+        elements: set[T],
+        closure_func: Callable[[Iterable[T]], set[T]],
+        antimonotone_constraint_func: Callable[[Iterable[T]], bool] = None
+) -> Iterator[set[T]]:
+    if antimonotone_constraint_func is None:
+        antimonotone_constraint_func = lambda _: True
+
     elements = list(elements)
     elements_indices = {element: idx for idx, element in enumerate(elements)}
 
-    stack: list[list[int]] = [list()]
+    stack: list[list[T]] = [list()]
     while stack:
         premise = stack.pop()
         last_added_idx = elements_indices[premise[-1]] if premise else -1
@@ -323,7 +330,64 @@ def close_by_one_for_closures(elements: set[T], closure_func: Callable[[Iterable
         if not_canonic:
             continue
 
+        if not antimonotone_constraint_func(closure):
+            continue
+
         yield closure
         closure_list = list(closure)
         next_premises = (closure_list + [element] for element in elements[last_added_idx+1:] if element not in closure)
         stack.extend(next_premises)
+
+
+def close_by_one_forwardtracking_for_closures(
+        elements: set[T], closure_func: Callable[[Iterable[T]], set[T]],
+        antimonotone_constraint_func: Callable[[Iterable[T]], bool] = None
+) -> Iterator[set[T]]:
+    if antimonotone_constraint_func is None:
+        antimonotone_constraint_func = lambda _: True
+
+    elementary_closures = {element: closure_func([element])-{element} for element in elements}
+    elements = sorted(elements, key=lambda element: len(elementary_closures[element]))
+    elements_indices = {element: idx for idx, element in enumerate(elements)}
+
+    n_elements = len(elements)
+    subelements = [bazeros(n_elements) for _ in range(n_elements)]
+    superelements = [bazeros(n_elements) for _ in range(n_elements)]
+    for element, closure in elementary_closures.items():
+        idx = elements_indices[element]
+        for subelement in closure:
+            subelement_idx = elements_indices[subelement]
+            subelements[idx][subelement_idx] = True
+            superelements[subelement_idx][idx] = True
+
+
+    stack: list[tuple[list[T], set[T]]] = [(list(), set())]
+    while stack:
+        premise, banned = stack.pop()
+        closure = closure_func(premise)
+        if not closure.isdisjoint(banned):
+            continue
+
+        if not antimonotone_constraint_func(closure):
+            continue
+
+        yield closure
+
+        closure_ba = bazeros(n_elements)
+        for element in closure:
+            closure_ba[elements_indices[element]] = True
+
+        next_elements = []
+        next_elements_candidates = ~closure_ba
+        while next_elements_candidates.any():
+            next_idx = next_elements_candidates.find(True)
+            next_elements_candidates[next_idx] = False
+
+            if subset(subelements[next_idx], closure_ba):
+                next_elements.append(elements[next_idx])
+                next_elements_candidates &= ~superelements[next_idx]
+
+        closure_list = list(closure)
+        for next_element in next_elements:
+            stack.append((closure_list + [next_element], set(banned)))
+            banned.add(next_element)

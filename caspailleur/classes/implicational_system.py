@@ -108,8 +108,23 @@ class ImplicationalSystem:
     def __iter__(self) -> Iterable[set[TAttribute]]:
         return self.iterate_closures()
 
-    def iterate_closures(self, algorithm: Literal['CbO', 'Naive'] = 'CbO') -> Iterable[set[TAttribute]]:
-        return map(self._idxs2attrs, self.backend.iterate_closures(algorithm))
+    def iterate_closures(
+            self,
+            algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
+            antimonotone_constrant_func: Callable[[Iterable[TAttribute]], bool] = None
+    ) -> Iterable[set[TAttribute]]:
+        if antimonotone_constrant_func is not None:
+            antimonotone_constrant_func = lambda idxs: antimonotone_constrant_func(self._idxs2attrs(idxs))
+        closure_iterator = self.backend.iterate_closures(algorithm, antimonotone_constraint_func=antimonotone_constrant_func)
+        return map(self._idxs2attrs, closure_iterator)
+
+    def count_closures(
+            self,
+            use_tqdm: bool = False,
+            iteration_algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
+            antimonotone_constraint_func: Callable[[Iterable[TAttribute]], bool] = None
+    ) -> int:
+        return self.backend.count_closures(use_tqdm, iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func)
 
     def _idxs2attrs(self, indices: Iterable[int]) -> set[TAttribute]:
         return {self._attributes_order[idx] for idx in indices}

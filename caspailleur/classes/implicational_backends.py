@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Literal, Optional
+from typing import Literal, Optional, Callable
+from tqdm.auto import tqdm
 
 from bitarray import bitarray
 from bitarray.util import zeros as bazeros, ones as baones, subset as basubset
 
 from caspailleur.algorithms.base_functions import select_subsets_vertical_ba, powerset
-from caspailleur.algorithms.implication_bases import close_by_one_for_closures, saturate_vertical_ba
+from caspailleur.algorithms.implication_bases import (
+    close_by_one_for_closures,
+    close_by_one_forwardtracking_for_closures,
+    saturate_vertical_ba,
+)
 
 IMPLICATIONAL_REGISTRY: dict[str, type['ImplicationalSystemBackend']] = dict()
 
@@ -82,12 +87,27 @@ class ImplicationalSystemBackend(ABC):
     def __iter__(self) -> Iterable[set[int]]:
         return self.iterate_closures()
 
-    def iterate_closures(self, algorithm: Literal['CbO', 'Naive'] = 'CbO') -> Iterable[set[int]]:
+    def iterate_closures(
+            self,
+            algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
+            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None
+    ) -> Iterable[set[int]]:
         if algorithm == 'CbO':
-            return close_by_one_for_closures(set(range(self.base_set_len)), self.saturate)
+            return close_by_one_for_closures(set(range(self.base_set_len)), self.saturate, antimonotone_constraint_func=antimonotone_constraint_func)
         if algorithm == 'Naive':
             return (set(description) for description in powerset(range(self.base_set_len)) if description in self)
+        if algorithm == 'CbO-Forwardtrack':
+            return close_by_one_forwardtracking_for_closures(set(range(self.base_set_len)), self.saturate, antimonotone_constraint_func=antimonotone_constraint_func)
         raise ValueError(f'Algorithm {algorithm} is not supported')
+
+    def count_closures(
+            self,
+            use_tqdm: bool = False,
+            iteration_algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
+            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None
+    ) -> int:
+        closures_iterator = self.iterate_closures(iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func)
+        return sum(1 for _ in tqdm(closures_iterator, desc='Count closures', disable=not use_tqdm, unit_scale=True))
 
 
 @register_implicational_backend('Naive')
