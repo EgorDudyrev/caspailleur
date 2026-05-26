@@ -93,9 +93,6 @@ class ImplicationalSystemBackend(ABC):
     def base_set_len(self) -> int:
         return max(max(premise | conclusion) for premise, conclusion in self.implications.items()) + 1
 
-    def __iter__(self) -> Iterable[set[int]]:
-        return self.iterate_closures()
-
     def iterate_closures(
             self,
             algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',

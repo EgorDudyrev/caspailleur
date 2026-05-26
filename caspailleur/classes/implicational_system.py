@@ -121,9 +121,6 @@ class ImplicationalSystem:
     def base_set(self) -> set[TAttribute]:
         return set(self._attributes_order)
 
-    def __iter__(self) -> Iterable[set[TAttribute]]:
-        return self.iterate_closures()
-
     def iterate_closures(
             self,
             algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
