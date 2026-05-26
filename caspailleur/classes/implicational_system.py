@@ -33,6 +33,13 @@ class ImplicationalSystem:
             self.add(premise, conclusion)
 
     @property
+    def unit_implications(self) -> Iterable[tuple[frozenset[TAttribute], TAttribute]]:
+        for premise_idxs, unit_conclusion_idx in self.backend.unit_implications.items():
+            premise = frozenset(self._idxs2attrs(premise_idxs))
+            unit_conclusion = next(iter(self._idxs2attrs([unit_conclusion_idx])))
+            yield premise, unit_conclusion
+
+    @property
     def backend(self) -> ImplicationalSystemBackend:
         return self._backend
 
