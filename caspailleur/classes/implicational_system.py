@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Literal, Union, overload
+from typing import Literal, Union, overload, Callable
 
 from caspailleur.classes.formal_context import TAttribute
 from caspailleur.classes.implicational_backends import ImplicationalSystemBackend, IMPLICATIONAL_REGISTRY
@@ -12,12 +12,8 @@ class ImplicationalSystem:
             backend_class: Union[type[ImplicationalSystemBackend], Literal[tuple(IMPLICATIONAL_REGISTRY)]] = 'Naive',
             attributes_order: list[TAttribute] = None
     ):
-        if attributes_order is not None:
-            self._attributes_order = list(attributes_order)
-            self._attribute_index_map = {attr: idx for idx, attr in enumerate(self._attributes_order)}
-        else:
-            self._attributes_order = []
-            self._attribute_index_map = dict()
+        self._attributes_order = []
+        self._attribute_index_map = dict()
 
         self.backend = backend_class
         self.implications = implications
@@ -29,8 +25,7 @@ class ImplicationalSystem:
 
     @implications.setter
     def implications(self, value: dict[frozenset[TAttribute], set[TAttribute]]) -> None:
-        for premise, conclusion in self.implications.items():
-            self.remove(premise, conclusion)
+        self.clear()
         for premise, conclusion in value.items():
             self.add(premise, conclusion)
 
@@ -94,6 +89,11 @@ class ImplicationalSystem:
             legacy_attributes -= p | c
         for attr in legacy_attributes:
             self._remove_attribute(attr)
+
+    def clear(self) -> None:
+        self.backend.clear()
+        self._attributes_order = []
+        self._attribute_index_map = dict()
 
     def __len__(self) -> int:
         return self.backend.__len__()

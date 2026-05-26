@@ -61,6 +61,10 @@ class ImplicationalSystemBackend(ABC):
         pass
 
     @abstractmethod
+    def clear(self):
+        pass
+
+    @abstractmethod
     def add_attribute(self):
         pass
 
@@ -143,15 +147,23 @@ class NaiveImplicationalSystemBackend(ImplicationalSystemBackend):
         if premise not in self._implications:
             return
         self._implications[premise] -= set(conclusion)
+        if len(self._implications[premise]) == 0:
+            del self._implications[premise]
+
+    def clear(self):
+        self._implications.clear()
 
     def add_attribute(self):
         pass
 
     def remove_attribute(self, index: int):
+        assert all(index not in premise | conclusion for premise, conclusion in self._implications.items())
         def pop_index(description):
             return (idx if idx < index else idx - 1  for idx in description if idx != index)
+
         self._implications = {frozenset(pop_index(premise)): set(pop_index(conclusion))
                               for premise, conclusion in self._implications.items()}
+
 
 
 @register_implicational_backend('VerticalWild')
@@ -230,6 +242,10 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
             self._conclusions.pop(premise_idx)
             for premises in self._vertical_premises:
                 premises.pop(premise_idx)
+
+    def clear(self):
+        self._vertical_premises.clear()
+        self._conclusions.clear()
 
     def __contains__(self, item: set[int]) -> bool:
         premise_ba = self._idxs2ba(item)
