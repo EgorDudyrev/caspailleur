@@ -15,6 +15,9 @@ class ImplicationalSystem:
         self._attributes_order = []
         self._attribute_index_map = dict()
 
+        if attributes_order is not None:
+            self.reorder_attributes(attributes_order)
+
         self.backend = backend_class
         self.implications = implications
 
@@ -60,6 +63,12 @@ class ImplicationalSystem:
 
         self._backend: ImplicationalSystemBackend = new_backend
 
+    def reorder_attributes(self, attributes_order: list[TAttribute]) -> None:
+        assert set(attributes_order) == set(self._attributes_order)
+        implications = dict(self.implications)
+        self._attributes_order = list(attributes_order)
+        self._attribute_index_map = {attr: idx for idx, attr in enumerate(self._attributes_order)}
+        self.implications = implications
 
     def saturate(self, description: set[TAttribute]) -> set[TAttribute]:
         return self._idxs2attrs(self.backend.saturate(self._attrs2idxs(description)))
