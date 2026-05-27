@@ -126,11 +126,13 @@ class ImplicationalSystem:
     def iterate_closures(
             self,
             algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
-            antimonotone_constrant_func: Callable[[Iterable[TAttribute]], bool] = None
+            antimonotone_constraint_func: Callable[[Iterable[TAttribute]], bool] = None
     ) -> Iterable[set[TAttribute]]:
-        if antimonotone_constrant_func is not None:
-            antimonotone_constrant_func = lambda idxs: antimonotone_constrant_func(self._idxs2attrs(idxs))
-        closure_iterator = self.backend.iterate_closures(algorithm, antimonotone_constraint_func=antimonotone_constrant_func)
+        if antimonotone_constraint_func is not None:
+            indexed_antimonotone_constraint_func = lambda idxs: antimonotone_constraint_func(self._idxs2attrs(idxs))
+        else:
+            indexed_antimonotone_constraint_func = None
+        closure_iterator = self.backend.iterate_closures(algorithm, antimonotone_constraint_func=indexed_antimonotone_constraint_func)
         return map(self._idxs2attrs, closure_iterator)
 
     def count_closures(
