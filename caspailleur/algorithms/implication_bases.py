@@ -1,10 +1,11 @@
-from collections.abc import Callable
+from collections.abc import Callable, Hashable
 from functools import reduce
 from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import subset, zeros as bazeros
 from tqdm.auto import tqdm
 
+from caspailleur.registries import register_closure_iterator
 from caspailleur.algorithms.order import check_topologically_sorted
 from caspailleur.algorithms.base_functions import select_subsets_vertical_ba
 
@@ -306,8 +307,9 @@ def list_pseudo_intents_via_keys(
 
     return [tuple(pi_data[1:]) for pi_data in pseudo_intents]
 
+T = TypeVar('T', bound=Hashable)
 
-T = TypeVar('T')
+@register_closure_iterator('CbO')
 def close_by_one_for_closures(
         elements: set[T],
         closure_func: Callable[[Iterable[T]], set[T]],
@@ -339,6 +341,7 @@ def close_by_one_for_closures(
         stack.extend(next_premises)
 
 
+@register_closure_iterator('CbO-FW')
 def close_by_one_forwardtracking_for_closures(
         elements: set[T], closure_func: Callable[[Iterable[T]], set[T]],
         antimonotone_constraint_func: Callable[[Iterable[T]], bool] = None

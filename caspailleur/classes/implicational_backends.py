@@ -1,3 +1,4 @@
+import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from typing import Literal, Optional, Callable
@@ -6,10 +7,9 @@ from tqdm.auto import tqdm
 from bitarray import bitarray
 from bitarray.util import zeros as bazeros, ones as baones, subset as basubset
 
+from caspailleur.registries import CLOSURE_ITERATOR_REGISTRY
 from caspailleur.algorithms.base_functions import select_subsets_vertical_ba, powerset
 from caspailleur.algorithms.implication_bases import (
-    close_by_one_for_closures,
-    close_by_one_forwardtracking_for_closures,
     saturate_vertical_ba,
 )
 
@@ -94,21 +94,25 @@ class ImplicationalSystemBackend(ABC):
 
     def iterate_closures(
             self,
-            algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
+            algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-Forwardtrack',
             antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None
     ) -> Iterable[set[int]]:
-        if algorithm == 'CbO':
-            return close_by_one_for_closures(set(range(self.base_set_len)), self.saturate, antimonotone_constraint_func=antimonotone_constraint_func)
         if algorithm == 'Naive':
             return (set(description) for description in powerset(range(self.base_set_len)) if description in self)
-        if algorithm == 'CbO-Forwardtrack':
-            return close_by_one_forwardtracking_for_closures(set(range(self.base_set_len)), self.saturate, antimonotone_constraint_func=antimonotone_constraint_func)
-        raise ValueError(f'Algorithm {algorithm} is not supported')
+
+        if algorithm not in CLOSURE_ITERATOR_REGISTRY:
+            raise ValueError(f'Algorithm {algorithm} is not supported as it is not found in CLOSURE_ITERATOR_REGISTRY')
+
+        algo_func = CLOSURE_ITERATOR_REGISTRY[algorithm]
+        defined_params = locals()
+        supported_params = set(list(inspect.signature(algo_func).parameters)[2:])
+        kwargs_to_pass = {p: defined_params[p] for p in supported_params if p in defined_params}
+        return algo_func(set(range(self.base_set_len)), self.saturate, **kwargs_to_pass)
 
     def count_closures(
             self,
             use_tqdm: bool = False,
-            iteration_algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
+            iteration_algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-Forwardtrack',
             antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None
     ) -> int:
         closures_iterator = self.iterate_closures(iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func)
