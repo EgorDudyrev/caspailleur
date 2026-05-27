@@ -49,9 +49,8 @@ class ImplicationalSystemBackend(ABC):
             self.add(premise, conclusion)
 
     @property
-    def unit_implications(self) -> Iterable[tuple[frozenset[int], int]]:
-        return ((premise, unit_conclusion) for premise, conclusion in self.implications.items()
-                for unit_conclusion in conclusion)
+    def unit_implications(self) -> list[tuple[frozenset[int], int]]:
+        return [(prem, unit_concl) for prem, conclusion in self.implications.items() for unit_concl in conclusion]
 
     @abstractmethod
     def saturate(self, description: Iterable[int]) -> set[int]:
