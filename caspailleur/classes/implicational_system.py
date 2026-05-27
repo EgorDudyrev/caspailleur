@@ -2,14 +2,15 @@ from collections.abc import Iterable
 from typing import Literal, Union, overload, Callable
 
 from caspailleur.classes.formal_context import TAttribute
-from caspailleur.classes.implicational_backends import ImplicationalSystemBackend, IMPLICATIONAL_REGISTRY
+from caspailleur.classes.implicational_backends import ImplicationalSystemBackend
+from caspailleur.registries import IMPLICATIONAL_BACKEND_REGISTRY
 
 
 class ImplicationalSystem:
     def __init__(
             self,
             implications: dict[frozenset[TAttribute], set[TAttribute]],
-            backend_class: Union[type[ImplicationalSystemBackend], Literal[tuple(IMPLICATIONAL_REGISTRY)]] = 'Naive',
+            backend_class: Union[type[ImplicationalSystemBackend], Literal[tuple(IMPLICATIONAL_BACKEND_REGISTRY)]] = 'Naive',
             attributes_order: list[TAttribute] = None
     ):
         self._attributes_order = []
@@ -55,7 +56,7 @@ class ImplicationalSystem:
 
     @backend.setter
     @overload
-    def backend(self, value: Literal[tuple(IMPLICATIONAL_REGISTRY)]) -> None: ...
+    def backend(self, value: Literal[tuple(IMPLICATIONAL_BACKEND_REGISTRY)]) -> None: ...
 
     @backend.setter
     def backend(self, value) -> None:
@@ -65,8 +66,8 @@ class ImplicationalSystem:
             new_backend = value.__class__(existing_implications) if existing_implications else value
         elif isinstance(value, type) and issubclass(value, ImplicationalSystemBackend):
             new_backend = value(existing_implications)
-        elif isinstance(value, str) and value in IMPLICATIONAL_REGISTRY:
-            new_backend = IMPLICATIONAL_REGISTRY[value](existing_implications)
+        elif isinstance(value, str) and value in IMPLICATIONAL_BACKEND_REGISTRY:
+            new_backend = IMPLICATIONAL_BACKEND_REGISTRY[value](existing_implications)
         else:
             raise ValueError(f"Implicational system backend {value} is not supported.")
 

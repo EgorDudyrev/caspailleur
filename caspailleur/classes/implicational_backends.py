@@ -9,22 +9,11 @@ from tqdm.auto import tqdm
 from bitarray import bitarray
 from bitarray.util import zeros as bazeros, ones as baones, subset as basubset
 
-from caspailleur.registries import CLOSURE_ITERATOR_REGISTRY
-from caspailleur.algorithms.base_functions import select_subsets_vertical_ba, powerset
+from caspailleur.registries import CLOSURE_ITERATOR_REGISTRY, register_implicational_backend
+from caspailleur.algorithms.base_functions import select_subsets_vertical_ba
 from caspailleur.algorithms.implication_bases import (
     saturate_vertical_ba,
 )
-
-IMPLICATIONAL_REGISTRY: dict[str, type['ImplicationalSystemBackend']] = dict()
-
-
-def register_implicational_backend(key: str):
-    def decorator(cls):
-        assert key not in IMPLICATIONAL_REGISTRY
-        IMPLICATIONAL_REGISTRY[key] = cls
-        return cls
-
-    return decorator
 
 
 class ImplicationalSystemBackend(ABC):
