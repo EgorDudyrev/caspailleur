@@ -3,7 +3,7 @@ from typing import Literal, Union, overload, Callable
 
 from caspailleur.classes.formal_context import TAttribute
 from caspailleur.classes.implicational_backends import ImplicationalSystemBackend
-from caspailleur.registries import IMPLICATIONAL_BACKEND_REGISTRY
+from caspailleur.registries import IMPLICATIONAL_BACKEND_REGISTRY, CLOSURE_ITERATOR_REGISTRY
 
 
 class ImplicationalSystem:
@@ -126,7 +126,7 @@ class ImplicationalSystem:
 
     def iterate_closures(
             self,
-            algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
+            algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-FW',
             antimonotone_constraint_func: Callable[[Iterable[TAttribute]], bool] = None
     ) -> Iterable[set[TAttribute]]:
         if antimonotone_constraint_func is not None:
@@ -139,7 +139,7 @@ class ImplicationalSystem:
     def count_closures(
             self,
             use_tqdm: bool = False,
-            iteration_algorithm: Literal['CbO', 'Naive', 'CbO-Forwardtrack'] = 'CbO-Forwardtrack',
+            iteration_algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-FW',
             antimonotone_constraint_func: Callable[[Iterable[TAttribute]], bool] = None
     ) -> int:
         return self.backend.count_closures(use_tqdm, iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func)
