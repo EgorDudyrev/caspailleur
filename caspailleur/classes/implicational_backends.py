@@ -1,6 +1,8 @@
 import inspect
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
+from inspect import signature
 from typing import Literal, Optional, Callable
 from tqdm.auto import tqdm
 
@@ -101,9 +103,14 @@ class ImplicationalSystemBackend(ABC):
             raise ValueError(f'Algorithm {algorithm} is not supported as it is not found in CLOSURE_ITERATOR_REGISTRY')
 
         algo_func = CLOSURE_ITERATOR_REGISTRY[algorithm]
-        defined_params = locals()
+        defined_params = set(list(signature(self.iterate_closures).parameters)[1:])
         supported_params = set(list(inspect.signature(algo_func).parameters)[2:])
-        kwargs_to_pass = {p: defined_params[p] for p in supported_params if p in defined_params}
+        notsupported_params = defined_params - supported_params
+        if notsupported_params:
+            warnings.warn(f"Passed arguments {notsupported_params} are not supported by algorithm '{algorithm}' "
+                          f"and thus will not affect its run.")
+        locals_ = locals()
+        kwargs_to_pass = {p: locals_[p] for p in supported_params if p in defined_params}
         base_elements = set(range(self.base_set_len))
         return algo_func(base_elements, self.saturate, **kwargs_to_pass)
 
