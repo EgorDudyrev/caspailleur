@@ -97,9 +97,6 @@ class ImplicationalSystemBackend(ABC):
             algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-Forwardtrack',
             antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None
     ) -> Iterable[set[int]]:
-        if algorithm == 'Naive':
-            return (set(description) for description in powerset(range(self.base_set_len)) if description in self)
-
         if algorithm not in CLOSURE_ITERATOR_REGISTRY:
             raise ValueError(f'Algorithm {algorithm} is not supported as it is not found in CLOSURE_ITERATOR_REGISTRY')
 
@@ -107,7 +104,8 @@ class ImplicationalSystemBackend(ABC):
         defined_params = locals()
         supported_params = set(list(inspect.signature(algo_func).parameters)[2:])
         kwargs_to_pass = {p: defined_params[p] for p in supported_params if p in defined_params}
-        return algo_func(set(range(self.base_set_len)), self.saturate, **kwargs_to_pass)
+        base_elements = set(range(self.base_set_len))
+        return algo_func(base_elements, self.saturate, **kwargs_to_pass)
 
     def count_closures(
             self,

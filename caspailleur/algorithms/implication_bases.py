@@ -7,7 +7,7 @@ from tqdm.auto import tqdm
 
 from caspailleur.registries import register_closure_iterator
 from caspailleur.algorithms.order import check_topologically_sorted
-from caspailleur.algorithms.base_functions import select_subsets_vertical_ba
+from caspailleur.algorithms.base_functions import select_subsets_vertical_ba, powerset
 
 
 def saturate_bruteforce(
@@ -394,3 +394,8 @@ def close_by_one_forwardtracking_for_closures(
         for next_element in next_elements:
             stack.append((closure_list + [next_element], set(banned)))
             banned.add(next_element)
+
+
+@register_closure_iterator('Naive')
+def naive_closure_iterator(elements: set[T], closure_func: Callable[[T], bool]) -> Iterator[set[T]]:
+    return (subset_ for subset_ in map(set, powerset(elements)) if closure_func(subset_) == subset_)
