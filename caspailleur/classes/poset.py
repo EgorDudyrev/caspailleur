@@ -3,6 +3,7 @@ from collections.abc import Hashable, Callable
 from functools import reduce
 from typing import TypeVar, Self, Optional, Literal
 
+import matplotlib.pyplot as plt
 import networkx as nx
 
 TElement = TypeVar('TElement', bound=Hashable)
@@ -99,3 +100,27 @@ class Poset:
         neighbours_func = self.direct_successors if arrow_direction == 'ascending' else self.direct_predecessors
         graph.add_edges_from({(node, neighbour) for node in self.elements for neighbour in neighbours_func(node)})
         return graph
+
+    def layout(self, layout_type: Literal['BFS'], smallest_on_top: bool = False) -> dict[TElement, tuple[float, float]]:
+        pos = None
+        if layout_type == 'BFS':
+            assert self.min() is not None
+            pos = nx.layout.bfs_layout(self.to_networkx(), self.min(), align='horizontal')
+        if layout_type == 'Multipartite':
+            graph = self.to_networkx()
+            for node in graph.nodes: graph.nodes[node]['subset'] = len(self.predecessors(node))
+            pos = nx.layout.multipartite_layout(graph, align='horizontal')
+        if pos is None:
+            raise ValueError(f'Unsupported layout type {layout_type}')
+
+
+        if smallest_on_top:
+            max_y = max(y for _, (_, y) in pos.items())
+            pos = {elem: (x, max_y - y) for elem, (x, y) in pos.items()}
+        return {elem: (float(x), float(y)) for elem, (x, y) in pos.items()}
+
+    def draw(self, ax: plt.Axes = None, layout_type: Literal['BFS'] = 'BFS', **draw_kwargs) -> None:
+        ax = plt.gca() if ax is None else ax
+        graph = self.to_networkx()
+        pos = self.layout(layout_type=layout_type, smallest_on_top=False)
+        nx.draw(graph, pos=pos, ax=ax, with_labels=True, **draw_kwargs)
