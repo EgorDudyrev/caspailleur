@@ -1,11 +1,12 @@
 import operator
-from collections.abc import Hashable, Callable
+from collections.abc import Hashable, Callable, Iterator
 from functools import reduce
 from typing import TypeVar, Self, Optional, Literal
 
 import matplotlib.pyplot as plt
 import networkx as nx
 
+from caspailleur.algorithms import layouts
 TElement = TypeVar('TElement', bound=Hashable)
 
 
@@ -39,6 +40,22 @@ class Poset:
             successors_to_process.remove(closest_succ)
             successors_to_process -= self.successors(closest_succ)
         return directs
+
+    @property
+    def direct_predecessors_pairs(self) -> Iterator[tuple[TElement, TElement]]:
+        return ((el, pred) for el in self.elements for pred in self.direct_predecessors(el))
+
+    @property
+    def direct_successors_pairs(self) -> Iterator[tuple[TElement, TElement]]:
+        return ((el, suc) for el in self.elements for suc in self.direct_successors(el))
+
+    @property
+    def predecessors_pairs(self) -> Iterator[tuple[TElement, TElement]]:
+        return ((el, pred) for el in self.elements for pred in self.predecessors(el))
+
+    @property
+    def successors_pairs(self) -> Iterator[tuple[TElement, TElement]]:
+        return ((el, suc) for el in self.elements for suc in self.successors(el))
 
     @classmethod
     def from_direct_predecessors(cls, direct_predecessors: set[tuple[TElement, TElement]]) -> Self:
@@ -101,15 +118,15 @@ class Poset:
         graph.add_edges_from({(node, neighbour) for node in self.elements for neighbour in neighbours_func(node)})
         return graph
 
-    def layout(self, layout_type: Literal['BFS'], smallest_on_top: bool = False) -> dict[TElement, tuple[float, float]]:
+    def line_layout(self, layout_type: Literal['BFS'], smallest_on_top: bool = False) -> dict[TElement, tuple[float, float]]:
         pos = None
         if layout_type == 'BFS':
             assert self.min() is not None
-            pos = nx.layout.bfs_layout(self.to_networkx(), self.min(), align='horizontal')
+            pos = layouts.nx_bfs_layout(self.elements, set(self.direct_successors_pairs))
         if layout_type == 'Multipartite':
-            graph = self.to_networkx()
-            for node in graph.nodes: graph.nodes[node]['subset'] = len(self.predecessors(node))
-            pos = nx.layout.multipartite_layout(graph, align='horizontal')
+            assert self.min() is not None
+            pos = layouts.nx_multipartite_layout(self.elements, set(self.direct_successors_pairs))
+
         if pos is None:
             raise ValueError(f'Unsupported layout type {layout_type}')
 
@@ -122,5 +139,5 @@ class Poset:
     def draw(self, ax: plt.Axes = None, layout_type: Literal['BFS'] = 'BFS', **draw_kwargs) -> None:
         ax = plt.gca() if ax is None else ax
         graph = self.to_networkx()
-        pos = self.layout(layout_type=layout_type, smallest_on_top=False)
+        pos = self.line_layout(layout_type=layout_type, smallest_on_top=False)
         nx.draw(graph, pos=pos, ax=ax, with_labels=True, **draw_kwargs)
