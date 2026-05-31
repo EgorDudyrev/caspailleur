@@ -1,7 +1,11 @@
 from typing import TypeVar
 
+from caspailleur.registries import register_line_layout
+
 T = TypeVar('T')
 
+
+@register_line_layout('nx-BFS')
 def nx_bfs_layout(nodes: set[T], edges: set[tuple[T, T]], start_: T = None) -> dict[T, tuple[float, float]]:
     import networkx as nx
 
@@ -15,6 +19,7 @@ def nx_bfs_layout(nodes: set[T], edges: set[tuple[T, T]], start_: T = None) -> d
     return {node: (float(x), float(y)) for node, (x, y) in pos.items()}
 
 
+@register_line_layout('nx-Multipartite')
 def nx_multipartite_layout(nodes: set[T], edges: set[tuple[T, T]], y_position: dict[T, float] = None) -> dict[T, tuple[float, float]]:
     import networkx as nx
 

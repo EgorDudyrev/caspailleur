@@ -32,3 +32,21 @@ def register_implicational_backend(key: str):
         return cls
 
     return decorator
+
+
+class LineLayoutProtocol(Protocol):
+    def __call__(
+            self, nodes: set[T], edges: set[tuple[T, T]],
+            **kwargs
+    ) -> dict[T, tuple[float, float]]:
+        ...
+
+LINE_LAYOUT_REGISTRY: dict[str, LineLayoutProtocol] = dict()
+
+def register_line_layout(key: str):
+    def decorator(func):
+        assert key not in LINE_LAYOUT_REGISTRY
+        LINE_LAYOUT_REGISTRY[key] = func
+        return func
+
+    return decorator

@@ -6,7 +6,8 @@ from typing import TypeVar, Self, Optional, Literal
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from caspailleur.algorithms import layouts
+from caspailleur.registries import LINE_LAYOUT_REGISTRY
+
 TElement = TypeVar('TElement', bound=Hashable)
 
 
@@ -118,25 +119,17 @@ class Poset:
         graph.add_edges_from({(node, neighbour) for node in self.elements for neighbour in neighbours_func(node)})
         return graph
 
-    def line_layout(self, layout_type: Literal['BFS'], smallest_on_top: bool = False) -> dict[TElement, tuple[float, float]]:
-        pos = None
-        if layout_type == 'BFS':
-            assert self.min() is not None
-            pos = layouts.nx_bfs_layout(self.elements, set(self.direct_successors_pairs))
-        if layout_type == 'Multipartite':
-            assert self.min() is not None
-            pos = layouts.nx_multipartite_layout(self.elements, set(self.direct_successors_pairs))
-
-        if pos is None:
-            raise ValueError(f'Unsupported layout type {layout_type}')
-
+    def line_layout(self, layout_type: Literal[tuple(LINE_LAYOUT_REGISTRY)], smallest_on_top: bool = False) -> dict[TElement, tuple[float, float]]:
+        assert layout_type in LINE_LAYOUT_REGISTRY, f'Unsupported layout type {layout_type}'
+        layout_func = LINE_LAYOUT_REGISTRY[layout_type]
+        pos = layout_func(self.elements, set(self.direct_successors_pairs))
 
         if smallest_on_top:
             max_y = max(y for _, (_, y) in pos.items())
             pos = {elem: (x, max_y - y) for elem, (x, y) in pos.items()}
         return {elem: (float(x), float(y)) for elem, (x, y) in pos.items()}
 
-    def draw(self, ax: plt.Axes = None, layout_type: Literal['BFS'] = 'BFS', **draw_kwargs) -> None:
+    def draw(self, ax: plt.Axes = None, layout_type: Literal[tuple(LINE_LAYOUT_REGISTRY)] = 'nx-BFS', **draw_kwargs) -> None:
         ax = plt.gca() if ax is None else ax
         graph = self.to_networkx()
         pos = self.line_layout(layout_type=layout_type, smallest_on_top=False)
