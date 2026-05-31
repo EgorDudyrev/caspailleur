@@ -1,6 +1,9 @@
 import heapq
-from collections.abc import Iterable, Iterator
-from typing import TypeVar, Literal
+from collections.abc import Iterator, Callable
+from typing import TypeVar, Literal, NamedTuple
+
+from bitarray import bitarray
+from bitarray.util import zeros as bazeros
 from tqdm.auto import tqdm
 
 from caspailleur.registries import register_line_layout
@@ -97,78 +100,116 @@ def doIntersect(line_a: tuple[Coordinate, Coordinate], line_b: tuple[Coordinate,
 
 @register_line_layout('column_sofia')
 def sofia_column_layout(
-        nodes: set[T], edges: set[tuple[T, T]],
-        n_columns_max: int = None, n_edge_overlaps_max: int = None, n_best_solutions: int = None,
-        nodes_ascending_order: list[T] = None,
-        y_position: dict[T, float] = None,
+        nodes: set[T],
+        edges: set[tuple[T, T]],
+        n_columns_max: int = None, n_overlaps: int = None, n_best_solutions: int = None,
+        y_position: Callable[[T], float] | dict[T, float] = None,
         use_tqdm: bool = False,
 ) -> dict[T, tuple[float, float]]:
-    if nodes_ascending_order is None or y_position is None:
-        import networkx as nx
-        graph = nx.DiGraph()
-        graph.add_nodes_from(nodes)
-        graph.add_edges_from(edges)
+    TMeasure = NamedTuple('TMeasure', [('n_overlaps', int), ('n_columns', int)])
 
-    if nodes_ascending_order is None:
-        nodes_ascending_order = list(nx.topological_sort(graph))
+    nodes_idx_map: dict[T, int] = dict()
+    subnodes_relation: list[bitarray] = []
 
-    if y_position is None:
-        y_position = nx.single_source_shortest_path_length(graph, nodes_ascending_order[0])
+    def preprocess_node_subnode(node, subnodes):
+        node_idx = nodes_idx_map[node]  # len(nodes_idx_map)
+        subnodes_ba = bazeros(node_idx)
+        for subnode in subnodes:
+            subnode_idx = nodes_idx_map[subnode]
+            subnodes_ba[subnode_idx] = True
+            subnodes_ba[:subnode_idx] |= subnodes_relation[subnode_idx]
+        return node_idx, subnodes_ba
 
-    TLayout = tuple[tuple[T, ...], ...]
-    TMeasures = tuple[int, int]
+    def expand_solutions(solutions_: Iterator[tuple[int,...]]) -> Iterator[tuple[tuple[int,...], tuple[int,...]]]:
+        for old_solution in solutions_:
+            n_columns = max(old_solution, default=-1)+1
+            # place the new node to one of the existing columns
+            for column_idx in range(n_columns):
+                new_solution = old_solution + (column_idx,)
+                yield new_solution, old_solution
 
-    def layout2pos(layout: TLayout) -> dict[T, tuple[float, float]]:
-        pos = dict()
-        for column_idx, column in enumerate(layout):
-            for el in column:
-                pos[el] = (column_idx, y_position[el])
-        return pos
+            # place the new node to the left of everything
+            new_solution = tuple([x+1 for x in old_solution]) + (0,)
+            yield new_solution, old_solution
+            # place the new node to the right of everything
+            new_solution = old_solution + (n_columns,)
+            yield new_solution, old_solution
 
-    def update_overlap(layout: TLayout, new_node: T, old_score: int) -> int:
-        pos = layout2pos(layout)
+            # place the new node between the existing columns
+            for column_idx in range(1, n_columns):
+                new_solution = tuple([x if x < column_idx else (x+1) for x in old_solution]) + (column_idx,)
+                yield new_solution, old_solution
 
-        n_overlaps = old_score
-        shown_edges = [edge for edge in edges if edge[0] in pos and edge[1] in pos]
-        old_edges = [edge for edge in shown_edges if new_node not in edge]
-        new_edges = set(shown_edges) - set(old_edges)
-        for old_edge in old_edges:
-            old_line = [pos[el] for el in old_edge]
-            for new_edge in new_edges:
-                new_line = [pos[el] for el in new_edge]
-                n_overlaps += int(doIntersect(old_line, new_line))
+    def update_overlap(x_pos: tuple[int, ...], old_overlaps: int) -> int:
+        def select_direct_subnodes(idx) -> bitarray:
+            direct_subnodes = bitarray(subnodes_relation[idx])
+            while (idx := direct_subnodes.find(True, 0, idx, right=True)) >= 0:
+                direct_subnodes[:len(subnodes_relation[idx])] &= ~subnodes_relation[idx]
+            return direct_subnodes
+
+        last_added_idx = len(x_pos)-1
+        connected_nodes = select_direct_subnodes(last_added_idx)
+        n_overlaps = old_overlaps
+        for subnode_i in connected_nodes.search(True):
+            new_line = (x_pos[subnode_i], y_positions[subnode_i]), (x_pos[last_added_idx], y_positions[last_added_idx])
+
+            target_nodes_to_check = ~subnodes_relation[last_added_idx]
+            idx = len(target_nodes_to_check)
+            while (idx := target_nodes_to_check.find(True, 0, idx, right=True)) >= 0:
+                if y_positions[idx] <= y_positions[subnode_i]:
+                    target_nodes_to_check[:len(subnodes_relation[idx])] &= ~subnodes_relation[idx]
+
+            for target_node_idx in target_nodes_to_check.search(True):
+                for source_node_idx in select_direct_subnodes(target_node_idx):
+                    old_line = (x_pos[source_node_idx], y_positions[source_node_idx]), (x_pos[target_node_idx], y_positions[target_node_idx])
+
+                    n_overlaps += int(doIntersect(old_line, new_line))
         return n_overlaps
 
-    def expand_layouts(layouts: Iterable[TLayout], new_node: T) -> Iterator[tuple[TLayout, TLayout]]:
-        for old_layout in layouts:
-            # option 1: add new node to the end of an existing column
-            for column_idx in range(len(old_layout)):
-                new_layout = [colvals for colvals in old_layout]
-                new_layout[column_idx] = new_layout[column_idx]+(new_node,)
-                yield tuple(new_layout), old_layout
+    def evaluate_solution(solution: tuple[int, ...], old_eval: TMeasure) -> TMeasure:
+        return TMeasure(update_overlap(solution, old_eval[0]), max(solution, default=-1)+1)
 
-            # option 2: insert new node into a new column in between the layouts
-            for column_idx in range(len(old_layout)):
-                new_layout = old_layout[:column_idx] + ((new_node,),) + old_layout[column_idx:]
-                yield new_layout, old_layout
+    def filter_solution(evals: TMeasure) -> bool:
+        if n_columns_max is not None and evals.n_columns > n_columns_max:
+            return False
+        if n_overlaps is not None and evals.n_overlaps > n_overlaps:
+            return False
+        return True
 
-            new_layout = old_layout + ((new_node,),)
-            yield new_layout, old_layout
-            new_layout = ((new_node,),) + old_layout
-            yield new_layout, old_layout
+    y_positions: list[float] = []
+    solutions: dict[tuple[int, ...], TMeasure] = {tuple(): TMeasure(0, 0)}
 
+    import networkx as nx
+    graph = nx.DiGraph()
+    graph.add_nodes_from(nodes)
+    graph.add_edges_from(edges)
+    node_toposort = list(nx.topological_sort(graph))
+    nodes_idx_map = {node: idx for idx, node in enumerate(node_toposort)}
+    direct_subnodes = {node: set() for node in node_toposort}
+    for source, target in edges:
+        if nodes_idx_map[source] < nodes_idx_map[target]:
+            direct_subnodes[target].add(source)
+        else:
+            direct_subnodes[source].add(target)
+    nodes_and_subnodes = [(node, direct_subnodes[node]) for node in node_toposort]
+    print([(nodes_idx_map[n], [nodes_idx_map[sn] for sn in sns]) for n, sns in nodes_and_subnodes])
 
-    layouts: dict[TLayout, TMeasures] = {tuple(): (0, 0)}
-    for node in tqdm(nodes_ascending_order, disable=not use_tqdm):
-        new_layouts_generator = tqdm(expand_layouts(layouts, node), disable=not use_tqdm, leave=False, unit_scale=True)
-        eval_layouts = {new_layout:
-                            (update_overlap(new_layout, node, layouts[old_layout][0]), len(new_layout))
-                        for new_layout, old_layout in new_layouts_generator}
-        layouts = {layout: score for layout, score in eval_layouts.items() if score[0] <= n_edge_overlaps_max and score[1] <= n_columns_max}
+    for node, subnodes in tqdm(nodes_and_subnodes, disable=not use_tqdm):
+        node_idx, subnodes_ba = preprocess_node_subnode(node, subnodes)
+        nodes_idx_map[node] = node_idx
+        subnodes_relation.append(subnodes_ba)
 
-        if n_best_solutions is not None and len(layouts) > n_best_solutions:
-            layouts = heapq.nsmallest(n_best_solutions, layouts.items(), key=lambda layout: layout[1])
-            layouts = dict(layouts)
+        y_positions.append(y_position[node] if isinstance(y_position, dict) else y_position(node) if y_position is not None else subnodes_ba.count())
 
-    layouts = sorted(layouts, key=lambda layout: layouts[layout])
-    return layout2pos(layouts[0])
+        new_solutions_generator = expand_solutions(solutions.keys())
+        new_solutions = ((new_solution, evaluate_solution(new_solution, solutions[old_solution]))
+                         for new_solution, old_solution in new_solutions_generator)
+        new_solutions = [(new_solution, evals) for new_solution, evals in new_solutions
+                         if filter_solution(evals)]
+
+        if n_best_solutions is not None and len(new_solutions) > n_best_solutions:
+            new_solutions = heapq.nsmallest(n_best_solutions, new_solutions, key=lambda xpos_evals: xpos_evals[1])
+        solutions = dict(new_solutions)
+
+    xpos_final = min(solutions, key=lambda x_pos: solutions[x_pos])
+    return {el: (xpos_final[idx], y_positions[idx]) for el, idx in nodes_idx_map.items()}
