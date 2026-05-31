@@ -1,9 +1,5 @@
-import inspect
-import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
-from inspect import signature
-from typing import Literal, Optional, Callable
+from typing import Literal, Optional, Callable, Iterable
 from tqdm.auto import tqdm
 
 from bitarray import bitarray
@@ -14,6 +10,7 @@ from caspailleur.algorithms.base_functions import select_subsets_vertical_ba
 from caspailleur.algorithms.implication_bases import (
     saturate_vertical_ba,
 )
+from caspailleur.classes.utils import filter_kwargs
 
 
 class ImplicationalSystemBackend(ABC):
@@ -90,16 +87,10 @@ class ImplicationalSystemBackend(ABC):
     ) -> Iterable[set[int]]:
         if algorithm not in CLOSURE_ITERATOR_REGISTRY:
             raise ValueError(f'Algorithm {algorithm} is not supported as it is not found in CLOSURE_ITERATOR_REGISTRY')
-
         algo_func = CLOSURE_ITERATOR_REGISTRY[algorithm]
-        defined_params = set(list(signature(self.iterate_closures).parameters)[1:])
-        supported_params = set(list(inspect.signature(algo_func).parameters)[2:])
-        notsupported_params = defined_params - supported_params
-        if notsupported_params:
-            warnings.warn(f"Passed arguments {notsupported_params} are not supported by algorithm '{algorithm}' "
-                          f"and thus will not affect its run.")
-        locals_ = locals()
-        kwargs_to_pass = {p: locals_[p] for p in supported_params if p in defined_params}
+
+        kwargs_to_pass, defined_params, supported_params = filter_kwargs(self.iterate_closures, 1, locals(), set(), algo_func, 2)
+
         base_elements = set(range(self.base_set_len))
         return algo_func(base_elements, self.saturate, **kwargs_to_pass)
 

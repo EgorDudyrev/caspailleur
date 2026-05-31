@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from caspailleur.registries import LINE_LAYOUT_REGISTRY
+from caspailleur.classes.utils import filter_kwargs
 
 TElement = TypeVar('TElement', bound=Hashable)
 
@@ -119,10 +120,22 @@ class Poset:
         graph.add_edges_from({(node, neighbour) for node in self.elements for neighbour in neighbours_func(node)})
         return graph
 
-    def line_layout(self, layout_type: Literal[tuple(LINE_LAYOUT_REGISTRY)], smallest_on_top: bool = False) -> dict[TElement, tuple[float, float]]:
+    def line_layout(
+            self, layout_type: Literal[tuple(LINE_LAYOUT_REGISTRY)], smallest_on_top: bool = False,
+            y_position: dict[TElement, float] = None
+    ) -> dict[TElement, tuple[float, float]]:
         assert layout_type in LINE_LAYOUT_REGISTRY, f'Unsupported layout type {layout_type}'
         layout_func = LINE_LAYOUT_REGISTRY[layout_type]
-        pos = layout_func(self.elements, set(self.direct_successors_pairs))
+        kwargs_to_pass, defined_kwargs, supported_kwargs = filter_kwargs(self.line_layout, 3, locals(), set(), layout_func, 2)
+
+        # Set up some default values
+        undefined_kwargs = supported_kwargs - defined_kwargs
+        if 'start_' in undefined_kwargs:
+            kwargs_to_pass['start_'] = self.min()
+        if 'y_position' in undefined_kwargs:
+            kwargs_to_pass['y_position'] = {el: len(self.predecessors(el)) for el in self.elements}
+
+        pos = layout_func(self.elements, set(self.direct_successors_pairs), **kwargs_to_pass)
 
         if smallest_on_top:
             max_y = max(y for _, (_, y) in pos.items())
