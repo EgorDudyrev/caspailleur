@@ -1,4 +1,5 @@
 import heapq
+import warnings
 from collections.abc import Iterator, Callable
 from typing import TypeVar, Literal, NamedTuple
 
@@ -98,7 +99,7 @@ def doIntersect(line_a: tuple[Coordinate, Coordinate], line_b: tuple[Coordinate,
     return False
 
 
-@register_line_layout('column_sofia')
+#@register_line_layout('column_sofia')
 def sofia_column_layout(
         nodes: set[T],
         edges: set[tuple[T, T]],
