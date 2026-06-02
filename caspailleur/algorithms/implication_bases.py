@@ -1,9 +1,13 @@
+from collections.abc import Callable, Hashable
 from functools import reduce
-from typing import List, Dict, Tuple, Iterator, Iterable
+from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar
 from bitarray import frozenbitarray as fbarray, bitarray
-from bitarray.util import subset
+from bitarray.util import subset, zeros as bazeros, any_and
 from tqdm.auto import tqdm
-from caspailleur.order import check_topologically_sorted
+
+from caspailleur.registries import register_closure_iterator
+from caspailleur.algorithms.order import check_topologically_sorted
+from caspailleur.algorithms.base_functions import select_subsets_vertical_ba, powerset
 
 
 def saturate_bruteforce(
@@ -139,6 +143,23 @@ def subset_saturate(premise: bitarray, implications: list[tuple[bitarray, int]],
     implied_intents = (intents[sub_int_i] for sub_prem, sub_int_i in implications
                        if sub_prem & premise == sub_prem and sub_prem != premise)
     return reduce(bitarray.__or__, implied_intents, premise)
+
+
+def saturate_vertical_ba(premise: bitarray, vertical_premises: list[bitarray], conclusions: list[bitarray]) -> bitarray:
+    """Extend `premise` with attributes in implications defined by `vertical_premises` and `conclusions`"""
+    closure = bitarray(premise)
+    already_covered_premises = vertical_premises[0] & ~vertical_premises[0]
+    while True:
+        covered_premises = select_subsets_vertical_ba(closure, vertical_premises)
+        conclusions_to_add = covered_premises & ~already_covered_premises
+        if not conclusions_to_add.any():
+            break
+
+        for i in conclusions_to_add.search(True):
+            closure |= conclusions[i]
+        already_covered_premises = covered_premises
+
+    return closure
 
 
 def verify_proper_premise_via_keys(
@@ -285,3 +306,93 @@ def list_pseudo_intents_via_keys(
         pseudo_intents = add_pintent(key, key_saturated, intent_i, pseudo_intents)
 
     return [tuple(pi_data[1:]) for pi_data in pseudo_intents]
+
+T = TypeVar('T', bound=Hashable)
+
+@register_closure_iterator('CbO')
+def close_by_one_for_closures(
+        elements: set[T],
+        closure_func: Callable[[Iterable[T]], set[T]],
+        antimonotone_constraint_func: Callable[[Iterable[T]], bool] = None
+) -> Iterator[set[T]]:
+    if antimonotone_constraint_func is None:
+        antimonotone_constraint_func = lambda _: True
+
+    elements = list(elements)
+    elements_indices = {element: idx for idx, element in enumerate(elements)}
+
+    stack: list[list[T]] = [list()]
+    while stack:
+        premise = stack.pop()
+        last_added_idx = elements_indices[premise[-1]] if premise else -1
+        closure = closure_func(premise)
+
+        new_elements = closure - set(premise)
+        not_canonic = any(elements_indices[element] < last_added_idx for element in new_elements)
+        if not_canonic:
+            continue
+
+        if not antimonotone_constraint_func(closure):
+            continue
+
+        yield closure
+        closure_list = list(closure)
+        next_premises = (closure_list + [element] for element in elements[last_added_idx+1:] if element not in closure)
+        stack.extend(next_premises)
+
+
+@register_closure_iterator('CbO-FW')
+def close_by_one_forwardtracking_for_closures(
+        elements: set[T], closure_func: Callable[[Iterable[T]], set[T]],
+        antimonotone_constraint_func: Callable[[Iterable[T]], bool] = None
+) -> Iterator[set[T]]:
+    if antimonotone_constraint_func is None:
+        antimonotone_constraint_func = lambda _: True
+
+    elementary_closures = {element: closure_func([element])-{element} for element in elements}
+    elements = sorted(elements, key=lambda element: len(elementary_closures[element]))
+    elements_indices = {element: idx for idx, element in enumerate(elements)}
+
+    n_elements = len(elements)
+    subelements = [bazeros(n_elements) for _ in range(n_elements)]
+    superelements = [bazeros(n_elements) for _ in range(n_elements)]
+    for element, closure in elementary_closures.items():
+        idx = elements_indices[element]
+        for subelement in closure:
+            subelement_idx = elements_indices[subelement]
+            subelements[idx][subelement_idx] = True
+            superelements[subelement_idx][idx] = True
+
+
+    stack: list[tuple[list[int], bitarray]] = [([], bazeros(len(elements)))]
+    while stack:
+        premise_idxs, banned_ba = stack.pop()
+        closure = closure_func([elements[i] for i in premise_idxs])
+        closure_ba = bazeros(n_elements)
+        for element in closure:
+            closure_ba[elements_indices[element]] = True
+
+        if any_and(banned_ba, closure_ba):
+            continue
+
+        if not antimonotone_constraint_func(closure):
+            continue
+
+        yield closure
+
+        next_elements_candidates = ~closure_ba & ~banned_ba
+        next_idx = -1
+        next_elements_idxs = []
+        while (next_idx := next_elements_candidates.find(True, next_idx+1)) != -1:
+            next_elements_idxs.append(next_idx)
+            next_elements_candidates &= ~superelements[next_idx]
+
+        closure_idxs = list(closure_ba.search(True))
+        for next_element_idx in next_elements_idxs:
+            stack.append((closure_idxs + [next_element_idx], banned_ba.copy()))
+            banned_ba[next_element_idx] = True
+
+
+@register_closure_iterator('Naive')
+def naive_closure_iterator(elements: set[T], closure_func: Callable[[T], bool]) -> Iterator[set[T]]:
+    return (subset_ for subset_ in map(set, powerset(elements)) if closure_func(subset_) == subset_)

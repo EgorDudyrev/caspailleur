@@ -5,10 +5,10 @@ from typing import Iterator, Iterable, Union, Sequence, Optional
 
 import deprecation
 
-from .order import topological_sorting, check_topologically_sorted
-from .io import isets2bas, bas2isets, to_absolute_number
-from .indices import delta_stability_by_extents
-from .base_functions import extension
+from caspailleur.algorithms.order import topological_sorting, check_topologically_sorted
+from caspailleur.io import isets2bas, bas2isets, to_absolute_number
+from caspailleur.indices import delta_stability_by_extents
+from caspailleur.algorithms.base_functions import extension
 
 from skmine.itemsets import LCM
 from bitarray import bitarray, frozenbitarray as fbarray

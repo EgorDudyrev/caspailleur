@@ -5,7 +5,7 @@ from typing import Iterable, Iterator, Union, Any, Sequence
 import deprecation
 from bitarray import frozenbitarray as fbarray, bitarray
 
-from . import io
+from caspailleur import io
 
 
 ################
@@ -67,6 +67,15 @@ def intention(
         objects = next(io.isets2bas([objects], len(crosses_per_columns[0])))
 
     return (m for m, col in enumerate(crosses_per_columns) if is_subset_of(objects, col))
+
+
+def select_subsets_vertical_ba(description: bitarray, crosses_per_columns: list[bitarray]) -> bitarray:
+    empty_column = crosses_per_columns[0] & ~crosses_per_columns[0]
+    non_subsets = bitarray(empty_column)
+    for excluded_element in description.search(False):
+        non_subsets |= crosses_per_columns[excluded_element]
+    return ~non_subsets
+
 
 
 def closure(

@@ -1,5 +1,4 @@
-from caspailleur import implication_bases as impbas
-from caspailleur import mine_equivalence_classes as mec
+from caspailleur.algorithms import implication_bases as impbas, mine_equivalence_classes as mec
 from caspailleur import io
 from bitarray import frozenbitarray as fbarray
 

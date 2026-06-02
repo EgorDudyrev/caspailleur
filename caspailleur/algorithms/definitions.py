@@ -7,7 +7,7 @@ from typing import FrozenSet, Union
 from bitarray import frozenbitarray as fbarray
 
 
-from .base_functions import closure, is_psubset_of, powerset
+from caspailleur.algorithms.base_functions import closure, is_psubset_of, powerset
 
 
 def is_closed(B: Union[FrozenSet[int], fbarray], crosses_per_columns: Union[list[FrozenSet[int]], list[fbarray]]) -> bool:

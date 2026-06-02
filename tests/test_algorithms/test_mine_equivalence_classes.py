@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from caspailleur import mine_equivalence_classes as mec
+from caspailleur.algorithms import mine_equivalence_classes as mec
 from caspailleur import io
 
 from bitarray import frozenbitarray as fbarray

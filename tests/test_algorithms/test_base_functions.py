@@ -1,4 +1,4 @@
-from caspailleur import base_functions as bfunc
+from caspailleur.algorithms import base_functions as bfunc
 
 
 def test_powerset():

@@ -3,11 +3,8 @@ from typing import Dict, Any, Union
 import deprecation
 import numpy as np
 
-from . import io
-from . import implication_bases as ibases
-from . import mine_equivalence_classes as mec
-from . import order as ordermod
-from . import indices as indicesmod
+from caspailleur import io, indices as indicesmod
+from caspailleur.algorithms import implication_bases as ibases, mine_equivalence_classes as mec, order as ordermod
 
 
 @deprecation.deprecated(
