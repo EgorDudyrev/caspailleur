@@ -2,7 +2,7 @@ from collections.abc import Callable, Hashable
 from functools import reduce
 from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar
 from bitarray import frozenbitarray as fbarray, bitarray
-from bitarray.util import subset, zeros as bazeros
+from bitarray.util import subset, zeros as bazeros, any_and
 from tqdm.auto import tqdm
 
 from caspailleur.registries import register_closure_iterator
@@ -364,11 +364,15 @@ def close_by_one_forwardtracking_for_closures(
             superelements[subelement_idx][idx] = True
 
 
-    stack: list[tuple[list[T], set[T]]] = [(list(), set())]
+    stack: list[tuple[list[int], bitarray]] = [([], bazeros(len(elements)))]
     while stack:
-        premise, banned = stack.pop()
-        closure = closure_func(premise)
-        if not closure.isdisjoint(banned):
+        premise_idxs, banned_ba = stack.pop()
+        closure = closure_func([elements[i] for i in premise_idxs])
+        closure_ba = bazeros(n_elements)
+        for element in closure:
+            closure_ba[elements_indices[element]] = True
+
+        if any_and(banned_ba, closure_ba):
             continue
 
         if not antimonotone_constraint_func(closure):
@@ -376,24 +380,17 @@ def close_by_one_forwardtracking_for_closures(
 
         yield closure
 
-        closure_ba = bazeros(n_elements)
-        for element in closure:
-            closure_ba[elements_indices[element]] = True
+        next_elements_candidates = ~closure_ba & ~banned_ba
+        next_idx = -1
+        next_elements_idxs = []
+        while (next_idx := next_elements_candidates.find(True, next_idx+1)) != -1:
+            next_elements_idxs.append(next_idx)
+            next_elements_candidates &= ~superelements[next_idx]
 
-        next_elements = []
-        next_elements_candidates = ~closure_ba
-        while next_elements_candidates.any():
-            next_idx = next_elements_candidates.find(True)
-            next_elements_candidates[next_idx] = False
-
-            if subset(subelements[next_idx], closure_ba):
-                next_elements.append(elements[next_idx])
-                next_elements_candidates &= ~superelements[next_idx]
-
-        closure_list = list(closure)
-        for next_element in next_elements:
-            stack.append((closure_list + [next_element], set(banned)))
-            banned.add(next_element)
+        closure_idxs = list(closure_ba.search(True))
+        for next_element_idx in next_elements_idxs:
+            stack.append((closure_idxs + [next_element_idx], banned_ba.copy()))
+            banned_ba[next_element_idx] = True
 
 
 @register_closure_iterator('Naive')
