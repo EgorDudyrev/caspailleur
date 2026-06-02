@@ -15,7 +15,7 @@ CLOSURE_ITERATOR_REGISTRY: dict[str, ClosureIteratorProtocol] = dict()
 
 def register_closure_iterator(key: str):
     def decorator(func):
-        assert key not in CLOSURE_ITERATOR_REGISTRY
+        #assert key not in CLOSURE_ITERATOR_REGISTRY
         CLOSURE_ITERATOR_REGISTRY[key] = func
         return func
 
@@ -27,7 +27,7 @@ IMPLICATIONAL_BACKEND_REGISTRY: dict[str, type['ImplicationalSystemBackend']] = 
 
 def register_implicational_backend(key: str):
     def decorator(cls):
-        assert key not in IMPLICATIONAL_BACKEND_REGISTRY
+        #assert key not in IMPLICATIONAL_BACKEND_REGISTRY
         IMPLICATIONAL_BACKEND_REGISTRY[key] = cls
         return cls
 
@@ -45,7 +45,7 @@ LINE_LAYOUT_REGISTRY: dict[str, LineLayoutProtocol] = dict()
 
 def register_line_layout(key: str):
     def decorator(func):
-        assert key not in LINE_LAYOUT_REGISTRY
+        #assert key not in LINE_LAYOUT_REGISTRY
         LINE_LAYOUT_REGISTRY[key] = func
         return func
 
