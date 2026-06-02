@@ -137,7 +137,7 @@ class Poset:
     ) -> dict[TElement, tuple[float, float]]:
         assert layout_type in LINE_LAYOUT_REGISTRY, f'Unsupported layout type {layout_type}'
         layout_func = LINE_LAYOUT_REGISTRY[layout_type]
-        kwargs_to_pass, defined_kwargs, supported_kwargs = filter_kwargs(self.line_layout, 3, locals(), set(), layout_func, 2)
+        kwargs_to_pass, defined_kwargs, supported_kwargs = filter_kwargs(self.line_layout, 2, locals(), set(), layout_func, 2)
 
         # Set up some default values
         undefined_kwargs = supported_kwargs - defined_kwargs
