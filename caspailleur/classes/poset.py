@@ -59,6 +59,17 @@ class Poset:
     def successors_pairs(self) -> Iterator[tuple[TElement, TElement]]:
         return ((el, suc) for el in self.elements for suc in self.successors(el))
 
+    def __iter__(self) -> Iterator[TElement]:
+        return iter(sorted(self.elements, key=lambda el: len(self.successors(el))))
+
+    def __contains__(self, item: TElement | tuple[TElement, TElement]) -> bool:
+        if isinstance(item, tuple) and len(item) == 2 and item[0] in self.elements and item[1] in self.elements:
+            return item in self.successors_pairs
+        return item in self.elements
+
+    def __len__(self) -> int:
+        return len(self.elements)
+
     @classmethod
     def from_direct_predecessors(cls, direct_predecessors: set[tuple[TElement, TElement]]) -> Self:
         elements = {elem for pair in direct_predecessors for elem in pair}
