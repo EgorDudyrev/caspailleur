@@ -13,7 +13,7 @@ TElement = TypeVar('TElement', bound=Hashable)
 
 
 class Poset:
-    def __init__(self, elements: set[TElement], leq_order: set[TElement]):
+    def __init__(self, elements: set[TElement], leq_order: set[tuple[TElement, TElement]]):
         self.elements = set(elements)
         self.leq_order = set(map(tuple, leq_order))
 
