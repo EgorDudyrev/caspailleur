@@ -6,7 +6,7 @@ from typing import TypeVar, Self, Optional, Literal
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from caspailleur.registries import LINE_LAYOUT_REGISTRY
+from caspailleur.algorithms.layouts import LINE_LAYOUT_REGISTRY
 from caspailleur.classes.utils import filter_kwargs
 
 TElement = TypeVar('TElement', bound=Hashable)
