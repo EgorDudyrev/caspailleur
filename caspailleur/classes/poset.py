@@ -6,14 +6,14 @@ from typing import TypeVar, Self, Optional, Literal
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from caspailleur.registries import LINE_LAYOUT_REGISTRY
+from caspailleur.algorithms.layouts import LINE_LAYOUT_REGISTRY
 from caspailleur.classes.utils import filter_kwargs
 
 TElement = TypeVar('TElement', bound=Hashable)
 
 
 class Poset:
-    def __init__(self, elements: set[TElement], leq_order: set[TElement]):
+    def __init__(self, elements: set[TElement], leq_order: set[tuple[TElement, TElement]]):
         self.elements = set(elements)
         self.leq_order = set(map(tuple, leq_order))
 
@@ -132,7 +132,7 @@ class Poset:
         return graph
 
     def line_layout(
-            self, layout_type: Literal[tuple(LINE_LAYOUT_REGISTRY)], smallest_on_top: bool = False,
+            self, layout_type: Literal[tuple(LINE_LAYOUT_REGISTRY)] = 'odis-sugiyama', smallest_on_top: bool = False,
             y_position: dict[TElement, float] = None
     ) -> dict[TElement, tuple[float, float]]:
         assert layout_type in LINE_LAYOUT_REGISTRY, f'Unsupported layout type {layout_type}'
@@ -153,7 +153,7 @@ class Poset:
             pos = {elem: (x, max_y - y) for elem, (x, y) in pos.items()}
         return {elem: (float(x), float(y)) for elem, (x, y) in pos.items()}
 
-    def draw(self, ax: plt.Axes = None, layout_type: Literal[tuple(LINE_LAYOUT_REGISTRY)] = 'nx-BFS', **draw_kwargs) -> None:
+    def draw(self, ax: plt.Axes = None, layout_type: Literal[tuple(LINE_LAYOUT_REGISTRY)] = 'odis-sugiyama', **draw_kwargs) -> None:
         ax = plt.gca() if ax is None else ax
         graph = self.to_networkx()
         pos = self.line_layout(layout_type=layout_type, smallest_on_top=False)

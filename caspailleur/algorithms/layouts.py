@@ -1,5 +1,4 @@
 import heapq
-import warnings
 from collections.abc import Iterator, Callable
 from typing import TypeVar, Literal, NamedTuple
 
@@ -7,7 +6,7 @@ from bitarray import bitarray
 from bitarray.util import zeros as bazeros
 from tqdm.auto import tqdm
 
-from caspailleur.registries import register_line_layout
+from caspailleur.registries import register_line_layout, LINE_LAYOUT_REGISTRY
 
 T = TypeVar('T')
 Coordinate = tuple[float, float]
@@ -214,3 +213,39 @@ def sofia_column_layout(
 
     xpos_final = min(solutions, key=lambda x_pos: solutions[x_pos])
     return {el: (xpos_final[idx], y_positions[idx]) for el, idx in nodes_idx_map.items()}
+
+
+@register_line_layout('odis-dimdraw')
+def dimdraw_layout(nodes: set[T], edges: set[tuple[T, T]]) -> dict[T, tuple[float, float]]:
+    try:
+        import odis
+    except ImportError:
+        raise ImportError('odis-dimdraw layout is computed using `odis` python package. '
+                          'You can install it using `pip install odis-python`.')
+
+    nodes = list(nodes)
+    nodes_idxs = {node: idx for idx, node in enumerate(nodes)}
+    poset = odis.Poset(list(map(str, nodes)), [(nodes_idxs[b], nodes_idxs[a]) for a, b in edges])
+    drawing = poset.draw("dimdraw")
+
+    str_to_nodes = {str(node): node for node in nodes}
+    layout = {str_to_nodes[node_data.object_labels[0]]: (node_data.x, node_data.y) for node_data in drawing.nodes}
+    return layout
+
+
+@register_line_layout('odis-sugiyama')
+def sugiyama_layout(nodes: set[T], edges: set[tuple[T, T]]) -> dict[T, tuple[float, float]]:
+    try:
+        import odis
+    except ImportError:
+        raise ImportError('odis-sugiyama layout is computed using `odis` python package. '
+                          'You can install it using `pip install odis-python`.')
+
+    nodes = list(nodes)
+    nodes_idxs = {node: idx for idx, node in enumerate(nodes)}
+    poset = odis.Poset(list(map(str, nodes)), [(nodes_idxs[b], nodes_idxs[a]) for a, b in edges])
+    drawing = poset.draw("sugiyama")
+
+    str_to_nodes = {str(node): node for node in nodes}
+    layout = {str_to_nodes[node_data.object_labels[0]]: (node_data.x, node_data.y) for node_data in drawing.nodes}
+    return layout
