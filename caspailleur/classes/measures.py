@@ -121,14 +121,14 @@ def f1_score(description: Iterable[int], context: list[bitarray], target: bitarr
 def f1_score(description, context, target):
     if isinstance(context, FormalContext):
         tp = true_positives(description, context, target)
-        support_ = tp + false_positives(description, context, target)
-        positive_size = tp + false_negatives(description, context, target)
+        fp = false_positives(description, context, target)
+        positive_size = len(target)
     else: # if context is a list of columns represented with bitarrays
         extent = extension(description, context)
         tp = count_and(extent, target)
-        support_ = extent.count()
+        fp = count_and(extent, ~target)
         positive_size = target.count()
-    return 2 * tp / (support_ + positive_size)
+    return 2 * tp / (tp + fp + positive_size)
 
 
 @overload
