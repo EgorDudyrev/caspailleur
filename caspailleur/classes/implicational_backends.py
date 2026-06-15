@@ -1,5 +1,8 @@
+import warnings
 from abc import ABC, abstractmethod
+from functools import partial
 from typing import Literal, Optional, Callable, Iterable
+
 from tqdm.auto import tqdm
 
 from bitarray import bitarray
@@ -9,6 +12,7 @@ from caspailleur.registries import CLOSURE_ITERATOR_REGISTRY, register_implicati
 from caspailleur.algorithms.base_functions import select_subsets_vertical_ba
 from caspailleur.algorithms.implication_bases import (
     saturate_vertical_ba,
+    saturate_binary_ba
 )
 from caspailleur.classes.utils import filter_kwargs
 
@@ -41,7 +45,7 @@ class ImplicationalSystemBackend(ABC):
         return [(prem, unit_concl) for prem, conclusion in self.implications.items() for unit_concl in conclusion]
 
     @abstractmethod
-    def saturate(self, description: Iterable[int]) -> set[int]:
+    def saturate(self, description: Iterable[int], single_pass: bool = False) -> set[int]:
         pass
 
     @abstractmethod
@@ -82,8 +86,9 @@ class ImplicationalSystemBackend(ABC):
 
     def iterate_closures(
             self,
-            algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-Forwardtrack',
-            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None
+            algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-FW',
+            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None,
+            single_saturation_pass: bool = False
     ) -> Iterable[set[int]]:
         if algorithm not in CLOSURE_ITERATOR_REGISTRY:
             raise ValueError(f'Algorithm {algorithm} is not supported as it is not found in CLOSURE_ITERATOR_REGISTRY')
@@ -92,15 +97,17 @@ class ImplicationalSystemBackend(ABC):
         kwargs_to_pass, defined_params, supported_params = filter_kwargs(self.iterate_closures, 1, locals(), set(), algo_func, 2)
 
         base_elements = set(range(self.base_set_len))
-        return algo_func(base_elements, self.saturate, **kwargs_to_pass)
+        saturate_func = partial(self.saturate, single_pass=single_saturation_pass)
+        return algo_func(base_elements, saturate_func, **kwargs_to_pass)
 
     def count_closures(
             self,
             use_tqdm: bool = False,
-            iteration_algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-Forwardtrack',
-            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None
+            iteration_algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-FW',
+            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None,
+            single_saturation_pass: bool = False
     ) -> int:
-        closures_iterator = self.iterate_closures(iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func)
+        closures_iterator = self.iterate_closures(iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func, single_saturation_pass=single_saturation_pass)
         return sum(1 for _ in tqdm(closures_iterator, desc='Count closures', disable=not use_tqdm, unit_scale=True))
 
 
@@ -114,14 +121,14 @@ class NaiveImplicationalSystemBackend(ImplicationalSystemBackend):
     def implications(self) -> dict[frozenset[int], set[int]]:
         return dict(self._implications)
 
-    def saturate(self, description: set[int]) -> set[int]:
+    def saturate(self, description: set[int], single_pass: bool = False) -> set[int]:
         closure = set(description)
         while True:
             closure_new = set(closure)
             for premise, conclusion in self._implications.items():
                 if premise <= closure_new:
                     closure_new |= conclusion
-            if closure == closure_new:
+            if closure == closure_new or single_pass:
                 break
             closure = closure_new
         return closure
@@ -174,11 +181,11 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
         conclusions = [set(self._ba2idxs(conclusion_ba)) for conclusion_ba in self._conclusions]
         return dict(zip(premises, conclusions))
 
-    def saturate_ba(self, description_ba: bitarray) -> bitarray:
-        return saturate_vertical_ba(description_ba, self._vertical_premises, self._conclusions)
+    def saturate_ba(self, description_ba: bitarray, single_pass: bool = False) -> bitarray:
+        return saturate_vertical_ba(description_ba, self._vertical_premises, self._conclusions, single_pass=single_pass)
 
-    def saturate(self, description: Iterable[int]) -> set[int]:
-        return set(self._ba2idxs(self.saturate_ba(self._idxs2ba(description))))
+    def saturate(self, description: Iterable[int], single_pass: bool = False) -> set[int]:
+        return set(self._ba2idxs(self.saturate_ba(self._idxs2ba(description), single_pass=single_pass)))
 
     def __len__(self) -> int:
         return len(self._conclusions)
@@ -244,6 +251,87 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
 
     def _idxs2ba(self, indices: Iterable[int]) -> bitarray:
         ba = bazeros(len(self._vertical_premises))
+        for idx in indices:
+            ba[idx] = True
+        return ba
+
+    def _ba2idxs(self, ba: bitarray) -> Iterable[int]:
+        return ba.search(True)
+
+
+@register_implicational_backend('BitBinary')
+class BitBinaryImplicationalSystemBackend(ImplicationalSystemBackend):
+    def __init__(self, implications: dict[frozenset[int], set[int]]):
+        self._conclusions_per_attribute: list[bitarray] = list()
+        super().__init__(implications)
+
+    @ImplicationalSystemBackend.implications.getter
+    def implications(self) -> dict[frozenset[int], set[int]]:
+        return {frozenset({attr}): set(self._ba2idxs(conclusion_ba))
+                for attr, conclusion_ba in enumerate(self._conclusions_per_attribute)}
+
+    def saturate_ba(self, description_ba: bitarray, single_pass: bool = False) -> bitarray:
+        return saturate_binary_ba(description_ba, self._conclusions_per_attribute, single_pass=single_pass)
+
+    def saturate(self, description: Iterable[int], single_pass: bool = False) -> set[int]:
+        return set(self._ba2idxs(self.saturate_ba(self._idxs2ba(description), single_pass=single_pass)))
+
+    def __len__(self) -> int:
+        return len(self._conclusions_per_attribute)
+
+    def size(self) -> int:
+        premise_size = len(self._conclusions_per_attribute)
+        conclusion_size = sum(conclusion.count() for conclusion in self._conclusions_per_attribute)
+        return premise_size + conclusion_size
+
+    def _find_premise(self, premise_ba: bitarray) -> Optional[int]:
+        if premise_ba.count() != 1:
+            return None
+        return premise_ba.index(True)
+
+    def add_attribute(self) -> None:
+        self._conclusions_per_attribute.append(bazeros(len(self)))
+        for conclusion in self._conclusions_per_attribute:
+            conclusion.append(False)
+
+    def remove_attribute(self, index: int) -> None:
+        self._conclusions_per_attribute.pop(index)
+        for conclusion in self._conclusions_per_attribute:
+            conclusion.pop(index)
+
+    def add(self, premise: Iterable[int], conclusion: Iterable[int]):
+        premise, conclusion = list(premise), list(conclusion)
+        n_attributes = len(self._conclusions_per_attribute)
+        assert max(premise) < n_attributes, f"The system only supports {n_attributes} attributes, but is given attribute #{max(premise)}"
+        assert max(conclusion) < n_attributes, f"The system only supports {n_attributes} attributes, but is given attribute #{max(conclusion)}"
+
+        if len(premise) != 1:
+            warnings.warn(f'This implicational backend ({self.__class__.__name__}) can also support binary implications, '
+                          f'that are implications with exactly one element in the premise. '
+                          f'Given premise {premise} contains more/less than one element and so will be omitted.')
+            return
+
+        attribute_idx = premise[0]
+        self._conclusions_per_attribute[attribute_idx] |= self._idxs2ba(conclusion)
+
+    def remove(self, premise: Iterable[int], conclusion: Iterable[int]):
+        premise, conclusion = list(premise), list(conclusion)
+        if len(premise) != 1:
+            return
+
+        premise_idx = premise[0]
+        if premise_idx >= len(self._conclusions_per_attribute):
+            return
+
+        conclusion_ba = self._idxs2ba(conclusion)
+
+        self._conclusions_per_attribute[premise_idx] &= ~conclusion_ba
+
+    def clear(self):
+        self._conclusions_per_attribute.clear()
+
+    def _idxs2ba(self, indices: Iterable[int]) -> bitarray:
+        ba = bazeros(len(self._conclusions_per_attribute))
         for idx in indices:
             ba[idx] = True
         return ba
