@@ -161,6 +161,17 @@ def saturate_vertical_ba(premise: bitarray, vertical_premises: list[bitarray], c
 
     return closure
 
+def saturate_binary_ba(premise: bitarray, conclusions: list[bitarray]) -> bitarray:
+    closure = premise.copy()
+    newly_covered_attributes = premise.copy()
+    while newly_covered_attributes.any():
+        new_closure = closure.copy()
+        for i in newly_covered_attributes.search(True):
+            new_closure |= conclusions[i]
+        newly_covered_attributes = new_closure & ~closure
+        closure = new_closure
+    return closure
+
 
 def verify_proper_premise_via_keys(
         key: fbarray, intent_idx: int, intents: List[fbarray], other_keys: Dict[fbarray, int],

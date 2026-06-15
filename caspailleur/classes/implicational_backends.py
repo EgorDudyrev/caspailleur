@@ -1,5 +1,7 @@
+import warnings
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Callable, Iterable
+
 from tqdm.auto import tqdm
 
 from bitarray import bitarray
@@ -9,6 +11,7 @@ from caspailleur.registries import CLOSURE_ITERATOR_REGISTRY, register_implicati
 from caspailleur.algorithms.base_functions import select_subsets_vertical_ba
 from caspailleur.algorithms.implication_bases import (
     saturate_vertical_ba,
+    saturate_binary_ba
 )
 from caspailleur.classes.utils import filter_kwargs
 
@@ -244,6 +247,87 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
 
     def _idxs2ba(self, indices: Iterable[int]) -> bitarray:
         ba = bazeros(len(self._vertical_premises))
+        for idx in indices:
+            ba[idx] = True
+        return ba
+
+    def _ba2idxs(self, ba: bitarray) -> Iterable[int]:
+        return ba.search(True)
+
+
+@register_implicational_backend('BitBinary')
+class BitBinaryImplicationalSystemBackend(ImplicationalSystemBackend):
+    def __init__(self, implications: dict[frozenset[int], set[int]]):
+        self._conclusions_per_attribute: list[bitarray] = list()
+        super().__init__(implications)
+
+    @ImplicationalSystemBackend.implications.getter
+    def implications(self) -> dict[frozenset[int], set[int]]:
+        return {frozenset({attr}): set(self._ba2idxs(conclusion_ba))
+                for attr, conclusion_ba in enumerate(self._conclusions_per_attribute)}
+
+    def saturate_ba(self, description_ba: bitarray) -> bitarray:
+        return saturate_binary_ba(description_ba, self._conclusions_per_attribute)
+
+    def saturate(self, description: Iterable[int]) -> set[int]:
+        return set(self._ba2idxs(self.saturate_ba(self._idxs2ba(description))))
+
+    def __len__(self) -> int:
+        return len(self._conclusions_per_attribute)
+
+    def size(self) -> int:
+        premise_size = len(self._conclusions_per_attribute)
+        conclusion_size = sum(conclusion.count() for conclusion in self._conclusions_per_attribute)
+        return premise_size + conclusion_size
+
+    def _find_premise(self, premise_ba: bitarray) -> Optional[int]:
+        if premise_ba.count() != 1:
+            return None
+        return premise_ba.index(True)
+
+    def add_attribute(self) -> None:
+        self._conclusions_per_attribute.append(bazeros(len(self)))
+        for conclusion in self._conclusions_per_attribute:
+            conclusion.append(False)
+
+    def remove_attribute(self, index: int) -> None:
+        self._conclusions_per_attribute.pop(index)
+        for conclusion in self._conclusions_per_attribute:
+            conclusion.pop(index)
+
+    def add(self, premise: Iterable[int], conclusion: Iterable[int]):
+        premise, conclusion = list(premise), list(conclusion)
+        n_attributes = len(self._conclusions_per_attribute)
+        assert max(premise) < n_attributes, f"The system only supports {n_attributes} attributes, but is given attribute #{max(premise)}"
+        assert max(conclusion) < n_attributes, f"The system only supports {n_attributes} attributes, but is given attribute #{max(conclusion)}"
+
+        if len(premise) != 1:
+            warnings.warn(f'This implicational backend ({self.__class__.__name__}) can also support binary implications, '
+                          f'that are implications with exactly one element in the premise. '
+                          f'Given premise {premise} contains more/less than one element and so will be omitted.')
+            return
+
+        attribute_idx = premise[0]
+        self._conclusions_per_attribute[attribute_idx] |= self._idxs2ba(conclusion)
+
+    def remove(self, premise: Iterable[int], conclusion: Iterable[int]):
+        premise, conclusion = list(premise), list(conclusion)
+        if len(premise) != 1:
+            return
+
+        premise_idx = premise[0]
+        if premise_idx >= len(self._conclusions_per_attribute):
+            return
+
+        conclusion_ba = self._idxs2ba(conclusion)
+
+        self._conclusions_per_attribute[premise_idx] &= ~conclusion_ba
+
+    def clear(self):
+        self._conclusions_per_attribute.clear()
+
+    def _idxs2ba(self, indices: Iterable[int]) -> bitarray:
+        ba = bazeros(len(self._conclusions_per_attribute))
         for idx in indices:
             ba[idx] = True
         return ba
