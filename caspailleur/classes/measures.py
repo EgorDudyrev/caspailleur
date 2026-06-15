@@ -1,9 +1,9 @@
 from typing import overload, Iterable
 from bitarray import bitarray
-from bitarray.util import count_and
+from bitarray.util import count_and, subset as basubset
 
+from caspailleur.algorithms.base_functions import isets2bas, extension
 from caspailleur.classes.formal_context import TObject, TAttribute, FormalContext
-from caspailleur.algorithms.base_functions import extension
 
 
 @overload
@@ -139,3 +139,100 @@ def wracc_score(description, context, target):
     freq = frequency(description, context)
     relative_acc = precision(description, context, target) - precision([], context, target)
     return freq * relative_acc
+
+
+@overload
+def false_positives_projection_lbound(description: Iterable[TAttribute], context: FormalContext, target: set[TObject]) -> float: ...
+@overload
+def false_positives_projection_lbound(description: Iterable[int], context: list[bitarray], target: bitarray) -> float: ...
+def false_positives_projection_lbound(description, context, target):
+    if isinstance(context, FormalContext):
+        objects_order = list(context.objects)
+        attributes_order = list(context.attributes)
+
+        target = next(isets2bas([[objects_order.index(object_) for object_ in target]], len(context.objects)))
+        description = {attributes_order.index(m) for m in description}
+        context = context.to_attribute_extents_ba(objects_order=objects_order, attributes_order=attributes_order)
+
+    description = set(description)
+    extent = extension(description, context)
+    subextents = (extent & context[attr] for attr in range(len(context)) if attr not in description)# and count_and(extent, context[attr]) < extent.count())
+    greatest_subextents = sorted(subextents, key=lambda ext: ext.count(), reverse=True)
+    if not greatest_subextents:
+        return count_and(extent, ~target) #0
+    i = 0
+    while i < len(greatest_subextents):
+        subextent = greatest_subextents[i]
+        greatest_subextents[i+1:] = [other for other in greatest_subextents[i+1:] if not basubset(other, subextent)]
+        i += 1
+    return min(count_and(subextent, ~target) for subextent in greatest_subextents)
+
+
+@overload
+def true_positives_projection_lbound(description: Iterable[TAttribute], context: FormalContext, target: set[TObject]) -> float: ...
+@overload
+def true_positives_projection_lbound(description: Iterable[int], context: list[bitarray], target: bitarray) -> float: ...
+def true_positives_projection_lbound(description, context, target):
+    if isinstance(context, FormalContext):
+        objects_order = list(context.objects)
+        attributes_order = list(context.attributes)
+
+        target = next(isets2bas([[objects_order.index(object_) for object_ in target]], len(context.objects)))
+        description = {attributes_order.index(m) for m in description}
+        context = context.to_attribute_extents_ba(objects_order=objects_order, attributes_order=attributes_order)
+
+    description = set(description)
+    extent = extension(description, context)
+    subextents = (extent & context[attr] for attr in range(len(context)) if attr not in description)# and count_and(extent, context[attr]) < extent.count())
+    greatest_subextents = sorted(subextents, key=lambda ext: ext.count(), reverse=True)
+    if not greatest_subextents:
+        return count_and(extent, target) #0
+    i = 0
+    while i < len(greatest_subextents):
+        subextent = greatest_subextents[i]
+        greatest_subextents[i+1:] = [other for other in greatest_subextents[i+1:] if not basubset(other, subextent)]
+        i += 1
+    return min(count_and(subextent, target) for subextent in greatest_subextents)
+
+
+@overload
+def f1_score_projection_ubound(description: Iterable[TAttribute], context: FormalContext, target: set[TObject]) -> float: ...
+@overload
+def f1_score_projection_ubound(description: Iterable[int], context: list[bitarray], target: bitarray) -> float: ...
+def f1_score_projection_ubound(description, context, target):
+    tp_ubound = true_positives(description, context, target)
+    fp_lbound = false_positives_projection_lbound(description, context, target)
+    pos_size = len(target) if isinstance(target, set) else target.count()
+    return 2 * tp_ubound / (tp_ubound + fp_lbound + pos_size)
+
+
+@overload
+def f1_score_ubound_level(description: Iterable[TAttribute], context: FormalContext, target: set[TObject], threshold: float) -> float: ...
+@overload
+def f1_score_ubound_level(description: Iterable[int], context: list[bitarray], target: bitarray, threshold: float) -> float: ...
+def f1_score_ubound_level(description, context, target, threshold):
+    return f1_score_projection_ubound(description, context, target) >= threshold
+
+
+@overload
+def wracc_score_projection_ubound(description: Iterable[TAttribute], context: FormalContext, target: set[TObject]) -> float: ...
+@overload
+def wracc_score_projection_ubound(description: Iterable[int], context: list[bitarray], target: bitarray) -> float: ...
+def wracc_score_projection_ubound(description, context, target):
+    tp_ubound = true_positives(description, context, target)
+    fp_lbound = false_positives_projection_lbound(description, context, target)
+    pos_size = len(target) if isinstance(target, set) else target.count()
+    context_size = len(context.objects) if isinstance(context, FormalContext) else len(target)
+
+    support_bound = tp_ubound + fp_lbound
+    freq_bound_ubound = support_bound / context_size
+    relative_acc_ubound = tp_ubound/support_bound - pos_size/context_size
+    return freq_bound_ubound * relative_acc_ubound
+
+
+@overload
+def wracc_score_ubound_level(description: Iterable[TAttribute], context: FormalContext, target: set[TObject], threshold: float) -> float: ...
+@overload
+def wracc_score_ubound_level(description: Iterable[int], context: list[bitarray], target: bitarray, threshold: float) -> float: ...
+def wracc_score_ubound_level(description, context, target, threshold):
+    return wracc_score_projection_ubound(description, context, target) >= threshold
