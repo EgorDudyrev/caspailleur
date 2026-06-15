@@ -145,7 +145,7 @@ def subset_saturate(premise: bitarray, implications: list[tuple[bitarray, int]],
     return reduce(bitarray.__or__, implied_intents, premise)
 
 
-def saturate_vertical_ba(premise: bitarray, vertical_premises: list[bitarray], conclusions: list[bitarray]) -> bitarray:
+def saturate_vertical_ba(premise: bitarray, vertical_premises: list[bitarray], conclusions: list[bitarray], single_pass: bool = False) -> bitarray:
     """Extend `premise` with attributes in implications defined by `vertical_premises` and `conclusions`"""
     closure = bitarray(premise)
     already_covered_premises = vertical_premises[0] & ~vertical_premises[0]
@@ -159,9 +159,12 @@ def saturate_vertical_ba(premise: bitarray, vertical_premises: list[bitarray], c
             closure |= conclusions[i]
         already_covered_premises = covered_premises
 
+        if single_pass:
+            break
+
     return closure
 
-def saturate_binary_ba(premise: bitarray, conclusions: list[bitarray]) -> bitarray:
+def saturate_binary_ba(premise: bitarray, conclusions: list[bitarray], single_pass: bool = False) -> bitarray:
     closure = premise.copy()
     newly_covered_attributes = premise.copy()
     while newly_covered_attributes.any():
@@ -170,6 +173,9 @@ def saturate_binary_ba(premise: bitarray, conclusions: list[bitarray]) -> bitarr
             new_closure |= conclusions[i]
         newly_covered_attributes = new_closure & ~closure
         closure = new_closure
+
+        if single_pass:
+            break
     return closure
 
 

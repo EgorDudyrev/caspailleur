@@ -83,8 +83,8 @@ class ImplicationalSystem:
         for premise, conclusion in implications.items():
             self.add(premise, conclusion)
 
-    def saturate(self, description: set[TAttribute]) -> set[TAttribute]:
-        return self._idxs2attrs(self.backend.saturate(self._attrs2idxs(description)))
+    def saturate(self, description: set[TAttribute], single_pass: bool = False) -> set[TAttribute]:
+        return self._idxs2attrs(self.backend.saturate(self._attrs2idxs(description), single_pass=single_pass))
 
     def __call__(self, description: set[TAttribute]) -> set[TAttribute]:
         return self._idxs2attrs(self.backend(self._attrs2idxs(description)))
@@ -130,22 +130,24 @@ class ImplicationalSystem:
     def iterate_closures(
             self,
             algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-FW',
-            antimonotone_constraint_func: Callable[[Iterable[TAttribute]], bool] = None
+            antimonotone_constraint_func: Callable[[Iterable[TAttribute]], bool] = None,
+            single_saturation_pass: bool = False,
     ) -> Iterable[set[TAttribute]]:
         if antimonotone_constraint_func is not None:
             indexed_antimonotone_constraint_func = lambda idxs: antimonotone_constraint_func(self._idxs2attrs(idxs))
         else:
             indexed_antimonotone_constraint_func = None
-        closure_iterator = self.backend.iterate_closures(algorithm, antimonotone_constraint_func=indexed_antimonotone_constraint_func)
+        closure_iterator = self.backend.iterate_closures(algorithm, antimonotone_constraint_func=indexed_antimonotone_constraint_func, single_saturation_pass=single_saturation_pass)
         return map(self._idxs2attrs, closure_iterator)
 
     def count_closures(
             self,
             use_tqdm: bool = False,
             iteration_algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-FW',
-            antimonotone_constraint_func: Callable[[Iterable[TAttribute]], bool] = None
+            antimonotone_constraint_func: Callable[[Iterable[TAttribute]], bool] = None,
+            single_saturation_pass: bool = False,
     ) -> int:
-        return self.backend.count_closures(use_tqdm, iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func)
+        return self.backend.count_closures(use_tqdm, iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func, single_saturation_pass=single_saturation_pass)
 
     def _idxs2attrs(self, indices: Iterable[int]) -> set[TAttribute]:
         return {self._attributes_order[idx] for idx in indices}

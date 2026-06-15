@@ -1,5 +1,6 @@
 import warnings
 from abc import ABC, abstractmethod
+from functools import partial
 from typing import Literal, Optional, Callable, Iterable
 
 from tqdm.auto import tqdm
@@ -44,7 +45,7 @@ class ImplicationalSystemBackend(ABC):
         return [(prem, unit_concl) for prem, conclusion in self.implications.items() for unit_concl in conclusion]
 
     @abstractmethod
-    def saturate(self, description: Iterable[int]) -> set[int]:
+    def saturate(self, description: Iterable[int], single_pass: bool = False) -> set[int]:
         pass
 
     @abstractmethod
@@ -86,7 +87,8 @@ class ImplicationalSystemBackend(ABC):
     def iterate_closures(
             self,
             algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-Forwardtrack',
-            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None
+            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None,
+            single_saturation_pass: bool = False
     ) -> Iterable[set[int]]:
         if algorithm not in CLOSURE_ITERATOR_REGISTRY:
             raise ValueError(f'Algorithm {algorithm} is not supported as it is not found in CLOSURE_ITERATOR_REGISTRY')
@@ -95,15 +97,17 @@ class ImplicationalSystemBackend(ABC):
         kwargs_to_pass, defined_params, supported_params = filter_kwargs(self.iterate_closures, 1, locals(), set(), algo_func, 2)
 
         base_elements = set(range(self.base_set_len))
-        return algo_func(base_elements, self.saturate, **kwargs_to_pass)
+        saturate_func = partial(self.saturate, single_pass=single_saturation_pass)
+        return algo_func(base_elements, saturate_func, **kwargs_to_pass)
 
     def count_closures(
             self,
             use_tqdm: bool = False,
             iteration_algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-Forwardtrack',
-            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None
+            antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None,
+            single_saturation_pass: bool = False
     ) -> int:
-        closures_iterator = self.iterate_closures(iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func)
+        closures_iterator = self.iterate_closures(iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func, single_saturation_pass=single_saturation_pass)
         return sum(1 for _ in tqdm(closures_iterator, desc='Count closures', disable=not use_tqdm, unit_scale=True))
 
 
@@ -117,14 +121,14 @@ class NaiveImplicationalSystemBackend(ImplicationalSystemBackend):
     def implications(self) -> dict[frozenset[int], set[int]]:
         return dict(self._implications)
 
-    def saturate(self, description: set[int]) -> set[int]:
+    def saturate(self, description: set[int], single_pass: bool = False) -> set[int]:
         closure = set(description)
         while True:
             closure_new = set(closure)
             for premise, conclusion in self._implications.items():
                 if premise <= closure_new:
                     closure_new |= conclusion
-            if closure == closure_new:
+            if closure == closure_new or single_pass:
                 break
             closure = closure_new
         return closure
@@ -177,11 +181,11 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
         conclusions = [set(self._ba2idxs(conclusion_ba)) for conclusion_ba in self._conclusions]
         return dict(zip(premises, conclusions))
 
-    def saturate_ba(self, description_ba: bitarray) -> bitarray:
-        return saturate_vertical_ba(description_ba, self._vertical_premises, self._conclusions)
+    def saturate_ba(self, description_ba: bitarray, single_pass: bool = False) -> bitarray:
+        return saturate_vertical_ba(description_ba, self._vertical_premises, self._conclusions, single_pass=single_pass)
 
-    def saturate(self, description: Iterable[int]) -> set[int]:
-        return set(self._ba2idxs(self.saturate_ba(self._idxs2ba(description))))
+    def saturate(self, description: Iterable[int], single_pass: bool = False) -> set[int]:
+        return set(self._ba2idxs(self.saturate_ba(self._idxs2ba(description), single_pass=single_pass)))
 
     def __len__(self) -> int:
         return len(self._conclusions)
@@ -266,11 +270,11 @@ class BitBinaryImplicationalSystemBackend(ImplicationalSystemBackend):
         return {frozenset({attr}): set(self._ba2idxs(conclusion_ba))
                 for attr, conclusion_ba in enumerate(self._conclusions_per_attribute)}
 
-    def saturate_ba(self, description_ba: bitarray) -> bitarray:
-        return saturate_binary_ba(description_ba, self._conclusions_per_attribute)
+    def saturate_ba(self, description_ba: bitarray, single_pass: bool = False) -> bitarray:
+        return saturate_binary_ba(description_ba, self._conclusions_per_attribute, single_pass=single_pass)
 
-    def saturate(self, description: Iterable[int]) -> set[int]:
-        return set(self._ba2idxs(self.saturate_ba(self._idxs2ba(description))))
+    def saturate(self, description: Iterable[int], single_pass: bool = False) -> set[int]:
+        return set(self._ba2idxs(self.saturate_ba(self._idxs2ba(description), single_pass=single_pass)))
 
     def __len__(self) -> int:
         return len(self._conclusions_per_attribute)
