@@ -11,16 +11,17 @@ class ImplicationalSystem:
             self,
             implications: dict[frozenset[TAttribute], set[TAttribute]],
             backend_class: Union[type[ImplicationalSystemBackend], Literal[tuple(IMPLICATIONAL_BACKEND_REGISTRY)]] = 'Naive',
-            attributes_order: list[TAttribute] = None
+            attributes_list: list[TAttribute] = None
     ):
-        self._attributes_order = []
-        self._attribute_index_map = dict()
-
-        if attributes_order is not None:
-            self.reorder_attributes(attributes_order)
-
         self.backend = backend_class
-        self.implications = implications
+
+        self._attributes_order, self._attribute_index_map = [], dict()
+        attributes_order = list(attributes_list) if attributes_list is not None else []
+        for attr in attributes_order:
+            self._add_attribute(attr)
+
+        for premise, conclusion in implications.items():
+            self.add(premise, conclusion)
 
     @property
     def implications(self) -> dict[frozenset[TAttribute], set[TAttribute]]:
