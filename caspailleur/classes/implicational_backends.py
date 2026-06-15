@@ -86,7 +86,7 @@ class ImplicationalSystemBackend(ABC):
 
     def iterate_closures(
             self,
-            algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-Forwardtrack',
+            algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-FW',
             antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None,
             single_saturation_pass: bool = False
     ) -> Iterable[set[int]]:
@@ -103,7 +103,7 @@ class ImplicationalSystemBackend(ABC):
     def count_closures(
             self,
             use_tqdm: bool = False,
-            iteration_algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-Forwardtrack',
+            iteration_algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-FW',
             antimonotone_constraint_func: Callable[[Iterable[int]], bool] = None,
             single_saturation_pass: bool = False
     ) -> int:
