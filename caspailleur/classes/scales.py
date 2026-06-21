@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABCMeta
-from collections.abc import Hashable
+from collections.abc import Hashable, Iterable
 from typing import TypeVar, Self
 
 from caspailleur.classes.formal_context import FormalContext
@@ -36,7 +36,7 @@ class Scale(metaclass=ABCMeta):
 
 class InterordinalScale(Scale):
     @classmethod
-    def from_values(cls, values, scale_name: str = None) -> Self:
+    def from_values(cls, values: Iterable[float], scale_name: str = None) -> Self:
         scaling_dict = dict()
         values = sorted(set(values))
         for object_value in values:
@@ -53,9 +53,33 @@ class InterordinalScale(Scale):
 
 class NominalScale(Scale):
     @classmethod
-    def from_values(cls, values, scale_name: str = None) -> Self:
+    def from_values(cls, values: Iterable[TValue], scale_name: str = None) -> Self:
         scaling_dict = dict()
         values = sorted(set(values))
         for object_value in values:
             scaling_dict[cls._form_name(object_value, scale_name)] = {cls._form_name(object_value, scale_name)}
+        return cls(FormalContext.from_named_itemsets(scaling_dict))
+
+
+class OrdinalScale(Scale):
+    @classmethod
+    def from_values(cls, values: Iterable[float], scale_name: str = None) -> Self:
+        values = sorted(set(values))
+        scaling_dict = {cls._form_name(obj_value, scale_name):
+                            {cls._form_name(f"<= {v}", scale_name) for v in values if obj_value <= v}
+                        for obj_value in values}
+        return cls(FormalContext.from_named_itemsets(scaling_dict))
+
+
+class BiordinalScale(Scale):
+    @classmethod
+    def from_values(cls, values: Iterable[float], scale_name: str = None, splitting_point: float = None) -> Self:
+        values = sorted(set(values))
+        if splitting_point is None:
+            splitting_point = values[len(values) // 2]
+
+        scaling_dict = {cls._form_name(obj_value, scale_name):
+                        {cls._form_name(f"<= {v}", scale_name) for v in values if obj_value <= v <= splitting_point} |
+                        {cls._form_name(f">= {v}", scale_name) for v in values if splitting_point < v <= obj_value}
+                        for obj_value in values}
         return cls(FormalContext.from_named_itemsets(scaling_dict))
