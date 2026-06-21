@@ -11,8 +11,8 @@ TAttribute = TypeVar('TAttribute', bound=Hashable)
 
 
 class Scale(metaclass=ABCMeta):
-    def __init__(self, scaling_dict: dict[TValue, set[TAttribute]] = None):
-        self._scaling_dict = scaling_dict
+    def __init__(self, context: FormalContext = None):
+        self.context = context
 
     @classmethod
     @abstractmethod
@@ -23,16 +23,11 @@ class Scale(metaclass=ABCMeta):
         self.from_values(set(data.values()), scale_name)
 
     def transform(self, data: dict[TObject, TValue]) -> FormalContext:
-        return FormalContext.from_named_itemsets({g: self._scaling_dict[v] for g, v in data.items()})
+        return FormalContext.from_named_itemsets({g: self.context.intent({v}) for g, v in data.items()})
 
     def fit_transform(self, data: dict[TObject, TValue]) -> FormalContext:
         self.fit(data)
         return self.transform(data)
-
-    @property
-    def context(self) -> FormalContext:
-        assert self._scaling_dict is not None
-        return FormalContext.from_named_itemsets(self._scaling_dict)
 
     @staticmethod
     def _form_name(v, scale_name = None):
@@ -53,8 +48,7 @@ class InterordinalScale(Scale):
                 if object_value >= attribute_value:
                     attributes.append(cls._form_name(f">= {attribute_value}", scale_name))
             scaling_dict[cls._form_name(object_value, scale_name)] = attributes
-
-        return cls(scaling_dict=scaling_dict)
+        return cls(FormalContext.from_named_itemsets(scaling_dict))
 
 
 class NominalScale(Scale):
@@ -64,4 +58,4 @@ class NominalScale(Scale):
         values = sorted(set(values))
         for object_value in values:
             scaling_dict[cls._form_name(object_value, scale_name)] = {cls._form_name(object_value, scale_name)}
-        return cls(scaling_dict=scaling_dict)
+        return cls(FormalContext.from_named_itemsets(scaling_dict))
