@@ -1,6 +1,6 @@
 import operator
 from collections.abc import Hashable, Callable, Iterator
-from functools import reduce
+from functools import reduce, partial
 from typing import TypeVar, Self, Optional, Literal
 
 import matplotlib.pyplot as plt
@@ -16,6 +16,7 @@ class Poset:
     def __init__(self, elements: set[TElement], leq_order: set[tuple[TElement, TElement]]):
         self.elements = set(elements)
         self.leq_order = set(map(tuple, leq_order))
+        self._init_measures()
 
     def predecessors(self, element: TElement, reflexive_output: bool = True) -> set[TElement]:
         return {other for other in self.elements if (other, element) in self.leq_order and (reflexive_output or other != element)}
@@ -187,3 +188,20 @@ class Poset:
         graph = self.to_networkx()
         pos = self.line_layout(layout_type=layout_type, smallest_on_top=False)
         nx.draw(graph, pos=pos, ax=ax, with_labels=True, **draw_kwargs)
+
+    @property
+    def measures(self):# -> dict[tuple(POSET_MEASURE_REGISTRY), PosetMeasureProtocol]:
+        return self._measures
+
+    def _init_measures(self):
+        from caspailleur.classes.poset_measures import POSET_MEASURE_REGISTRY, PosetMeasureProtocol
+        class MeasuresRegistry:
+            def __init__(registry_self):
+                super().__init__()
+                for func_name, func in POSET_MEASURE_REGISTRY.items():
+                    partial_func = partial(func, poset=self)
+                    setattr(registry_self, func_name, partial_func)
+
+
+        self._measures = MeasuresRegistry()
+

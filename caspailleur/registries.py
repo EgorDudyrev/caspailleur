@@ -4,3 +4,4 @@ from typing import TypeVar, Protocol
 from caspailleur.algorithms.implication_bases import CLOSURE_ITERATOR_REGISTRY, register_closure_iterator
 from caspailleur.classes.implicational_backends import IMPLICATIONAL_BACKEND_REGISTRY, register_implicational_backend
 from caspailleur.algorithms.layouts import LINE_LAYOUT_REGISTRY, register_line_layout
+from caspailleur.classes.poset_measures import POSET_MEASURE_REGISTRY, register_poset_measure
