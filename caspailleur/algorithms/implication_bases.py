@@ -1,13 +1,32 @@
 from collections.abc import Callable, Hashable
 from functools import reduce
-from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar
+from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar, Protocol
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import subset, zeros as bazeros, any_and
 from tqdm.auto import tqdm
 
-from caspailleur.registries import register_closure_iterator
 from caspailleur.algorithms.order import check_topologically_sorted
 from caspailleur.algorithms.base_functions import select_subsets_vertical_ba, powerset
+
+
+T = TypeVar('T', bound=Hashable)
+class ClosureIteratorProtocol(Protocol):
+    def __call__(
+            self, elements: set[T], closure_func: Callable[[Iterable[T]], set[T]],
+            /, antimonotone_constraint_func: Callable[[Iterable[T]], bool] = None,
+            **kwargs
+    ) -> Iterator[set[T]]:
+        ...
+
+CLOSURE_ITERATOR_REGISTRY: dict[str, ClosureIteratorProtocol] = dict()
+
+def register_closure_iterator(key: str):
+    def decorator(func):
+        #assert key not in CLOSURE_ITERATOR_REGISTRY
+        CLOSURE_ITERATOR_REGISTRY[key] = func
+        return func
+
+    return decorator
 
 
 def saturate_bruteforce(
