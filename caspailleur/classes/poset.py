@@ -70,6 +70,35 @@ class Poset:
     def __len__(self) -> int:
         return len(self.elements)
 
+    def add(self, element: TElement, predecessors: set[TElement] = None, successors: set[TElement] = None) -> None:
+        predecessors = predecessors if predecessors is not None else set()
+        for predecessor in list(predecessors):
+            predecessors |= self.predecessors(predecessor)
+
+        successors = successors if successors is not None else set()
+        for successor in list(successors):
+            successors |= self.successors(successor)
+
+        self.elements.add(element)
+        self.leq_order |= {(predecessor, element) for predecessor in predecessors}
+        self.leq_order |= {(element, successor) for successor in successors}
+
+    def remove(self, element: TElement) -> None:
+        self.leq_order = {(a, b) for a, b in self.leq_order if element != a and element != b}
+        self.elements.remove(element)
+
+    def __copy__(self) -> Self:
+        return type(self)(self.elements, self.leq_order)
+
+    def copy(self) -> Self:
+        return self.__copy__()
+
+    def __sub__(self, other: TElement) -> Self:
+        new_poset = self.copy()
+        for element in other:
+            new_poset.remove(element)
+        return new_poset
+
     @classmethod
     def from_direct_predecessors(cls, direct_predecessors: set[tuple[TElement, TElement]]) -> Self:
         elements = {elem for pair in direct_predecessors for elem in pair}
