@@ -136,3 +136,8 @@ class FormalContext:
 
     def __iter__(self) -> Iterator[set[TAttribute]]:
         return self.iterate_descriptions()
+
+    @property
+    def T(self) -> Self:
+        """Transpose the context: change objects to attributes and vice versa"""
+        return self.__class__(self.attributes, self.objects, {pair[::-1] for pair in self.incidence})
