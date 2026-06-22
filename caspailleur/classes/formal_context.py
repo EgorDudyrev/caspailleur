@@ -1,13 +1,14 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Callable
 from dataclasses import dataclass
 from functools import reduce
-from typing import TypeVar, Hashable, Self, TextIO, Union, Iterable
+from typing import TypeVar, Hashable, Self, TextIO, Union, Iterable, Literal
 
 import pandas as pd
 from bitarray import bitarray
 
 from caspailleur import io
 from caspailleur.algorithms.base_functions import powerset
+from caspailleur.registries import CLOSURE_ITERATOR_REGISTRY
 
 
 TObject = TypeVar("TObject", bound=Hashable)
@@ -141,3 +142,28 @@ class FormalContext:
     def T(self) -> Self:
         """Transpose the context: change objects to attributes and vice versa"""
         return self.__class__(self.attributes, self.objects, {pair[::-1] for pair in self.incidence})
+
+    def attribute_closure(self, attributes: Iterable[TAttribute]) -> set[TAttribute]:
+        return self.intent(self.extent(attributes))
+
+    def object_closure(self, objects: Iterable[TObject]) -> set[TObject]:
+        return self.extent(self.intent(objects))
+
+    def iterate_attribute_closures(
+            self,
+            algorithm: Literal[tuple(CLOSURE_ITERATOR_REGISTRY)] = 'CbO-FW',
+            antimonotone_constraint_func: Callable[[Iterable[TAttribute]], bool] = None
+    ) -> Iterable[set[TAttribute]]:
+        from caspailleur.algorithms.base_functions import extension, intention
+        attrs_order = list(self.attributes)
+        attrs_to_index = {m: idx for idx, m in enumerate(attrs_order)}
+        attr_extents = self.to_attribute_extents_ba(attributes_order=attrs_order)
+        def closure_func(attributes):
+            extent_ba = extension((attrs_to_index[m] for m in attributes), attr_extents)
+            intent_ba = intention(extent_ba, attr_extents)
+            return {attrs_order[i] for i in intent_ba.search(True)}
+
+        iterator = CLOSURE_ITERATOR_REGISTRY[algorithm](
+            self.attributes, closure_func, antimonotone_constraint_func=antimonotone_constraint_func
+        )
+        return iterator
