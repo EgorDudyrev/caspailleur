@@ -205,3 +205,6 @@ class Poset:
 
         self._measures = MeasuresRegistry()
 
+    @property
+    def T(self):
+        return self.__class__(self.elements, {pair[::-1] for pair in self.leq_order})

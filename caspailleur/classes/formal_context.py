@@ -167,3 +167,9 @@ class FormalContext:
             self.attributes, closure_func, antimonotone_constraint_func=antimonotone_constraint_func
         )
         return iterator
+
+    def inverse(self):
+        return self.__class__(
+            self.objects, self.attributes,
+            {(g, m) for g in self.objects for m in self.attributes if (g, m) not in self.incidence}
+        )
