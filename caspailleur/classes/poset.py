@@ -17,7 +17,7 @@ class Poset:
     def __init__(
             self,
             elements: set[TElement], leq_order: set[tuple[TElement, TElement]],
-            backend: Literal[tuple[POSET_BACKEND_REGISTRY]] = 'Naive'
+            backend: Literal[tuple[POSET_BACKEND_REGISTRY]] = 'BitLeq'
     ):
         self.backend = backend
         self._elements, self._element_index_map = [], dict()

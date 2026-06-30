@@ -204,7 +204,8 @@ class BitLeqPosetBackend(PosetBackend):
     def add_element(self, element: int) -> None:
         self._downsets.insert(element, bazeros(self.n_elements))
         for downset in self._downsets:
-            downset.insert(element, True)
+            downset.insert(element, False)
+        self._downsets[element][element] = True
 
     def add(self, element: int, predecessors: set[int] = None, successors: set[int] = None) -> None:
         predecessors = predecessors if predecessors is not None else set()
@@ -214,9 +215,9 @@ class BitLeqPosetBackend(PosetBackend):
         assert all(element <= s for s in successors)
 
         for p in predecessors:
-            self._downsets[element][p] = True
+            self._downsets[element] |= self._downsets[p]
         for s in successors:
-            self._downsets[s][element] = True
+            self._downsets[s] |= self._downsets[element]
 
     def remove(self, element: int) -> None:
         self._downsets.pop(element)
@@ -244,12 +245,6 @@ class BitLeqPosetBackend(PosetBackend):
         cpy = type(self)(set())
         cpy._downsets = copy.deepcopy(self._downsets)
         return cpy
-
-    def copy(self) -> Self:
-        return self.__copy__()
-
-    def __sub__(self, other: Self) -> Self:
-        return type(self)(self.leq_order - other.leq_order)
 
     def direct_predecessors(self, element: int) -> set[int]:
         predecessors_to_process = bitarray(self._downsets[element])
