@@ -1,3 +1,4 @@
+import math
 from typing import Protocol
 
 from caspailleur.classes.poset import Poset, TElement
@@ -24,27 +25,32 @@ def register_poset_measure(key: str):
 
 @register_poset_measure('is_boolean_lattice')
 def is_boolean_lattice(poset: Poset) -> bool:
-    meets, joins = set(), set()
-    elements = list(poset)
-    for i, a in enumerate(elements):
-        for b in elements[i + 1:]:
-            meet = poset.infimum(a, b)
-            if meet is None:  # i.e. meet does not exist
-                return False
-            if meet in {a, b}:  # implies "join in {a, b}"
-                continue
+    n_atoms = math.log2(len(poset))
+    if n_atoms != int(n_atoms):
+        return False
+    isomorphism = dict()
+    bottom = poset.min()
+    if bottom is None:
+        return False
+    isomorphism[bottom] = set()
+    atoms = poset.direct_successors(bottom)
+    if len(atoms) != n_atoms:
+        return False
+    for i, atom in enumerate(atoms):
+        isomorphism[atom] = {i}
 
-            if meet in meets:
+    elements = sorted(poset, key=lambda el: len(poset.predecessors(el)))
+    for i, element in enumerate(elements):
+        if element not in isomorphism: return False
+        for other in elements[:i]:
+            join = poset.supremum(element, other)
+            if join not in isomorphism:
+                isomorphism[join] = isomorphism[element] | isomorphism[other]
+            if isomorphism[join] != isomorphism[element] | isomorphism[other]:
                 return False
-            meets.add(meet)
 
-            join = poset.supremum(a, b)
-            if join is None:  # i.e. join does not exist
-                return False
-            if join in joins:
-                return False
-            joins.add(join)
-    return True
+    return len(isomorphism) == len(poset)
+
 
 @register_poset_measure('is_distributive_triplet')
 def is_distributive_triplet(a: TElement, b: TElement, c: TElement, poset: Poset) -> bool:
