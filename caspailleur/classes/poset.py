@@ -113,14 +113,11 @@ class Poset:
 
         if element not in self._element_index_map:
             element_idx = min((self._element_index_map[el] for el in successors), default=len(self._element_index_map))
-            print(f'new element idx: {element=} {element_idx=}')
             self._elements.insert(element_idx, element)
             self._element_index_map = {el: i + int(i >= element_idx) for el, i in self._element_index_map.items()}
             self._element_index_map[element] = element_idx
             self.backend.add_element(element_idx)
 
-        print('add', element, predecessors)
-        print('add idx', self._element_index_map[element], self._elements2idxs(predecessors))
         self.backend.add(self._element_index_map[element], self._elements2idxs(predecessors), self._elements2idxs(successors))
 
     def remove(self, element: TElement) -> None:

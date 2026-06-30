@@ -1,7 +1,10 @@
+import copy
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from functools import reduce
 from typing import Self, Optional
+from bitarray import bitarray
+from bitarray.util import zeros as bazeros
 
 POSET_BACKEND_REGISTRY: dict[str, type['PosetBackend']] = dict()
 
@@ -178,3 +181,95 @@ class NaivePosetBackend(PosetBackend):
     @leq_order.setter
     def leq_order(self, value: set[tuple[int, int]]) -> None:
         self._leq_order = set(map(tuple, value))
+
+
+@register_poset_backend('BitLeq')
+class BitLeqPosetBackend(PosetBackend):
+    def __init__(self, leq_order: set[tuple[int, int]]) -> None:
+        super().__init__(leq_order)
+
+    @property
+    def leq_order(self) -> set[tuple[int, int]]:
+        return {(i, j) for j, downset in enumerate(self._downsets) for i in downset.search(True)}
+
+    @leq_order.setter
+    def leq_order(self, value: set[tuple[int, int]]) -> None:
+        n_elements = max(max(pair) for pair in value) + 1 if value else 0
+        downsets = [bazeros(n_elements) for _ in range(n_elements)]
+        for i, j in value:
+            downsets[j][i] = True
+
+        self._downsets: list[bitarray] = downsets
+
+    def add_element(self, element: int) -> None:
+        self._downsets.insert(element, bazeros(self.n_elements))
+        for downset in self._downsets:
+            downset.insert(element, True)
+
+    def add(self, element: int, predecessors: set[int] = None, successors: set[int] = None) -> None:
+        predecessors = predecessors if predecessors is not None else set()
+        successors = successors if successors is not None else set()
+
+        assert all(p <= element for p in predecessors)
+        assert all(element <= s for s in successors)
+
+        for p in predecessors:
+            self._downsets[element][p] = True
+        for s in successors:
+            self._downsets[s][element] = True
+
+    def remove(self, element: int) -> None:
+        self._downsets.pop(element)
+        for downset in self._downsets:
+            downset.pop(element)
+
+    @property
+    def n_elements(self) -> int:
+        return len(self._downsets)
+
+    @property
+    def elements(self) -> set[int]:
+        return set(range(self.n_elements))
+
+    def is_leq(self, element: int, other: int) -> bool:
+        return self._downsets[other][element] == True
+
+    def predecessors(self, element: int, reflexive_output: bool = True) -> set[int]:
+        return set(self._downsets[element].search(True, 0, element+int(reflexive_output)))
+
+    def successors(self, element: int, reflexive_output: bool = True) -> set[int]:
+        return set(i for i in range(element+1-int(reflexive_output), self.n_elements) if self._downsets[i][element])
+
+    def __copy__(self):
+        cpy = type(self)(set())
+        cpy._downsets = copy.deepcopy(self._downsets)
+        return cpy
+
+    def copy(self) -> Self:
+        return self.__copy__()
+
+    def __sub__(self, other: Self) -> Self:
+        return type(self)(self.leq_order - other.leq_order)
+
+    def direct_predecessors(self, element: int) -> set[int]:
+        predecessors_to_process = bitarray(self._downsets[element])
+        directs = set()
+
+        closest_pred = element
+        while predecessors_to_process.any():
+            closest_pred = predecessors_to_process.find(True, 0, closest_pred, right=True)
+            directs.add(closest_pred)
+            predecessors_to_process &= ~self._downsets[closest_pred]
+        return directs
+
+    def greatest_common_predecessor(self, *elements: int) -> Optional[int]:
+        common_predecessors = ~bazeros(self.n_elements)
+        for element in elements:
+            common_predecessors &= self._downsets[element]
+        if not common_predecessors.any():
+            return None
+
+        gcp = common_predecessors.find(True, right=True)
+        if common_predecessors == self._downsets[gcp]:
+            return gcp
+        return None
