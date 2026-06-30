@@ -103,13 +103,20 @@ class Poset:
     @classmethod
     def from_direct_predecessors(cls, direct_predecessors: set[tuple[TElement, TElement]]) -> Self:
         elements = {elem for pair in direct_predecessors for elem in pair}
-        leq_order = direct_predecessors
-        while True:
-            new_leq_order = set(leq_order)
-            new_leq_order |= {(pair[0], other[1]) for pair in leq_order for other in leq_order if pair[1]==other[0]}
-            if new_leq_order == leq_order:
-                break
-            leq_order = new_leq_order
+        all_predecessors = {el: set() for el in elements}
+        for el, pred in direct_predecessors:
+            all_predecessors[el].add(pred)
+
+        new_added = True
+        while new_added:
+            new_added = False
+            for el in all_predecessors:
+                for pred in list(all_predecessors[el]):
+                    if not all_predecessors[pred] <= all_predecessors[el]:
+                        new_added = True
+                        all_predecessors[el] |= all_predecessors[pred]
+
+        leq_order = {(el, pred) for el, preds in all_predecessors.items() for pred in preds}
         return cls(elements, leq_order)
 
     @classmethod
@@ -122,6 +129,8 @@ class Poset:
 
     def greatest_common_predecessor(self, *elements: TElement) -> Optional[TElement]:
         common_predecessors = reduce(set.intersection, (self.predecessors(el) for el in elements), self.elements)
+        if not common_predecessors:
+            return None
         gcp = max(common_predecessors, key=lambda pred: len(self.predecessors(pred)))
         if common_predecessors == self.predecessors(gcp):
             return gcp
@@ -129,6 +138,8 @@ class Poset:
 
     def smallest_common_successor(self, *elements: TElement) -> Optional[TElement]:
         common_successors = reduce(set.intersection, (self.successors(el) for el in elements), self.elements)
+        if not common_successors:
+            return None
         scs = max(common_successors, key=lambda suc: len(self.successors(suc)))
         if common_successors == self.successors(scs):
             return scs
