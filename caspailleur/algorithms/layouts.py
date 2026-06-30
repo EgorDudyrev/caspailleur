@@ -1,15 +1,31 @@
 import heapq
 from collections.abc import Iterator, Callable
-from typing import TypeVar, Literal, NamedTuple
+from typing import TypeVar, Literal, NamedTuple, Protocol
 
 from bitarray import bitarray
 from bitarray.util import zeros as bazeros
 from tqdm.auto import tqdm
 
-from caspailleur.registries import register_line_layout, LINE_LAYOUT_REGISTRY
-
 T = TypeVar('T')
 Coordinate = tuple[float, float]
+
+class LineLayoutProtocol(Protocol):
+    def __call__(
+            self, nodes: set[T], edges: set[tuple[T, T]],
+            **kwargs
+    ) -> dict[T, tuple[float, float]]:
+        ...
+
+LINE_LAYOUT_REGISTRY: dict[str, LineLayoutProtocol] = dict()
+
+def register_line_layout(key: str):
+    def decorator(func):
+        #assert key not in LINE_LAYOUT_REGISTRY
+        LINE_LAYOUT_REGISTRY[key] = func
+        return func
+
+    return decorator
+
 
 
 @register_line_layout('nx-BFS')

@@ -530,15 +530,17 @@ def save_balist(file: BinaryIO, bitarrays: list[bitarray]):
 def read_cxt(file: Union[TextIO, str]) -> PandasContextType:
     """Read the file (or string) that describes a formal context in Burmeister format"""
     data = file.read() if not isinstance(file, str) else file
+    data = data.strip()
 
-    _, ns, data = data.split('\n\n')
-    n_objs, n_attrs = [int(x) for x in ns.split('\n')]
+    header = '\n\n'.join(data.split('\n\n')[:-1])
+    body = data.split('\n\n')[-1].split('\n')
 
-    data = data.strip().split('\n')
-    objects, data = data[:n_objs], data[n_objs:]
-    attributes, data = data[:n_attrs], data[n_attrs:]
+    _, name, n_objs, n_attrs = header.split('\n')
+    n_objs, n_attrs = int(n_objs), int(n_attrs)
+    objects, body = body[:n_objs], body[n_objs:]
+    attributes, body = body[:n_attrs], body[n_attrs:]
 
-    crosses = [[c == 'X' for c in line] for line in data]
+    crosses = [[c.upper() == 'X' for c in line] for line in body]
     return to_pandas((crosses, objects, attributes))
 
 

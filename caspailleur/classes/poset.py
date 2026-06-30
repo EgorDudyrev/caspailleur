@@ -1,6 +1,6 @@
 import operator
 from collections.abc import Hashable, Callable, Iterator
-from functools import reduce
+from functools import reduce, partial
 from typing import TypeVar, Self, Optional, Literal
 
 import matplotlib.pyplot as plt
@@ -15,7 +15,8 @@ TElement = TypeVar('TElement', bound=Hashable)
 class Poset:
     def __init__(self, elements: set[TElement], leq_order: set[tuple[TElement, TElement]]):
         self.elements = set(elements)
-        self.leq_order = set(map(tuple, leq_order))
+        self.leq_order = set(map(tuple, leq_order)) | {(el, el) for el in self.elements}
+        self._init_measures()
 
     def predecessors(self, element: TElement, reflexive_output: bool = True) -> set[TElement]:
         return {other for other in self.elements if (other, element) in self.leq_order and (reflexive_output or other != element)}
@@ -70,16 +71,52 @@ class Poset:
     def __len__(self) -> int:
         return len(self.elements)
 
+    def add(self, element: TElement, predecessors: set[TElement] = None, successors: set[TElement] = None) -> None:
+        predecessors = predecessors if predecessors is not None else set()
+        for predecessor in list(predecessors):
+            predecessors |= self.predecessors(predecessor)
+
+        successors = successors if successors is not None else set()
+        for successor in list(successors):
+            successors |= self.successors(successor)
+
+        self.elements.add(element)
+        self.leq_order |= {(predecessor, element) for predecessor in predecessors}
+        self.leq_order |= {(element, successor) for successor in successors}
+
+    def remove(self, element: TElement) -> None:
+        self.leq_order = {(a, b) for a, b in self.leq_order if element != a and element != b}
+        self.elements.remove(element)
+
+    def __copy__(self) -> Self:
+        return type(self)(self.elements, self.leq_order)
+
+    def copy(self) -> Self:
+        return self.__copy__()
+
+    def __sub__(self, other: TElement) -> Self:
+        new_poset = self.copy()
+        for element in other:
+            new_poset.remove(element)
+        return new_poset
+
     @classmethod
     def from_direct_predecessors(cls, direct_predecessors: set[tuple[TElement, TElement]]) -> Self:
         elements = {elem for pair in direct_predecessors for elem in pair}
-        leq_order = direct_predecessors
-        while True:
-            new_leq_order = set(leq_order)
-            new_leq_order |= {(pair[0], other[1]) for pair in leq_order for other in leq_order if pair[1]==other[0]}
-            if new_leq_order == leq_order:
-                break
-            leq_order = new_leq_order
+        all_predecessors = {el: set() for el in elements}
+        for el, pred in direct_predecessors:
+            all_predecessors[el].add(pred)
+
+        new_added = True
+        while new_added:
+            new_added = False
+            for el in all_predecessors:
+                for pred in list(all_predecessors[el]):
+                    if not all_predecessors[pred] <= all_predecessors[el]:
+                        new_added = True
+                        all_predecessors[el] |= all_predecessors[pred]
+
+        leq_order = {(el, pred) for el, preds in all_predecessors.items() for pred in preds}
         return cls(elements, leq_order)
 
     @classmethod
@@ -92,6 +129,8 @@ class Poset:
 
     def greatest_common_predecessor(self, *elements: TElement) -> Optional[TElement]:
         common_predecessors = reduce(set.intersection, (self.predecessors(el) for el in elements), self.elements)
+        if not common_predecessors:
+            return None
         gcp = max(common_predecessors, key=lambda pred: len(self.predecessors(pred)))
         if common_predecessors == self.predecessors(gcp):
             return gcp
@@ -99,6 +138,8 @@ class Poset:
 
     def smallest_common_successor(self, *elements: TElement) -> Optional[TElement]:
         common_successors = reduce(set.intersection, (self.successors(el) for el in elements), self.elements)
+        if not common_successors:
+            return None
         scs = max(common_successors, key=lambda suc: len(self.successors(suc)))
         if common_successors == self.successors(scs):
             return scs
@@ -158,3 +199,23 @@ class Poset:
         graph = self.to_networkx()
         pos = self.line_layout(layout_type=layout_type, smallest_on_top=False)
         nx.draw(graph, pos=pos, ax=ax, with_labels=True, **draw_kwargs)
+
+    @property
+    def measures(self):# -> dict[tuple(POSET_MEASURE_REGISTRY), PosetMeasureProtocol]:
+        return self._measures
+
+    def _init_measures(self):
+        from caspailleur.classes.poset_measures import POSET_MEASURE_REGISTRY, PosetMeasureProtocol
+        class MeasuresRegistry:
+            def __init__(registry_self):
+                super().__init__()
+                for func_name, func in POSET_MEASURE_REGISTRY.items():
+                    partial_func = partial(func, poset=self)
+                    setattr(registry_self, func_name, partial_func)
+
+
+        self._measures = MeasuresRegistry()
+
+    @property
+    def T(self):
+        return self.__class__(self.elements, {pair[::-1] for pair in self.leq_order})
