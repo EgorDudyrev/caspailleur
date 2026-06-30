@@ -15,7 +15,7 @@ TElement = TypeVar('TElement', bound=Hashable)
 class Poset:
     def __init__(self, elements: set[TElement], leq_order: set[tuple[TElement, TElement]]):
         self.elements = set(elements)
-        self.leq_order = set(map(tuple, leq_order))
+        self.leq_order = set(map(tuple, leq_order)) | {(el, el) for el in self.elements}
         self._init_measures()
 
     def predecessors(self, element: TElement, reflexive_output: bool = True) -> set[TElement]:
