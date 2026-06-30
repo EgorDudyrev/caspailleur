@@ -63,6 +63,9 @@ class Poset:
         for b in sorted(predecessors, key=lambda el: len(predecessors[el])):
             self.add(b, predecessors[b])
 
+    def is_leq(self, element: TElement, other: TElement) -> bool:
+        return self.backend.is_leq(self._element_index_map[element], self._element_index_map[other])
+
     def predecessors(self, element: TElement, reflexive_output: bool = True) -> set[TElement]:
         return self._idxs2elements(self.backend.predecessors(self._element_index_map[element], reflexive_output))
 
@@ -168,7 +171,7 @@ class Poset:
         return cls(elements, {(a, b) for a in elements for b in elements if leq_func(a, b)})
 
     def greatest_common_predecessor(self, *elements: TElement) -> Optional[TElement]:
-        gcp = self.backend.greatest_common_predecessor(*(self._element_index_map[el] for el in elements))
+        gcp = self.backend.greatest_common_predecessor(*self._elements2idxs(elements))
         return self._elements[gcp] if gcp is not None else None
 
     def smallest_common_successor(self, *elements: TElement) -> Optional[TElement]:
@@ -176,19 +179,18 @@ class Poset:
         return self._elements[scs] if scs is not None else None
 
     def supremum(self, *elements: TElement) -> Optional[TElement]:
-        return self.smallest_common_successor(*self._elements2idxs(elements))
+        return self.smallest_common_successor(*elements)
 
     def infimum(self, *elements: TElement) -> Optional[TElement]:
-        return self.greatest_common_predecessor(*self._elements2idxs(elements))
+        return self.greatest_common_predecessor(*elements)
 
     def min(self, *elements: TElement) -> Optional[TElement]:
         min_ = self.backend.min(*self._elements2idxs(elements))
-        return self._element_index_map[min_] if min_ is not None else None
-
+        return self._elements[min_] if min_ is not None else None
 
     def max(self, *elements: TElement) -> Optional[TElement]:
         max_ = self.backend.max(*self._elements2idxs(elements))
-        return self._element_index_map[max_] if max_ is not None else None
+        return self._elements[max_] if max_ is not None else None
 
     def to_networkx(self, arrow_direction: Literal['ascending', 'descending'] = 'ascending') -> nx.DiGraph:
         graph = nx.DiGraph()

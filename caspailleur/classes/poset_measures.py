@@ -75,7 +75,7 @@ def is_meet_distributive_element(a: TElement, poset: Poset) -> bool:
     meet = poset.infimum(a, *poset.direct_predecessors(a))
 
     interval = poset.successors(meet) & poset.predecessors(a)
-    sublattice = Poset.from_functional_order(interval, leq_func=lambda x, y: (x, y) in poset.leq_order)
+    sublattice = Poset.from_functional_order(interval, leq_func=lambda x, y: (x, y) in poset)
     return is_boolean_lattice(sublattice)
 
 
