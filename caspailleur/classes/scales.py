@@ -89,11 +89,15 @@ class BiordinalScale(Scale):
 
 class PolygonScale(Scale):
     @classmethod
-    def from_values(cls, values: list[tuple[float, float]], scale_name: str = None):
+    def from_values(cls, values: list[tuple[float, float]], scale_name: str = None, precision: int = 2):
         import numpy as np
 
-        datapoints = list(set(tuple(pair) for pair in values))
+        datapoints = list(set((round(x, precision), round(y, precision)) for x, y in values))
+        xmin, xmax = min(x for x, _ in datapoints), max(x for x, _ in datapoints)
+        ymin, ymax = min(y for _, y in datapoints), max(y for _, y in datapoints)
+
         lines = set()
+        lines |= {(0, ymin), (0, ymax), (np.inf, xmin), (np.inf, xmax)}
         for i, (x1, y1) in enumerate(datapoints):
             for (x2, y2) in datapoints[i + 1:]:
                 if y1 == y2:
@@ -119,7 +123,10 @@ class PolygonScale(Scale):
                     crossx = (b2 - b1) / (k1 - k2)
 
                 crossy = k2 * crossx + b2
-                crosspoints.add((crossx, crossy))
+                if crossx < xmin or crossx > xmax or crossy < ymin or crossy > ymax:
+                    continue
+                crosspoints.add((round(crossx, precision), round(crossy, precision)))
+
 
         X = np.array(list(set(datapoints) | set(crosspoints)))
         attribute_extents = dict()
@@ -128,14 +135,14 @@ class PolygonScale(Scale):
             if k == np.inf:
                 flg = X[:, 0] >= b
             else:
-                flg = X[:, 1] >= (k * X[:, 0] + b)
+                flg = (X[:, 1] - (k * X[:, 0] + b)).round(precision) >= 0
             attribute_extents[m] = set(map(tuple, X[flg]))
 
             m = (k, b, '<=')
             if k == np.inf:
                 flg = X[:, 0] <= b
             else:
-                flg = X[:, 1] <= (k * X[:, 1] + b)
+                flg = (X[:, 1] - k * X[:, 0] - b).round(precision) <= 0
             attribute_extents[m] = set(map(tuple, X[flg]))
 
         attribute_extents = {cls._form_name(m): {cls._form_name(g) for g in gs} for m, gs in attribute_extents.items()}
