@@ -15,9 +15,9 @@ def register_poset_backend(key: str):
 
 
 class PosetBackend(ABC):
-    def __init__(self, n_elements: Optional[int], leq_order: set[tuple[int, int]]) -> None:
+    def __init__(self, leq_order: set[tuple[int, int]]) -> None:
         assert all(i <= j for i, j in leq_order)
-        n_elements = n_elements if n_elements is not None else max(max(pair) for pair in leq_order)+1
+        n_elements = max(max(pair) for pair in leq_order)+1 if leq_order else 0
         assert all((i, i) in leq_order for i in range(n_elements)) is not None
 
         self.leq_order = leq_order
@@ -28,18 +28,40 @@ class PosetBackend(ABC):
         raise NotImplementedError
 
     @leq_order.setter
+    @abstractmethod
     def leq_order(self, value: set[tuple[int, int]]) -> None:
         raise NotImplementedError
 
+    def clear(self) -> None:
+        self.leq_order = set()
+
+    def add_element(self, element: int) -> None:
+        def increment(i):
+            return i + 1 if i >= element else i
+        self.leq_order = {(increment(i), increment(j)) for i, j in self.leq_order} | {(element, element)}
+
+
     def add(self, element: int, predecessors: set[int] = None, successors: set[int] = None) -> None:
-        raise NotImplementedError
+        predecessors = predecessors if predecessors is not None else set()
+        successors = successors if successors is not None else set()
+
+        assert all(p <= element for p in predecessors)
+        assert all(element <= s for s in successors)
+
+        new_leq_order = self.leq_order
+        new_leq_order |= {(p, element) for p in predecessors}
+        new_leq_order |= {(element, s) for s in successors}
+        self.leq_order = new_leq_order
 
     def remove(self, element: int) -> None:
-        raise NotImplementedError
+        def decrement(i):
+            return i - 1 if i >= element else i
+
+        self.leq_order = {(decrement(i), decrement(j)) for i, j in self.leq_order if i != element and j != element}
 
     @property
     def n_elements(self) -> int:
-        return max(max(pair) for pair in self.leq_order) + 1
+        return max(max(pair) for pair in self.leq_order) + 1 if self.leq_order else 0
 
     @property
     def elements(self) -> set[int]:
@@ -55,13 +77,13 @@ class PosetBackend(ABC):
         return {i for i in range(element+1-int(reflexive_output), self.n_elements) if self.is_leq(element, i)}
 
     def __copy__(self):
-        return type(self)(self.n_elements, self.leq_order)
+        return type(self)(self.leq_order)
 
     def copy(self) -> Self:
         return self.__copy__()
 
     def __sub__(self, other: Self) -> Self:
-        return type(self)(self.n_elements, self.leq_order - other.leq_order)
+        return type(self)(self.leq_order - other.leq_order)
 
     def direct_predecessors(self, element: int) -> set[int]:
         predecessors_to_process = self.predecessors(element, reflexive_output=False)
@@ -141,3 +163,18 @@ class PosetBackend(ABC):
         if isinstance(item, tuple) and len(item) == 2 and 0 <= item[0] < self.n_elements and 0 <= item[1] < self.n_elements:
             return self.is_leq(item[0], item[1])
         return 0 <= item < self.n_elements
+
+
+@register_poset_backend('Naive')
+class NaivePosetBackend(PosetBackend):
+    def __init__(self, leq_order: set[tuple[int, int]]) -> None:
+        self._leq_order = leq_order
+        super().__init__(leq_order)
+
+    @property
+    def leq_order(self) -> set[tuple[int, int]]:
+        return self._leq_order
+
+    @leq_order.setter
+    def leq_order(self, value: set[tuple[int, int]]) -> None:
+        self._leq_order = set(map(tuple, value))

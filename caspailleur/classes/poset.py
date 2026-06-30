@@ -1,6 +1,6 @@
 import operator
-from collections.abc import Hashable, Callable, Iterator
-from functools import reduce, partial
+from collections.abc import Hashable, Callable, Iterator, Iterable
+from functools import partial
 from typing import TypeVar, Self, Optional, Literal
 
 import matplotlib.pyplot as plt
@@ -8,85 +8,127 @@ import networkx as nx
 
 from caspailleur.algorithms.layouts import LINE_LAYOUT_REGISTRY
 from caspailleur.classes.utils import filter_kwargs
+from caspailleur.classes.poset_backends import PosetBackend, POSET_BACKEND_REGISTRY
 
 TElement = TypeVar('TElement', bound=Hashable)
 
 
 class Poset:
-    def __init__(self, elements: set[TElement], leq_order: set[tuple[TElement, TElement]]):
-        self.elements = set(elements)
-        self.leq_order = set(map(tuple, leq_order)) | {(el, el) for el in self.elements}
+    def __init__(
+            self,
+            elements: set[TElement], leq_order: set[tuple[TElement, TElement]],
+            backend: Literal[tuple[POSET_BACKEND_REGISTRY]] = 'Naive'
+    ):
+        self.backend = backend
+        self._elements, self._element_index_map = [], dict()
+
+        self.leq_order = set(map(tuple, leq_order)) | {(el, el) for el in elements}
         self._init_measures()
 
+    @property
+    def backend(self) -> PosetBackend:
+        return self._backend
+
+    @backend.setter
+    def backend(self, value):
+        existing_leq = self.backend.leq_order if hasattr(self, '_backend') else set()
+
+        if isinstance(value, PosetBackend):
+            new_backend = value.__class__(existing_leq) if existing_leq else value
+        elif isinstance(value, type) and issubclass(value, PosetBackend):
+            new_backend = value(existing_leq)
+        elif isinstance(value, str) and value in POSET_BACKEND_REGISTRY:
+            new_backend = POSET_BACKEND_REGISTRY[value](existing_leq)
+        else:
+            raise ValueError(f"Poset backend {value} is not supported.")
+
+        self._backend: PosetBackend = new_backend
+
+    @property
+    def elements(self) -> set[TElement]:
+        return {self._elements[i] for i in self.backend.elements}
+
+    @property
+    def leq_order(self) -> set[tuple[TElement, TElement]]:
+        return {(self._elements[i], self._elements[j]) for i, j in self.backend.leq_order}
+
+    @leq_order.setter
+    def leq_order(self, value: set[tuple[TElement, TElement]]) -> None:
+        self.clear()
+        predecessors = dict()
+        for a, b in value:
+            if b not in predecessors: predecessors[b] = set()
+            predecessors[b].add(a)
+
+        for b in sorted(predecessors, key=lambda el: len(predecessors[el])):
+            self.add(b, predecessors[b])
+
     def predecessors(self, element: TElement, reflexive_output: bool = True) -> set[TElement]:
-        return {other for other in self.elements if (other, element) in self.leq_order and (reflexive_output or other != element)}
+        return self._idxs2elements(self.backend.predecessors(self._element_index_map[element], reflexive_output))
 
     def successors(self, element: TElement, reflexive_output: bool = True) -> set[TElement]:
-        return {other for other in self.elements if (element, other) in self.leq_order and (reflexive_output or other != element)}
+        return self._idxs2elements(self.backend.successors(self._element_index_map[element], reflexive_output))
 
     def direct_predecessors(self, element: TElement) -> set[TElement]:
-        predecessors_to_process = self.predecessors(element, reflexive_output=False)
-        directs = set()
-        while predecessors_to_process:
-            closest_pred = max(predecessors_to_process, key=lambda pred: len(self.predecessors(pred)))
-            directs.add(closest_pred)
-            predecessors_to_process.remove(closest_pred)
-            predecessors_to_process -= self.predecessors(closest_pred)
-        return directs
+        return self._idxs2elements(self.backend.direct_predecessors(self._element_index_map[element]))
 
     def direct_successors(self, element: TElement) -> set[TElement]:
-        successors_to_process = self.successors(element, reflexive_output=False)
-        directs = set()
-        while successors_to_process:
-            closest_succ = max(successors_to_process, key=lambda succ: len(self.successors(succ)))
-            directs.add(closest_succ)
-            successors_to_process.remove(closest_succ)
-            successors_to_process -= self.successors(closest_succ)
-        return directs
+        return self._idxs2elements(self.backend.direct_successors(self._element_index_map[element]))
 
     @property
     def direct_predecessors_pairs(self) -> Iterator[tuple[TElement, TElement]]:
-        return ((el, pred) for el in self.elements for pred in self.direct_predecessors(el))
+        return ((self._elements[i], self._elements[j]) for i, j in self.backend.direct_predecessors_pairs)
 
     @property
     def direct_successors_pairs(self) -> Iterator[tuple[TElement, TElement]]:
-        return ((el, suc) for el in self.elements for suc in self.direct_successors(el))
+        return ((self._elements[i], self._elements[j]) for i, j in self.backend.direct_successors_pairs)
 
     @property
     def predecessors_pairs(self) -> Iterator[tuple[TElement, TElement]]:
-        return ((el, pred) for el in self.elements for pred in self.predecessors(el))
+        return ((self._elements[i], self._elements[j]) for i, j in self.backend.predecessors_pairs)
 
     @property
     def successors_pairs(self) -> Iterator[tuple[TElement, TElement]]:
-        return ((el, suc) for el in self.elements for suc in self.successors(el))
+        return ((self._elements[i], self._elements[j]) for i, j in self.backend.successors_pairs)
 
     def __iter__(self) -> Iterator[TElement]:
-        return iter(sorted(self.elements, key=lambda el: len(self.successors(el))))
+        return (self._elements[i] for i in self.backend.elements)
 
     def __contains__(self, item: TElement | tuple[TElement, TElement]) -> bool:
-        if isinstance(item, tuple) and len(item) == 2 and item[0] in self.elements and item[1] in self.elements:
-            return item in self.successors_pairs
-        return item in self.elements
+        if isinstance(item, tuple) and len(item) == 2 and item[0] in self._element_index_map and item[1] in self._element_index_map:
+            return self.backend.__contains__((self._element_index_map[item[0]], self._element_index_map[item[1]]))
+        return item in self._element_index_map
 
     def __len__(self) -> int:
-        return len(self.elements)
+        return self.backend.n_elements
 
     def add(self, element: TElement, predecessors: set[TElement] = None, successors: set[TElement] = None) -> None:
-        predecessors = predecessors if predecessors is not None else set()
+        predecessors = predecessors - {element} if predecessors is not None else set()
         for predecessor in list(predecessors):
             predecessors |= self.predecessors(predecessor)
 
-        successors = successors if successors is not None else set()
+        successors = successors - {element} if successors is not None else set()
         for successor in list(successors):
             successors |= self.successors(successor)
 
-        self.elements.add(element)
-        self.leq_order |= {(predecessor, element) for predecessor in predecessors}
-        self.leq_order |= {(element, successor) for successor in successors}
+        if element not in self._element_index_map:
+            element_idx = min((self._element_index_map[el] for el in successors), default=len(self._element_index_map))
+            print(f'new element idx: {element=} {element_idx=}')
+            self._elements.insert(element_idx, element)
+            self._element_index_map = {el: i + int(i >= element_idx) for el, i in self._element_index_map.items()}
+            self._element_index_map[element] = element_idx
+            self.backend.add_element(element_idx)
+
+        print('add', element, predecessors)
+        print('add idx', self._element_index_map[element], self._elements2idxs(predecessors))
+        self.backend.add(self._element_index_map[element], self._elements2idxs(predecessors), self._elements2idxs(successors))
 
     def remove(self, element: TElement) -> None:
-        self.leq_order = {(a, b) for a, b in self.leq_order if element != a and element != b}
-        self.elements.remove(element)
+        element_idx = self._element_index_map[element]
+        self.backend.remove(element_idx)
+        self._elements.remove(element_idx)
+        del self._element_index_map[element]
+        self._element_index_map = {el: i - int(i >= element_idx) for el, i in self._element_index_map.items()}
 
     def __copy__(self) -> Self:
         return type(self)(self.elements, self.leq_order)
@@ -95,10 +137,11 @@ class Poset:
         return self.__copy__()
 
     def __sub__(self, other: TElement) -> Self:
-        new_poset = self.copy()
-        for element in other:
-            new_poset.remove(element)
-        return new_poset
+        backend_diff = self.backend - other.backend
+        leq_diff = {(self._elements[i], self._elements[j]) for i, j in backend_diff.leq_order}
+        elements = {el for pair in leq_diff for el in pair}
+        return type(self)(elements, leq_diff)
+
 
     @classmethod
     def from_direct_predecessors(cls, direct_predecessors: set[tuple[TElement, TElement]]) -> Self:
@@ -128,42 +171,27 @@ class Poset:
         return cls(elements, {(a, b) for a in elements for b in elements if leq_func(a, b)})
 
     def greatest_common_predecessor(self, *elements: TElement) -> Optional[TElement]:
-        common_predecessors = reduce(set.intersection, (self.predecessors(el) for el in elements), self.elements)
-        if not common_predecessors:
-            return None
-        gcp = max(common_predecessors, key=lambda pred: len(self.predecessors(pred)))
-        if common_predecessors == self.predecessors(gcp):
-            return gcp
-        return None
+        gcp = self.backend.greatest_common_predecessor(*(self._element_index_map[el] for el in elements))
+        return self._elements[gcp] if gcp is not None else None
 
     def smallest_common_successor(self, *elements: TElement) -> Optional[TElement]:
-        common_successors = reduce(set.intersection, (self.successors(el) for el in elements), self.elements)
-        if not common_successors:
-            return None
-        scs = max(common_successors, key=lambda suc: len(self.successors(suc)))
-        if common_successors == self.successors(scs):
-            return scs
-        return None
+        scs = self.backend.smallest_common_successor(*self._elements2idxs(elements))
+        return self._elements[scs] if scs is not None else None
 
     def supremum(self, *elements: TElement) -> Optional[TElement]:
-        return self.smallest_common_successor(*elements)
+        return self.smallest_common_successor(*self._elements2idxs(elements))
 
     def infimum(self, *elements: TElement) -> Optional[TElement]:
-        return self.greatest_common_predecessor(*elements)
+        return self.greatest_common_predecessor(*self._elements2idxs(elements))
 
     def min(self, *elements: TElement) -> Optional[TElement]:
-        elements = self.elements if not elements else set(elements)
-        min_cand = min(elements, key=lambda el: len(self.predecessors(el)))
-        if elements <= self.successors(min_cand):
-            return min_cand
-        return None
+        min_ = self.backend.min(*self._elements2idxs(elements))
+        return self._element_index_map[min_] if min_ is not None else None
+
 
     def max(self, *elements: TElement) -> Optional[TElement]:
-        elements = self.elements if not elements else set(elements)
-        max_cand = max(elements, key=lambda el: len(self.predecessors(el)))
-        if elements <= self.predecessors(max_cand):
-            return max_cand
-        return None
+        max_ = self.backend.max(*self._elements2idxs(elements))
+        return self._element_index_map[max_] if max_ is not None else None
 
     def to_networkx(self, arrow_direction: Literal['ascending', 'descending'] = 'ascending') -> nx.DiGraph:
         graph = nx.DiGraph()
@@ -219,3 +247,20 @@ class Poset:
     @property
     def T(self):
         return self.__class__(self.elements, {pair[::-1] for pair in self.leq_order})
+
+    def clear(self) -> None:
+        self.backend.clear()
+        self._elements = []
+        self._element_index_map = dict()
+
+    def _elements2idxs(self, elements: Iterable[TElement]) -> set[int]:
+        return {self._element_index_map[el] for el in elements}
+
+    def _idxs2elements(self, indices: Iterable[int]) -> set[TElement]:
+        return {self._elements[i] for i in indices}
+
+    def downset(self, element: TElement, reflexive_relation: bool = True) -> set[TElement]:
+        return self.predecessors(element, reflexive_relation)
+
+    def upset(self, element: TElement, reflexive_relation: bool = True) -> set[TElement]:
+        return self.successors(element, reflexive_relation)
