@@ -1,24 +1,22 @@
-from abc import abstractmethod, ABCMeta
 from collections.abc import Hashable, Iterable
 from numbers import Number
-from typing import TypeVar, Self
+from typing import TypeVar, Self, Literal
 
 from caspailleur.classes.formal_context import FormalContext
-
+from caspailleur.classes.poset import Poset
 
 TObject = TypeVar('TObject', bound=Hashable)
 TValue = TypeVar('TValue', bound=Hashable)
 TAttribute = TypeVar('TAttribute', bound=Hashable)
 
 
-class Scale(metaclass=ABCMeta):
+class Scale:
     def __init__(self, context: FormalContext = None):
         self.context = context
 
     @classmethod
-    @abstractmethod
     def from_values(cls, values, scale_name=None) -> Self:
-        ...
+        raise NotImplementedError
 
     def fit(self, data: dict[TObject, TValue], scale_name: str = None) -> None:
         self.from_values(set(data.values()), scale_name)
@@ -70,6 +68,12 @@ class OrdinalScale(Scale):
                             {cls._form_name(f"<= {v}", scale_name) for v in values if obj_value <= v}
                         for obj_value in values}
         return cls(FormalContext.from_named_itemsets(scaling_dict))
+
+    @classmethod
+    def from_poset(cls, poset: Poset, operation: Literal['>=', '<='] = '<=') -> Self:
+        context = {element: poset.successors(element,) if operation == '<=' else poset.predecessors(element)
+                   for element in poset}
+        return cls(FormalContext.from_named_itemsets(context))
 
 
 class BiordinalScale(Scale):
