@@ -76,6 +76,13 @@ def select_subsets_vertical_ba(description: bitarray, crosses_per_columns: list[
         non_subsets |= crosses_per_columns[excluded_element]
     return ~non_subsets
 
+def select_supersets_vertical_ba(description: bitarray, crosses_per_columns: list[bitarray]) -> bitarray:
+    full_column = crosses_per_columns[0] | ~crosses_per_columns[0]
+    supersets = bitarray(full_column)
+    for element in description.search(True):
+        supersets &= crosses_per_columns[element]
+    return supersets
+
 
 
 def closure(

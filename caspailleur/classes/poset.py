@@ -2,10 +2,14 @@ import operator
 from collections.abc import Hashable, Callable, Iterator, Iterable
 from functools import partial
 from typing import TypeVar, Self, Optional, Literal
+from tqdm.auto import tqdm
 
 import matplotlib.pyplot as plt
 import networkx as nx
+from bitarray import bitarray
+from bitarray.util import zeros as bazeros
 
+from caspailleur.algorithms.base_functions import select_subsets_vertical_ba, select_supersets_vertical_ba
 from caspailleur.algorithms.layouts import LINE_LAYOUT_REGISTRY
 from caspailleur.classes.utils import filter_kwargs
 from caspailleur.classes.poset_backends import PosetBackend, POSET_BACKEND_REGISTRY
@@ -16,9 +20,12 @@ TElement = TypeVar('TElement', bound=Hashable)
 class Poset:
     def __init__(
             self,
-            elements: set[TElement], leq_order: set[tuple[TElement, TElement]],
+            elements: set[TElement] = None, leq_order: set[tuple[TElement, TElement]] = None,
             backend: Literal[tuple[POSET_BACKEND_REGISTRY]] = 'BitLeq'
     ):
+        elements = elements if elements else set()
+        leq_order = leq_order if leq_order else set()
+
         self.backend = backend
         self._elements, self._element_index_map = [], dict()
 
@@ -168,7 +175,44 @@ class Poset:
 
     @classmethod
     def from_functional_order(cls, elements: set[TElement], leq_func: Callable[[TElement, TElement], bool] = operator.le) -> Self:
-        return cls(elements, {(a, b) for a in elements for b in elements if leq_func(a, b)})
+        predecessors = {a: {b for b in elements if leq_func(b, a)} for a in elements}
+        elements = sorted(elements, key=lambda el: len(predecessors[el]))
+        elements_to_idx_map = {el: i for i, el in enumerate(elements)}
+        leq_indexed = {(elements_to_idx_map[pred], elements_to_idx_map[el])
+                       for el, preds in predecessors.items() for pred in preds}
+        return cls.from_indexed_elements(elements, leq_indexed)
+
+    @classmethod
+    def from_subsets(cls, subsets: list[frozenset], use_tqdm: bool = False) -> Self:
+        subsets: list[frozenset] = list(map(frozenset, subsets))
+        subsets = sorted(subsets, key=len)
+
+        element_idx_map = dict()
+        for subset in subsets:
+            for element in subset:
+                if element in element_idx_map: continue
+                element_idx_map[element] = len(element_idx_map)
+
+        n_elements = len(element_idx_map)
+
+        vertical_subsets: list[bitarray] = [bazeros(len(subsets)) for _ in element_idx_map]
+        for i, subset in enumerate(subsets):
+            for el in subset:
+                vertical_subsets[element_idx_map[el]][i] = True
+
+        leq_order = []
+        for i in tqdm(range(len(subsets)), disable=not use_tqdm):
+            subset_ba = bitarray([vertical_subsets[j][i] for j in range(n_elements)])
+            leq_order += [(j, i) for j in select_subsets_vertical_ba(subset_ba, vertical_subsets).search(True)]
+        return cls.from_indexed_elements(subsets, set(leq_order))
+
+    @classmethod
+    def from_indexed_elements(cls, elements: list[TElement], leq_order: set[tuple[int, int]]) -> Self:
+        poset = cls()
+        poset._backend = poset._backend.__class__(leq_order)
+        poset._elements = elements
+        poset._element_index_map = {el: idx for idx, el in enumerate(elements)}
+        return poset
 
     def greatest_common_predecessor(self, *elements: TElement) -> Optional[TElement]:
         gcp = self.backend.greatest_common_predecessor(*self._elements2idxs(elements))
@@ -263,3 +307,6 @@ class Poset:
 
     def upset(self, element: TElement, reflexive_relation: bool = True) -> set[TElement]:
         return self.successors(element, reflexive_relation)
+
+    def __eq__(self, other):
+        return self.elements == other.elements and self.leq_order == other.leq_order
