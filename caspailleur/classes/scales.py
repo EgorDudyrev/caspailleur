@@ -4,6 +4,7 @@ from typing import TypeVar, Self, Literal
 
 from caspailleur.classes.formal_context import FormalContext
 from caspailleur.classes.poset import Poset
+from caspailleur.classes.implicational_system import ImplicationalSystem
 
 TObject = TypeVar('TObject', bound=Hashable)
 TValue = TypeVar('TValue', bound=Hashable)
@@ -31,6 +32,20 @@ class Scale:
     @staticmethod
     def _form_name(v, scale_name = None):
         return (scale_name, v) if scale_name is not None else v
+
+    @property
+    def implications(self) -> ImplicationalSystem:
+        impsys = ImplicationalSystem.from_context(self.context)
+        for g in self.context.objects:
+            descr = self.context.intent({g})
+            impsys.add({g}, descr)
+            impsys.add(descr, {g})
+        return impsys
+
+    def name_attributes(self, scale_name: str) -> None:
+        attributes = {(scale_name, m) for m in self.context.attributes}
+        incidence = {(g, (scale_name, m)) for g, m in self.context.incidence}
+        self.context = FormalContext(self.context.objects, attributes, incidence)
 
 
 class InterordinalScale(Scale):
