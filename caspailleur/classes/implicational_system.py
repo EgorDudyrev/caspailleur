@@ -1,7 +1,9 @@
 from collections.abc import Iterable
 from typing import Literal, Union, overload, Callable, Self
 
-from caspailleur.classes.formal_context import TAttribute
+from caspailleur.algorithms.implication_bases import iter_proper_premises_via_keys
+from caspailleur.algorithms.mine_equivalence_classes import list_intents_via_LCM, list_keys
+from caspailleur.classes.formal_context import TAttribute, FormalContext
 from caspailleur.classes.implicational_backends import ImplicationalSystemBackend
 from caspailleur.registries import IMPLICATIONAL_BACKEND_REGISTRY, CLOSURE_ITERATOR_REGISTRY
 
@@ -174,6 +176,20 @@ class ImplicationalSystem:
         self._attributes_order.pop(idx)
         self._attribute_index_map.pop(attr)
         self.backend.remove_attribute(idx)
+
+
+    @classmethod
+    def from_context(cls, context: FormalContext, min_support: Union[int, float] = 0) -> Self:
+        min_support = int(min_support * len(context.objects)) if 0 < min_support < 1 else min_support
+        obj_order, attrs_order = list(context.objects), list(context.attributes)
+        intents_ba = list_intents_via_LCM(context.to_itemsets_ba(attributes_order=attrs_order), min_supp=min_support)
+        keys_ba = list_keys(intents_ba)
+        proper_premises_iterator = iter_proper_premises_via_keys(intents_ba, keys_ba)
+        impsys = cls(implications={
+            frozenset([attrs_order[m] for m in p.search(True)]):
+                {attrs_order[m] for m in intents_ba[i].search(True)}
+            for p, i in proper_premises_iterator}, attributes_list=attrs_order, backend_class='VerticalWild')
+        return impsys
 
     def union(self, other: Self) -> Self:
         return self.__class__(self.implications | other.implications, backend_class=self.backend)
