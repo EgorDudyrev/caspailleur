@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Literal, Union, overload, Callable
+from typing import Literal, Union, overload, Callable, Self
 
 from caspailleur.classes.formal_context import TAttribute
 from caspailleur.classes.implicational_backends import ImplicationalSystemBackend
@@ -9,10 +9,11 @@ from caspailleur.registries import IMPLICATIONAL_BACKEND_REGISTRY, CLOSURE_ITERA
 class ImplicationalSystem:
     def __init__(
             self,
-            implications: dict[frozenset[TAttribute], set[TAttribute]],
+            implications: dict[frozenset[TAttribute], set[TAttribute]] = None,
             backend_class: Union[type[ImplicationalSystemBackend], Literal[tuple(IMPLICATIONAL_BACKEND_REGISTRY)]] = 'Naive',
             attributes_list: list[TAttribute] = None
     ):
+        implications = implications if implications is not None else dict()
         self.backend = backend_class
 
         self._attributes_order, self._attribute_index_map = [], dict()
@@ -173,3 +174,9 @@ class ImplicationalSystem:
         self._attributes_order.pop(idx)
         self._attribute_index_map.pop(attr)
         self.backend.remove_attribute(idx)
+
+    def union(self, other: Self) -> Self:
+        return self.__class__(self.implications | other.implications, backend_class=self.backend)
+
+    def __or__(self, other: Self) -> Self:
+        return self.union(other)

@@ -17,9 +17,15 @@ TAttribute = TypeVar("TAttribute", bound=Hashable)
 
 @dataclass
 class FormalContext:
-    objects: set[TObject]
-    attributes: set[TAttribute]
-    incidence: set[tuple[TObject, TAttribute]]
+    def __init__(
+            self,
+            objects: set[TObject] = None,
+            attributes: set[TAttribute] = None,
+            incidence: set[tuple[TObject, TAttribute]] = None
+    ):
+        self.objects = objects if objects is not None else set()
+        self.attributes = attributes if attributes is not None else set()
+        self.incidence = incidence if incidence is not None else set()
 
     def extent(self, description: set[TAttribute]) -> set[TObject]:
         description = description if isinstance(description, set) else set(description)
@@ -75,10 +81,11 @@ class FormalContext:
             incidence |= {(object_idx, m) for m in itemset}
         return cls(objects, attributes, incidence)
 
-    def to_itemsets_ba(self) -> list[bitarray]:
-        attributes = list(self.attributes)
+    def to_itemsets_ba(self, objects_order: list[TObject] = None, attributes_order: list[TAttribute] = None) -> list[bitarray]:
+        objects = list(self.objects) if objects_order is None else objects_order
+        attributes = list(self.attributes) if attributes_order is None else attributes_order
         bitarrays = []
-        for g in self.objects:
+        for g in objects:
             ba = bitarray([(g, m) in self.incidence for m in attributes])
             bitarrays.append(ba)
         return bitarrays
@@ -173,3 +180,9 @@ class FormalContext:
             self.objects, self.attributes,
             {(g, m) for g in self.objects for m in self.attributes if (g, m) not in self.incidence}
         )
+
+    def union(self, other: Self) -> Self:
+        return self.__class__(self.objects|other.objects, self.attributes|other.attributes, self.incidence|other.incidence)
+
+    def __or__(self, other: Self) -> Self:
+        return self.union(other)
