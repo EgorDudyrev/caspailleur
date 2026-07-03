@@ -228,7 +228,8 @@ class VerticalWildImplicationalSystemBackend(ImplicationalSystemBackend):
 
     def add(self, premise: Iterable[int], conclusion: Iterable[int]):
         premise, conclusion = list(premise), list(conclusion)
-        assert max(premise) < len(self._vertical_premises), f"The system only supports {len(self._vertical_premises)} attributes, but is given attribute #{max(premise)}"
+        if premise:
+            assert max(premise) < len(self._vertical_premises), f"The system only supports {len(self._vertical_premises)} attributes, but is given attribute #{max(premise)}"
         assert max(conclusion) < len(self._vertical_premises), f"The system only supports {len(self._vertical_premises)} attributes, but is given attribute #{max(conclusion)}"
 
         premise_ba, conclusion_ba = self._idxs2ba(premise), self._idxs2ba(conclusion)
