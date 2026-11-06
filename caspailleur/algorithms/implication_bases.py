@@ -1,6 +1,6 @@
 from collections.abc import Callable, Hashable
 from functools import reduce
-from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar, Protocol
+from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar, Protocol, Generator, Optional
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import subset, zeros as bazeros, any_and
 from tqdm.auto import tqdm
@@ -380,8 +380,9 @@ def close_by_one_for_closures(
 @register_closure_iterator('CbO-FW')
 def close_by_one_forwardtracking_for_closures(
         elements: set[T], closure_func: Callable[[Iterable[T]], set[T]],
-        antimonotone_constraint_func: Callable[[Iterable[T]], bool] = None
-) -> Iterator[set[T]]:
+        antimonotone_constraint_func: Callable[[Iterable[T]], bool] = None,
+        controlled_iteration: bool = False
+) -> Generator[set[T], Optional[bool], None]:  #Iterator[set[T]]:
     if antimonotone_constraint_func is None:
         antimonotone_constraint_func = lambda _: True
 
@@ -399,6 +400,8 @@ def close_by_one_forwardtracking_for_closures(
             subelements[idx][subelement_idx] = True
             superelements[subelement_idx][idx] = True
 
+    if controlled_iteration:
+        yield None  # start the iterator
 
     stack: list[tuple[list[int], bitarray]] = [([], bazeros(len(elements)))]
     while stack:
@@ -414,7 +417,9 @@ def close_by_one_forwardtracking_for_closures(
         if not antimonotone_constraint_func(closure):
             continue
 
-        yield closure
+        go_more_precise = yield closure
+        if go_more_precise == False:
+            continue
 
         next_elements_candidates = ~closure_ba & ~banned_ba
         next_idx = -1
@@ -432,3 +437,22 @@ def close_by_one_forwardtracking_for_closures(
 @register_closure_iterator('Naive')
 def naive_closure_iterator(elements: set[T], closure_func: Callable[[T], bool]) -> Iterator[set[T]]:
     return (subset_ for subset_ in map(set, powerset(elements)) if closure_func(subset_) == subset_)
+
+
+def iter_proper_premises_for_closure(attributes: set[T], closure_func: Callable[[Iterable[T]], Iterable[T]]) -> Iterator[frozenset[T]]:
+    ground_set = sorted(attributes, key=lambda m: len(closure_func({m})))
+    keys = {frozenset()}
+    stack = [frozenset([m]) for m in ground_set][::-1]
+    while stack:
+        key_cand = stack.pop()
+        closure = frozenset(closure_func(key_cand))
+        if any(key_cand - {m} not in keys or frozenset(closure_func(key_cand - {m})) == closure for m in key_cand):
+            continue
+
+        keys.add(key_cand)
+        if reduce(frozenset.union, (closure_func(key_cand - {m}) for m in key_cand), key_cand) != closure:
+            yield key_cand
+
+        if len(closure) == len(ground_set): continue
+        minidx = min(map(ground_set.index, key_cand))
+        stack.extend((key_cand | {ground_set[i]} for i in reversed(range(minidx))))

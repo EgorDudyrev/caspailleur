@@ -5,7 +5,7 @@ from typing import Iterator, Iterable, Union, Sequence, Optional
 
 import deprecation
 
-from caspailleur.algorithms.order import topological_sorting, check_topologically_sorted
+from caspailleur.algorithms.order import topological_sorting, check_topologically_sorted, inverse_order
 from caspailleur.io import isets2bas, bas2isets, to_absolute_number
 from caspailleur.indices import delta_stability_by_extents
 from caspailleur.algorithms.base_functions import extension
@@ -983,3 +983,70 @@ def iter_minimal_broad_clusterings_via_pyramidal_search(
             if candidate[1:]+(i,) in nonoverlappings  # small preliminary check to omit definitely false candidates
         ]
         queue.extendleft(reversed(nexts))
+
+
+def iter_keys_via_carpathia_GI(
+        atomic_extents: list[fbarray],
+        superatoms_order: list[fbarray],
+        min_support: int = 0,
+        max_key_length: int = None,
+        test_subsets: bool = True
+) -> Iterator[tuple[fbarray, fbarray]]:
+    # TODO: Verify that the name corresponds to the algorithm
+    assert all(not superatoms[:i].any() for i, superatoms in enumerate(superatoms_order)), \
+        ("The value in `superatoms_order` should be topologically sorted. "
+         "That is, all greater elements should have greater indices.")
+
+    max_key_length = max_key_length if max_key_length is not None else len(atomic_extents)
+
+    subatoms_order = inverse_order(superatoms_order)
+
+    n_objects, n_attrs = len(atomic_extents[0]), len(atomic_extents)
+
+    singletons = [bazeros(n_attrs) for _ in range(n_attrs)]
+    for i in range(n_attrs): singletons[i][i] = True
+
+    total_extent = atomic_extents[0] | ~atomic_extents[0]
+
+    min_gens_per_extent: dict[fbarray, list[fbarray]] = dict()  # extent => atomic antichains
+    min_gen_supports: dict[fbarray, int] = dict()  # atomic antichain => support
+    stack = deque([(fbarray(bazeros(n_attrs)), total_extent)])
+    while stack:
+        descr, extent = stack.pop()
+        support = extent.count()
+        atomic_closure = reduce(fbarray.__or__, (subatoms_order[i] for i in descr.search(True)), descr)
+
+        if extent not in min_gens_per_extent: min_gens_per_extent[extent] = list()
+
+        equiv_subpatterns_found = any(basubset(found_mg, atomic_closure) for found_mg in min_gens_per_extent[extent])
+        if equiv_subpatterns_found:
+            continue
+
+        yield descr, fbarray(extent)
+        min_gens_per_extent[extent].append(descr)
+        min_gen_supports[descr] = support
+
+        if descr.count() == max_key_length:
+            continue
+
+        next_atoms = atomic_closure.search(False, 0, descr.find(True) if descr.any() else len(descr), right=True)
+        for next_atom in next_atoms:
+            next_support = count_and(extent, atomic_extents[next_atom])
+            if next_support < min_support:
+                continue
+
+            next_antichain = descr | singletons[next_atom]
+            if test_subsets:
+                for old_atom in descr.search(True):
+                    old_descr = next_antichain & ~singletons[old_atom]
+                    if old_descr not in min_gen_supports or min_gen_supports[old_descr] == next_support:
+                        all_subsets_are_not_equiv_mingens = False
+                        break
+                else:  # no break, that is all subsets of `new_antichain` are minimal generators
+                    all_subsets_are_not_equiv_mingens = True
+
+                if not all_subsets_are_not_equiv_mingens:
+                    continue
+
+            next_extent = extent & atomic_extents[next_atom]
+            stack.append((next_antichain, next_extent))

@@ -4,6 +4,7 @@ from typing import TypeVar, Self, Literal
 
 from caspailleur.classes.formal_context import FormalContext
 from caspailleur.classes.poset import Poset
+from caspailleur.classes.implicational_system import ImplicationalSystem
 
 TObject = TypeVar('TObject', bound=Hashable)
 TValue = TypeVar('TValue', bound=Hashable)
@@ -22,7 +23,10 @@ class Scale:
         self.from_values(set(data.values()), scale_name)
 
     def transform(self, data: dict[TObject, TValue]) -> FormalContext:
-        return FormalContext.from_named_itemsets({g: self.context.intent({v}) for g, v in data.items()})
+        objects = set(data.keys())
+        attributes = self.context.attributes
+        incidence = {(g, m) for g, v in data.items() for m in self.context.intent({v})}
+        return FormalContext(objects, attributes, incidence)
 
     def fit_transform(self, data: dict[TObject, TValue]) -> FormalContext:
         self.fit(data)
@@ -32,41 +36,86 @@ class Scale:
     def _form_name(v, scale_name = None):
         return (scale_name, v) if scale_name is not None else v
 
+    @property
+    def implications(self) -> ImplicationalSystem:
+        impsys = ImplicationalSystem.from_context(self.context, 0)
+        for g in self.context.objects:
+            descr = self.context.intent({g})
+            impsys.add({g}, descr)
+            impsys.add(descr, {g})
+        return impsys
+
+    @property
+    def attribute_implications(self) -> ImplicationalSystem:
+        return ImplicationalSystem.from_context(self.context, 0)
+
+    def name_attributes(self, scale_name: str) -> None:
+        attributes = {(scale_name, m) for m in self.context.attributes}
+        incidence = {(g, (scale_name, m)) for g, m in self.context.incidence}
+        self.context = FormalContext(self.context.objects, attributes, incidence)
+
 
 class InterordinalScale(Scale):
     @classmethod
     def from_values(cls, values: Iterable[float], scale_name: str = None) -> Self:
-        scaling_dict = dict()
-        values = sorted(set(values))
-        for object_value in values:
-            attributes = []
+        values = set(values)
+        not_nones = [v for v in values if not(v is None or v == '<NA>')]
+        not_nones = sorted(set(not_nones))
+        incidence = []
+        for object_value in not_nones:
+            obj_name = cls._form_name(object_value, scale_name)
 
-            for attribute_value in values:
+            for attribute_value in not_nones:
                 if object_value <= attribute_value:
-                    attributes.append(cls._form_name(f"<= {attribute_value}", scale_name))
+                    attr_name = cls._form_name(f"<= {attribute_value}", scale_name)
+                    incidence.append((obj_name, attr_name))
                 if object_value >= attribute_value:
-                    attributes.append(cls._form_name(f">= {attribute_value}", scale_name))
-            scaling_dict[cls._form_name(object_value, scale_name)] = attributes
-        return cls(FormalContext.from_named_itemsets(scaling_dict))
+                    attr_name = cls._form_name(f">= {attribute_value}", scale_name)
+                    incidence.append((obj_name, attr_name))
+
+        if len(not_nones) < len(values):
+            UNK_name = cls._form_name('<NA>', scale_name)
+            incidence.append((UNK_name, UNK_name))
+
+        objects = {g for g, _ in incidence}
+        attributes = {m for _, m in incidence}
+
+        if len(not_nones) > 1:
+            attributes.add(cls._form_name('<CONTROVERSY>', scale_name))
+        return cls(FormalContext(objects, attributes, incidence))
 
 
 class NominalScale(Scale):
     @classmethod
     def from_values(cls, values: Iterable[TValue], scale_name: str = None) -> Self:
         scaling_dict = dict()
-        values = sorted(set(values))
-        for object_value in values:
-            scaling_dict[cls._form_name(object_value, scale_name)] = {cls._form_name(object_value, scale_name)}
-        return cls(FormalContext.from_named_itemsets(scaling_dict))
+        not_nones = [v for v in values if not (v is None or v == '<NA>')]
+        not_nones = sorted(set(not_nones))
+        incidence = []
+        for object_value in not_nones:
+            val_name = cls._form_name(object_value, scale_name)
+            incidence.append((val_name, val_name))
+        if len(not_nones) < len(values):
+            UNK_name = cls._form_name('<NA>', scale_name)
+            incidence.append((UNK_name, UNK_name))
+
+        objects = {g for g, _ in incidence}
+        attributes = {m for _, m in incidence}
+        if len(values) > 1:
+            attributes.add(cls._form_name('<CONTROVERSY>', scale_name))
+
+        return cls(FormalContext(objects, attributes, incidence))
 
 
 class OrdinalScale(Scale):
     @classmethod
     def from_values(cls, values: Iterable[float], scale_name: str = None) -> Self:
         values = sorted(set(values))
+        assert not any(v is None or v == '<NA>' for v in values)
         scaling_dict = {cls._form_name(obj_value, scale_name):
                             {cls._form_name(f"<= {v}", scale_name) for v in values if obj_value <= v}
                         for obj_value in values}
+
         return cls(FormalContext.from_named_itemsets(scaling_dict))
 
     @classmethod
@@ -80,6 +129,7 @@ class BiordinalScale(Scale):
     @classmethod
     def from_values(cls, values: Iterable[float], scale_name: str = None, splitting_point: float = None) -> Self:
         values = sorted(set(values))
+        assert not any(v is None or v=='<NA>' for v in values)
         if splitting_point is None:
             splitting_point = values[len(values) // 2]
 
