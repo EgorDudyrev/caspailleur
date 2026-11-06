@@ -1,6 +1,6 @@
 from collections.abc import Callable, Hashable
 from functools import reduce
-from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar, Protocol
+from typing import List, Dict, Tuple, Iterator, Iterable, TypeVar, Protocol, Generator, Optional
 from bitarray import frozenbitarray as fbarray, bitarray
 from bitarray.util import subset, zeros as bazeros, any_and
 from tqdm.auto import tqdm

@@ -182,7 +182,7 @@ class FormalContext:
         )
 
     def union(self, other: Self) -> Self:
-        return self.__class__(self.objects|other.objects, self.attributes|other.attributes, self.incidence|other.incidence)
+        return self.__class__(frozenset(self.objects|other.objects), frozenset(self.attributes|other.attributes), frozenset(self.incidence|other.incidence))
 
     def __or__(self, other: Self) -> Self:
         return self.union(other)

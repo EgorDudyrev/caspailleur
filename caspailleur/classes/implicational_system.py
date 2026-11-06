@@ -1,7 +1,11 @@
 from collections.abc import Iterable
-from typing import Literal, Union, overload, Callable, Self
+from functools import reduce
+from typing import Literal, Union, overload, Callable, Self, Optional
 
 from caspailleur.algorithms.implication_bases import iter_proper_premises_via_keys
+from tqdm.auto import tqdm
+
+from caspailleur.algorithms.implication_bases import iter_proper_premises_via_keys, iter_proper_premises_for_closure
 from caspailleur.algorithms.mine_equivalence_classes import list_intents_via_LCM, list_keys
 from caspailleur.classes.formal_context import TAttribute, FormalContext
 from caspailleur.classes.implicational_backends import ImplicationalSystemBackend

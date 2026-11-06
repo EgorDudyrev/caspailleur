@@ -5,7 +5,7 @@ from typing import Iterator, Iterable, Union, Sequence, Optional
 
 import deprecation
 
-from caspailleur.algorithms.order import topological_sorting, check_topologically_sorted
+from caspailleur.algorithms.order import topological_sorting, check_topologically_sorted, inverse_order
 from caspailleur.io import isets2bas, bas2isets, to_absolute_number
 from caspailleur.indices import delta_stability_by_extents
 from caspailleur.algorithms.base_functions import extension

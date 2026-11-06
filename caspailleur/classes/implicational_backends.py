@@ -1,5 +1,7 @@
 import warnings
 from abc import ABC, abstractmethod
+from collections import deque
+from collections.abc import Iterator
 from functools import partial
 from typing import Literal, Optional, Callable, Iterable
 
@@ -95,7 +97,7 @@ class ImplicationalSystemBackend(ABC):
 
     @property
     def base_set_len(self) -> int:
-        return max(max(premise | conclusion) for premise, conclusion in self.implications.items()) + 1
+        return max(max(premise | conclusion, default=0) for premise, conclusion in self.implications.items()) + 1
 
     def iterate_closures(
             self,

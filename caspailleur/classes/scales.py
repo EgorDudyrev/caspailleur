@@ -35,7 +35,7 @@ class Scale:
 
     @property
     def implications(self) -> ImplicationalSystem:
-        impsys = ImplicationalSystem.from_context(self.context)
+        impsys = ImplicationalSystem.from_context(self.context, 0)
         for g in self.context.objects:
             descr = self.context.intent({g})
             impsys.add({g}, descr)
