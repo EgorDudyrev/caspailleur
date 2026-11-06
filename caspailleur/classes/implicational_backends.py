@@ -63,6 +63,12 @@ class ImplicationalSystemBackend(ABC):
     def saturate(self, description: Iterable[int], single_pass: bool = False) -> set[int]:
         pass
 
+    def saturate_binary(self, description: Iterable[int], single_pass: bool = False) -> set[int]:
+        saturated = set()
+        for attribute in description:
+            saturated = saturated | self.saturate([attribute], single_pass)
+        return saturated
+
     @abstractmethod
     def add(self, premise: Iterable[int], conclusion: Iterable[int]):
         pass
@@ -124,6 +130,103 @@ class ImplicationalSystemBackend(ABC):
     ) -> int:
         closures_iterator = self.iterate_closures(iteration_algorithm, antimonotone_constraint_func=antimonotone_constraint_func, single_saturation_pass=single_saturation_pass)
         return sum(1 for _ in tqdm(closures_iterator, desc='Count closures', disable=not use_tqdm, unit_scale=True))
+
+    def minimal_generators(self, closure: set[int]) -> Iterator[set[int]]:
+        if closure == self.saturate([]):
+            yield set()
+            return
+
+        attr_closures = {attr: self.saturate([attr]) for attr in closure}
+
+        attributes = sorted(closure, key=lambda attr: len(attr_closures[attr]), reverse=True)
+        sub_generators: dict[tuple[int, ...], int] = {tuple(): len(self.saturate([]))}
+        queue: deque[tuple[int, ...]] = deque([(i,) for i in range(len(attributes))])
+        while queue:
+            descr_idxs = queue.popleft()
+            sub_indices = [descr_idxs[:i]+descr_idxs[i+1:] for i in range(len(descr_idxs))]
+            if any(idxs not in sub_generators for idxs in sub_indices):
+                continue
+
+            descr = {attributes[i] for i in descr_idxs}
+            descr_closure = self.saturate(descr)
+
+            if any(sub_generators[idxs] == len(descr_closure) for idxs in sub_indices):
+                continue
+            sub_generators[descr_idxs] = len(descr_closure)
+
+            if descr_closure == closure:
+                yield descr
+                continue
+
+            queue.extend([descr_idxs+(i,) for i in range(max(descr_idxs)+1, len(attributes))])
+
+    def shortest_generators(self, closure: set[int]) -> Iterator[set[int]]:
+        if closure == self.saturate([]):
+            yield set()
+            return
+
+        attr_closures = {attr: self.saturate([attr]) for attr in closure}
+
+        attributes = sorted(closure, key=lambda attr: len(attr_closures[attr]), reverse=True)
+        sub_generators: dict[tuple[int, ...], set[int]] = {tuple(): self.saturate([])}
+        queue: deque[tuple[int, ...]] = deque([(i,) for i in range(len(attributes))])
+        while queue:
+            descr_idxs = queue.popleft()
+            sub_indices = [descr_idxs[:i]+descr_idxs[i+1:] for i in range(len(descr_idxs))]
+            if any(idxs not in sub_generators for idxs in sub_indices):
+                continue
+
+            descr = {attributes[i] for i in descr_idxs}
+            descr_closure = self.saturate(descr)
+
+            if any(sub_generators[idxs] == len(descr_closure) for idxs in sub_indices):
+                continue
+
+            if any(len(subgen) < len(descr_idxs) and closure_ == descr_closure for subgen, closure_ in sub_generators.items()):
+                continue
+
+            sub_generators[descr_idxs] = descr_closure
+
+            if descr_closure == closure:
+                yield descr
+                continue
+
+            queue.extend([descr_idxs+(i,) for i in range(max(descr_idxs)+1, len(attributes))])
+
+    def canonical_generators(self, closure: set[int]) -> Iterable[set[int]]:
+        for mingen in self.minimal_generators(closure):
+            bin_closure = self.saturate_binary(mingen)
+            if all(self.saturate(bin_closure - {a}) != closure for a in mingen):
+                yield mingen
+
+    def shortest_canonical_generators(self, closure: set[int]) -> Iterable[set[int]]:
+        for shortgen in self.shortest_generators(closure):
+            bin_closure = self.saturate_binary(shortgen)
+            if all(self.saturate(bin_closure - {a}) != closure for a in shortgen):
+                yield shortgen
+
+    def minmax_generators(self, closure: set[int]) -> Iterable[set[int]]:
+        mingens = list(map(frozenset, self.minimal_generators(closure)))
+        binclosures = {mingen: self.saturate_binary(mingen) for mingen in mingens}
+        mingens = sorted(mingens, key=lambda mingen: len(binclosures[mingen]), reverse=True)
+        i = 0
+        while i < len(mingens):
+            mingen = mingens[i]
+            binclosure = binclosures[mingen]
+            mingens[i+1:] = [other for other in mingens[i+1:] if not (binclosures[other] < binclosure)]
+            i += 1
+        return (mingen for mingen in mingens)
+
+    def shortmax_generators(self, closure: set[int]) -> Iterable[set[int]]:
+        shortgens = list(map(frozenset, self.minimal_generators(closure)))
+        binclosures = {shortgen: self.saturate_binary(shortgen) for shortgen in shortgens}
+        shortgens = sorted(shortgens, key=lambda mingen: len(binclosures[mingen]), reverse=True)
+        i = 0
+        while i < len(shortgens):
+            binclosure = binclosures[shortgens[i]]
+            shortgens[i + 1:] = [other for other in shortgens[i + 1:] if not (binclosures[other] < binclosure)]
+            i += 1
+        return (shortgen for shortgen in shortgens)
 
 
 @register_implicational_backend('Naive')
